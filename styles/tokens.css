@@ -1,0 +1,99 @@
+/* ═══════════════════════════════════════════════════════════════
+   PowerDeal Design System — Slate & Bloom
+   ---------------------------------------------------------------
+   This file is the SINGLE source of color truth. Tailwind maps its
+   color names onto these variables (see tailwind.config.ts).
+
+   RULE 3: Bloom green (#3CAD3A) is a secondary/tertiary accent.
+   One accent element per viewport — it marks the single most
+   important action or the provenance of verified intelligence.
+   It is never a background wash, never a nav fill, never body text.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Backgrounds */
+  --color-bg: #ffffff;
+  --color-bg-raised: #f4f5f7;
+  --color-bg-overlay: #edeef1;
+
+  /* Text */
+  --color-text: #1a1a24;
+  --color-text-dim: #5a5d6b;
+  --color-text-faint: #9a9daa;
+
+  /* Bloom green — secondary/tertiary accent ONLY */
+  --color-accent: #3cad3a;
+  --color-accent-dim: #2d8a2b;
+  --color-accent-bg: rgba(60, 173, 58, 0.08);
+  --color-accent-border: rgba(60, 173, 58, 0.22);
+
+  /* Semantic */
+  --color-danger: #c0392b;
+  --color-warning: #bf8f00;
+  --color-success: #27853f;
+
+  /* Deal health colors */
+  --health-high: #3cad3a; /* 8-10 */
+  --health-mid: #bf8f00; /* 5-7  */
+  --health-low: #c0392b; /* 1-4  */
+
+  /* Borders + rules */
+  --color-rule: #e1e4ea;
+  --color-rule-faint: #f0f2f5;
+
+  /* Typography — bound by next/font in app/layout.tsx */
+  --font-display: var(--font-newsreader), Georgia, 'Times New Roman', serif;
+  --font-body: var(--font-atkinson), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-plex-mono), 'Courier New', monospace;
+
+  /* Shell */
+  --shell-max: 1400px;
+  --sidebar-width: 240px;
+  --topbar-height: 56px;
+  --tabbar-height: 60px;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --color-bg: #0f1117;
+  --color-bg-raised: #1a1d26;
+  --color-bg-overlay: #22263a;
+
+  --color-text: #edeef1;
+  --color-text-dim: #9a9daa;
+  --color-text-faint: #5a5d6b;
+
+  --color-rule: #2a2d3a;
+  --color-rule-faint: #1e2130;
+
+  /* Accent lifts slightly in dark so it holds contrast against ink */
+  --color-accent: #4cc249;
+  --color-accent-dim: #3cad3a;
+  --color-accent-bg: rgba(76, 194, 73, 0.1);
+  --color-accent-border: rgba(76, 194, 73, 0.26);
+
+  --color-danger: #e05a4a;
+  --color-warning: #d6a419;
+  --color-success: #3ea45c;
+
+  --health-high: #4cc249;
+  --health-mid: #d6a419;
+  --health-low: #e05a4a;
+
+  color-scheme: dark;
+}
+
+/* ── Provenance grading (The Hub pattern) ──────────────────────
+   VERIFIED  — primary source (gov, filing, transcript)
+   REPORTED  — credible trade press
+   INFERRED  — discovery net, social, model inference
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --prov-verified: var(--color-accent);
+  --prov-verified-bg: var(--color-accent-bg);
+  --prov-reported: var(--color-warning);
+  --prov-reported-bg: rgba(191, 143, 0, 0.09);
+  --prov-inferred: var(--color-text-faint);
+  --prov-inferred-bg: rgba(154, 157, 170, 0.12);
+}

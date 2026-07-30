@@ -1,0 +1,139 @@
+@import '../styles/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    border-color: var(--color-rule);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* Safe-area padding for iOS PWA in standalone display mode */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.011em;
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  /* Keyboard focus must stay visible — accent ring is the one place
+     the Bloom green is allowed to appear more than once per viewport. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  ::selection {
+    background: var(--color-accent-bg);
+  }
+}
+
+@layer components {
+  .shell {
+    max-width: var(--shell-max);
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .shell {
+      padding-inline: 1.75rem;
+    }
+  }
+
+  /* Small-caps eyebrow used above every module heading */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-faint);
+  }
+
+  .rule-line {
+    height: 1px;
+    background: var(--color-rule);
+    border: 0;
+  }
+
+  /* Hairline confidence meter under a feed headline. Width is set inline
+     from the item's 0..1 confidence score. */
+  .confidence-track {
+    height: 2px;
+    background: var(--color-rule-faint);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .confidence-fill {
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: 1px;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-rule) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--color-rule);
+    border-radius: 4px;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
