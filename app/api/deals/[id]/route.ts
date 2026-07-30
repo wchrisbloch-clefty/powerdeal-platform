@@ -31,7 +31,8 @@ const UpdateDeal = z
     vertical: z.enum(VERTICALS),
     relationship_type: z.enum(RELATIONSHIP_TYPES),
     geo_tier: z.string().max(40).nullable(),
-    state: z.string().max(2).nullable(),
+    // 'multi' is a valid value for multi-site accounts — see POST route.
+    state: z.string().max(20).nullable(),
     utility: z.string().max(120).nullable(),
     value_prop: z.string().max(60).nullable(),
     beachhead_site: z.string().max(200).nullable(),

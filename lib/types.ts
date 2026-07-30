@@ -23,20 +23,35 @@ export type DealStage = (typeof DEAL_STAGES)[number];
 /** Stages that no longer count as "in flight" for stall detection. */
 export const TERMINAL_STAGES: readonly DealStage[] = ['Closed-Won', 'Post-Sale', 'Archived'];
 
+/** Verticals in use across the live Spine, plus room to grow. */
 export const VERTICALS = [
   'Defense',
+  'Defense/Special',
   'O&G-Down',
   'O&G-Mid',
   'O&G-Up',
   'Industrial-Chemical',
+  'Industrial-Semicon',
   'Industrial-Other',
   'Data Center',
-  'Healthcare',
+  'Other-Winery',
+  'Other-REIT',
   'Other',
 ] as const;
 export type Vertical = (typeof VERTICALS)[number];
 
-export const RELATIONSHIP_TYPES = ['Direct', 'Channel', 'Partner'] as const;
+/**
+ * Relationship type. The compound values are load-bearing, not sloppy data:
+ * a midstream account that owns gas, land, and right-of-way may be a better
+ * co-developer than customer, and running it as Direct-only misses the deal.
+ */
+export const RELATIONSHIP_TYPES = [
+  'Direct',
+  'Direct/Partner',
+  'Channel',
+  'Channel/Partner',
+  'Partner',
+] as const;
 export type RelationshipType = (typeof RELATIONSHIP_TYPES)[number];
 
 export const GEO_TIERS = ['Primary', 'Secondary', 'National'] as const;
@@ -53,6 +68,8 @@ export type SourceTier = (typeof SOURCE_TIERS)[number];
 export const SIGNAL_TYPES = [
   'pain',
   'trigger-event',
+  'corporate-event',
+  'market-trend',
   'competitive',
   'stakeholder',
   'macro-policy',

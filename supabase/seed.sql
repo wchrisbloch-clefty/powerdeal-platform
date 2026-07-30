@@ -1,114 +1,213 @@
 -- ═══════════════════════════════════════════════════════
--- PowerDeal Platform — Pipeline Seed (21 template accounts)
+-- PowerDeal Platform — Pipeline Seed (the real 21 accounts)
+-- Run AFTER schema.sql. Safe to re-run.
 --
--- ⚠️  READ THIS BEFORE USING THE NUMBERS IN ANYTHING REAL  ⚠️
+-- Works in either order:
+--   · Run before signing in  → loads the template, and seed_new_user()
+--                              copies it on first login.
+--   · Run after signing in   → loads the template AND immediately assigns
+--                              it to every existing user with no deals.
 --
--- These rows were NOT imported from Pipeline-Spine.md — that file was not
--- available at build time. They are a STRUCTURAL TEMPLATE: real company
--- names in the right verticals and states, so the pipeline table, filters,
--- map markers, and health rings all have realistic data to render.
+-- Template rows carry user_id = NULL. RLS hides them from every user, so
+-- the template is never visible in the app — it is only a source to copy.
 --
--- What is deliberately EMPTY on every row:
---   • MEDDPICC fields (champion, economic_buyer, decision_criteria, ...)
---   • size_mw / size_usd_m
---   • beachhead_site, next_move, key_risk
+-- RE-RUNNING IS NON-DESTRUCTIVE to real work: the per-user copy uses
+-- ON CONFLICT DO NOTHING keyed on (user_id, deal_id), so edits you have
+-- made to a deal are never overwritten.
 --
--- Those were left null rather than invented. A fabricated champion name or
--- MW figure that reads as real is worse than an obvious blank — it would
--- flow straight into a generated brief and out to a customer. Every row is
--- therefore stage 'Prospecting' with meddpicc_score 0, which is the honest
--- representation of an account we have no logged intelligence on.
---
--- State and utility assignments are best-effort from public knowledge and
--- SHOULD BE VERIFIED. Utilities in particular are set only where the
--- territory is unambiguous, and left null otherwise.
---
--- ── TO LOAD YOUR REAL PIPELINE ──────────────────────────
---   1. Export Pipeline-Spine.md to CSV with columns matching `deals`
---   2. Either: replace the VALUES block below, or
---      use Supabase Studio → Table Editor → deals → Import CSV
---   3. Re-run: delete from deals where user_id is null;  (clears template)
---
--- HOW THE TEMPLATE WORKS: these rows are inserted with user_id = NULL,
--- making them a template rather than anyone's data. On first login the app
--- calls seed_new_user(), which copies them into that user's account. RLS
--- hides user_id IS NULL rows from every user, so the template itself is
--- never visible in the app.
+-- NOTE ON health_score: values are computed by the deals_health_score
+-- trigger in schema.sql, not set here. A hand-set score and a formula score
+-- in the same table are not comparable across the book. Scores start low
+-- because MEDDPICC is largely unfilled — they climb as you work the deals.
 -- ═══════════════════════════════════════════════════════
 
--- Idempotent: re-running replaces the template without touching real data.
+-- Refresh the template without touching anyone's real rows.
 delete from deals where user_id is null;
 
 insert into deals (
   deal_id, company, vertical, relationship_type, geo_tier, state, utility,
-  value_prop, stage, meddpicc_score, multi_threaded, decision_mapped,
-  days_in_stage, notes, user_id
+  value_prop, beachhead_site, stage, size_mw, meddpicc_score,
+  multi_threaded, decision_mapped, champion, next_move, key_risk, user_id
 ) values
 
 -- ── DEFENSE ─────────────────────────────────────────────
-('DEF-001', 'BAE Systems',            'Defense', 'Direct', 'Primary',   'NH', 'Eversource',
- 'Both',                'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('DEF-002', 'General Dynamics',       'Defense', 'Direct', 'Secondary', 'VA', 'Dominion',
- 'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('DEF-003', 'Raytheon (RTX)',         'Defense', 'Direct', 'Secondary', 'AZ', null,
- 'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('DEF-004', 'Lockheed Martin',        'Defense', 'Direct', 'Secondary', 'TX', 'Oncor',
- 'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('DEF-005', 'Northrop Grumman',       'Defense', 'Direct', 'Secondary', 'CA', 'SCE',
- 'Both',                'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('DEF-006', 'L3Harris Technologies',  'Defense', 'Direct', 'Secondary', 'FL', null,
- 'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('DEF-007', 'Huntington Ingalls',     'Defense', 'Direct', 'Secondary', 'VA', 'Dominion',
- 'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
+('DEF-001', 'BAE Systems', 'Defense', 'Direct',
+ 'Primary', 'CA', 'SDG&E', 'Both', 'ES — San Diego',
+ 'Prospecting', 116, 1, false, false,
+ 'Trevor Reitsma (Energy & Utilities Mgr)',
+ 'Land San Diego feasibility convo; name EB + security gatekeeper',
+ 'Single-threaded on Trevor; no load number confirmed', null),
 
--- ── OIL & GAS — DOWNSTREAM ──────────────────────────────
-('OG-001',  'Valero Energy',          'O&G-Down', 'Direct', 'Primary',   'TX', 'CenterPoint',
- 'Combustion-fighter',  'Prospecting', 0, false, false, 0, 'Template row — HGB non-attainment territory, verify before use.', null),
-('OG-002',  'Marathon Petroleum',     'O&G-Down', 'Direct', 'Primary',   'TX', null,
- 'Combustion-fighter',  'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('OG-003',  'Phillips 66',            'O&G-Down', 'Direct', 'Primary',   'TX', null,
- 'Combustion-fighter',  'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
+('DEF-006', 'General Dynamics', 'Defense', 'Direct',
+ 'Primary', 'VA', 'Dominion', 'Both', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'Identify beachhead segment (land systems vs. marine)',
+ 'Massive multi-segment enterprise; security gates throughout', null),
 
--- ── OIL & GAS — MIDSTREAM ───────────────────────────────
-('OG-004',  'Energy Transfer',        'O&G-Mid',  'Direct', 'Primary',   'TX', 'Oncor',
- 'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('OG-005',  'Williams Companies',     'O&G-Mid',  'Direct', 'Secondary', 'OK', null,
- 'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('OG-006',  'Kinder Morgan',          'O&G-Mid',  'Direct', 'Primary',   'TX', 'CenterPoint',
- 'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('OG-007',  'Targa Resources',        'O&G-Mid',  'Direct', 'Primary',   'TX', 'Oncor',
- 'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
+('DEF-007', 'L3Harris', 'Defense', 'Direct',
+ 'Primary', 'FL', 'multi', 'Both', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'Map facility footprint; identify reliability-critical fabs',
+ 'Multi-site; security/OPSEC gates like BAE', null),
+
+('DEF-021', 'SpaceX', 'Defense/Special', 'Direct',
+ 'Primary', 'TX', 'ERCOT', 'Both', 'Starbase TX',
+ 'Prospecting', null, 0, false, false,
+ null, 'Qualify Starbase + factory loads; time-to-power is their language',
+ 'Moves fast, vertically integrated — may self-build power; ITAR gates', null),
 
 -- ── INDUSTRIAL / CHEMICAL ───────────────────────────────
-('IND-001', 'Westlake Corporation',   'Industrial-Chemical', 'Direct', 'Primary',   'TX', 'CenterPoint',
- 'Combustion-fighter',  'Prospecting', 0, false, false, 0, 'Template row — HGB non-attainment territory, verify before use.', null),
-('IND-002', 'Dow',                    'Industrial-Chemical', 'Direct', 'Primary',   'TX', null,
- 'Combustion-fighter',  'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('IND-003', 'LyondellBasell',         'Industrial-Chemical', 'Direct', 'Primary',   'TX', 'CenterPoint',
- 'Combustion-fighter',  'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('IND-004', 'Olin Corporation',       'Industrial-Chemical', 'Direct', 'Secondary', 'LA', null,
- 'Combustion-fighter',  'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
+('IND-002', 'Cabot Corp', 'Industrial-Chemical', 'Direct',
+ 'Primary', 'MA', 'multi', 'Both', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'Identify multi-site beachhead; map carbon black plant loads',
+ 'Multi-site enterprise; no contact; load unknown', null),
 
--- ── DATA CENTER ─────────────────────────────────────────
-('DC-001',  'Equinix',                'Data Center', 'Direct',  'Primary',   'VA', 'Dominion',
- 'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('DC-002',  'Digital Realty',         'Data Center', 'Direct',  'Primary',   'VA', 'Dominion',
- 'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
+('IND-004', 'DuPont', 'Industrial-Chemical', 'Direct',
+ 'Primary', 'DE', 'multi', 'Both', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'Map US plant footprint post-Qnity spin; find beachhead',
+ 'Post-Qnity spinoff — footprint shrank, re-scope needed', null),
+
+('IND-005', 'Evonik', 'Industrial-Chemical', 'Direct',
+ 'Primary', 'multi', 'multi', 'Both', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'Map US footprint; find US decision authority (German parent)',
+ 'Foreign parent; US decision autonomy unclear', null),
+
+('IND-008', 'Stepan Co', 'Industrial-Chemical', 'Direct',
+ 'Primary', 'IL', 'multi', 'Both', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'Qualify process-continuity + ESG pain at surfactant plants',
+ 'Mid-cap; load profile unknown; no contact yet', null),
+
+('IND-009', 'Westlake Corp', 'Industrial-Chemical', 'Direct',
+ 'Primary', 'TX', 'CenterPoint', 'Both', 'Gulf Coast petrochemical',
+ 'Prospecting', null, 0, false, false,
+ null, 'HGB non-attainment permitting angle; map Gulf Coast vinyls plants',
+ 'Home-turf Houston; no contact yet; HGB is the wedge', null),
+
+('IND-014', 'Qnity Electronics', 'Industrial-Semicon', 'Direct',
+ 'Primary', 'DE', 'Delmarva', 'Both', 'Newark DE fab',
+ 'Prospecting', null, 0, false, false,
+ null, 'Map US fab footprint; fresh-spin energy strategy window NOW',
+ 'New company (Nov 2025) — processes still forming; DuPont sibling', null),
+
+-- ── OIL & GAS — DOWNSTREAM ──────────────────────────────
+('OG-003', 'CVR Energy', 'O&G-Down', 'Direct',
+ 'Secondary', 'KS', 'multi', 'Both', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'Qualify refinery reliability + permitting pain at Coffeyville/Wynnewood',
+ '2 mid-con refineries; no contact; mid-con HGB less acute than Gulf Coast', null),
+
+('OG-010', 'Valero', 'O&G-Down', 'Direct',
+ 'Primary', 'TX', 'multi', 'Both', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'Pick beachhead refinery; reliability + HGB permitting angle',
+ '15-refinery giant; enterprise sequencing like BAE needed', null),
+
+('OG-017', 'Marathon Petroleum', 'O&G-Down', 'Direct',
+ 'Primary', 'OH', 'multi', 'Both', 'Galveston Bay TX (HGB)',
+ 'Prospecting', null, 0, false, false,
+ null, 'Galveston Bay refinery = HGB non-attainment wedge; pick beachhead',
+ 'Largest US refiner; enterprise sequencing needed same as Valero', null),
+
+-- ── OIL & GAS — MIDSTREAM ───────────────────────────────
+('OG-013', 'Targa Resources', 'O&G-Mid', 'Direct',
+ 'Primary', 'TX', 'ERCOT', 'Both', 'Permian gas processing',
+ 'Prospecting', null, 0, false, false,
+ null, 'Map Permian processing/fractionation loads — they OWN the fuel',
+ 'Multi-asset Permian sprawl; distributed loads', null),
+
+('OG-015', 'Plains All American', 'O&G-Mid', 'Direct',
+ 'Primary', 'TX', 'multi', 'Grid-fighter', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'Qualify pump-station/terminal loads — are any sites large enough?',
+ 'Many small distributed loads; need to find sites above minimum threshold', null),
+
+('OG-016', 'Tallgrass', 'O&G-Mid', 'Direct/Partner',
+ 'Secondary', 'KS', 'multi', 'Both', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'Probe dual angle: compression loads (Direct) + decarb infra ambitions (Partner)',
+ 'Energy-transition strategy may make them partner not just buyer', null),
+
+('OG-018', 'ONEOK', 'O&G-Mid', 'Direct',
+ 'Secondary', 'OK', 'PSO', 'Both', 'Mont Belvieu TX NGL fractionation',
+ 'Prospecting', null, 0, false, false,
+ null, 'Map fractionator + processing loads; Mont Belvieu = TX cluster play',
+ 'Multi-state asset sprawl; OK HQ but TX loads are the prize', null),
+
+('OG-019', 'Williams', 'O&G-Mid', 'Direct/Partner',
+ 'Secondary', 'OK', 'multi', 'Both', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'Dual angle: Transco compression loads + announced power-for-DC builds',
+ 'They are building gas power themselves — buyer, partner, or neither?', null),
+
+('OG-020', 'TC Energy', 'O&G-Mid', 'Direct/Partner',
+ 'Secondary', 'TX', 'multi', 'Both', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'US decision authority (Calgary parent); dual angle incl. power ambitions',
+ 'Foreign parent; pursuing own power plays; US autonomy unclear', null),
 
 -- ── OTHER ───────────────────────────────────────────────
-('OTH-001', 'SpaceX',                 'Other',     'Direct',  'Secondary', 'TX', null,
- 'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null);
+('OTH-011', 'Far Niente', 'Other-Winery', 'Direct',
+ 'Primary', 'CA', 'PG&E', 'Grid-fighter', 'Napa estate',
+ 'Prospecting', null, 0, false, false,
+ null, 'Qualify load size first — likely sub-scale; fast-fail candidate',
+ 'Winery load probably too small; verify before investing time', null),
+
+('OTH-012', 'Ventas', 'Other-REIT', 'Channel/Partner',
+ 'Primary', 'IL', 'multi', 'Grid-fighter', null,
+ 'Prospecting', null, 0, false, false,
+ null, 'Clarify model: REIT owns buildings, tenants own load — channel play?',
+ 'Relationship type unclear; distributed small loads across portfolio', null);
 
 
 -- ═══════════════════════════════════════════════════════
--- Sanity check — expect 21.
+-- Assign to any user who already exists (post-sign-in path)
 -- ═══════════════════════════════════════════════════════
 do $$
-declare n integer;
+declare
+  v_user record;
+  v_count integer;
 begin
-  select count(*) into n from deals where user_id is null;
-  raise notice 'PowerDeal template pipeline loaded: % accounts', n;
-  if n <> 21 then
-    raise warning 'Expected 21 template accounts, found %', n;
+  for v_user in select id from auth.users loop
+    insert into user_settings (user_id) values (v_user.id)
+      on conflict (user_id) do nothing;
+
+    insert into deals (
+      deal_id, company, vertical, relationship_type, geo_tier, state, utility,
+      value_prop, beachhead_site, stage, size_mw, meddpicc_score,
+      multi_threaded, decision_mapped, champion, next_move, key_risk, user_id
+    )
+    select
+      t.deal_id, t.company, t.vertical, t.relationship_type, t.geo_tier,
+      t.state, t.utility, t.value_prop, t.beachhead_site, t.stage, t.size_mw,
+      t.meddpicc_score, t.multi_threaded, t.decision_mapped, t.champion,
+      t.next_move, t.key_risk, v_user.id
+    from deals t
+    where t.user_id is null
+    -- Never clobber a deal you have already worked.
+    on conflict (user_id, deal_id) do nothing;
+
+    select count(*) into v_count from deals where user_id = v_user.id;
+    raise notice 'User %: % deals', v_user.id, v_count;
+  end loop;
+
+  if not found then
+    raise notice 'No users yet — template loaded. Sign in and it seeds automatically.';
   end if;
 end $$;
+
+
+-- ═══════════════════════════════════════════════════════
+-- Verify
+-- ═══════════════════════════════════════════════════════
+select
+  (select count(*) from deals where user_id is null) as template_rows,
+  (select count(*) from deals where user_id is not null) as assigned_rows;
+
+select deal_id, company, vertical, relationship_type, stage, health_score
+from deals
+where user_id is not null
+order by deal_id;

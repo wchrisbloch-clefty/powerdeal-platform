@@ -147,13 +147,16 @@ export function isStalled(deal: Deal, thresholdDays = 30): boolean {
 
 const VERTICAL_PREFIX: Record<string, string> = {
   Defense: 'DEF',
+  'Defense/Special': 'DEF',
   'O&G-Down': 'OG',
   'O&G-Mid': 'OG',
   'O&G-Up': 'OG',
   'Industrial-Chemical': 'IND',
+  'Industrial-Semicon': 'IND',
   'Industrial-Other': 'IND',
   'Data Center': 'DC',
-  Healthcare: 'HC',
+  'Other-Winery': 'OTH',
+  'Other-REIT': 'OTH',
   Other: 'OTH',
 };
 

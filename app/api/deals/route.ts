@@ -12,7 +12,10 @@ const CreateDeal = z.object({
   company: z.string().min(1).max(200),
   vertical: z.enum(VERTICALS),
   relationship_type: z.enum(RELATIONSHIP_TYPES).default('Direct'),
-  state: z.string().length(2).nullable().optional(),
+  // Not always a 2-letter code — multi-site accounts legitimately carry
+  // 'multi'. centroidFor() returns null for those, so they simply don't
+  // plot on the map rather than plotting somewhere wrong.
+  state: z.string().max(20).nullable().optional(),
   utility: z.string().max(120).nullable().optional(),
   stage: z.enum(DEAL_STAGES).default('Prospecting'),
   champion: z.string().max(200).nullable().optional(),

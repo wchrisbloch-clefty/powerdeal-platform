@@ -263,11 +263,12 @@ function verticalMatchesCategory(vertical: string, category: string): boolean {
     case 'og':
       return v.startsWith('o&g');
     case 'industrial':
+      // Semicon fabs are industrial loads for our purposes.
       return v.startsWith('industrial');
     case 'data-center':
       return v.includes('data center');
     case 'defense':
-      return v.includes('defense');
+      return v.startsWith('defense');
     case 'ccus':
       return v.startsWith('o&g') || v.startsWith('industrial');
     case 'power-markets':

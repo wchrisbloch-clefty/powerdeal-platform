@@ -6,7 +6,6 @@ import { X } from 'lucide-react';
 import type { Deal } from '@/lib/types';
 import { VERTICALS, RELATIONSHIP_TYPES, DEAL_STAGES } from '@/lib/types';
 import { nextDealId } from '@/lib/deals';
-import { cn } from '@/lib/utils';
 import Button from '@/components/ui/button';
 
 /**
@@ -51,7 +50,11 @@ export default function DealQuickAdd({
           company: company.trim(),
           vertical,
           relationship_type: relationshipType,
-          state: state.trim().toUpperCase() || null,
+          // Uppercase 2-letter codes; leave anything else ('multi') as typed.
+          state:
+            state.trim().length === 2
+              ? state.trim().toUpperCase()
+              : state.trim() || null,
           utility: utility.trim() || null,
           stage,
           champion: contact.trim() || null,
@@ -142,9 +145,9 @@ export default function DealQuickAdd({
               <input
                 value={state}
                 onChange={(e) => setState(e.target.value)}
-                placeholder="TX"
-                maxLength={2}
-                className={cn(inputClass, 'uppercase')}
+                placeholder="TX or multi"
+                maxLength={20}
+                className={inputClass}
               />
             </Field>
 
