@@ -241,6 +241,8 @@ export interface FeedItem {
   source_id: string | null;
   source_name: string | null;
   url: string | null;
+  /** hash(canonical url) — the dedupe + summary-cache key. */
+  url_hash: string | null;
   image_url: string | null;
   byline: string | null;
   published_at: string | null;

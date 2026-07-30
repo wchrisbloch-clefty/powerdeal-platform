@@ -1,0 +1,41 @@
+{
+  "name": "PowerDeal",
+  "short_name": "PowerDeal",
+  "description": "AI-augmented BD platform for behind-the-meter power sales",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#3CAD3A",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "share_target": {
+    "action": "/app/capture",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "shortcuts": [
+    { "name": "Pipeline", "url": "/app/pipeline" },
+    { "name": "Intelligence", "url": "/app/intelligence" },
+    { "name": "Chat", "url": "/app/chat" }
+  ]
+}

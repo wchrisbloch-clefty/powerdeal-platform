@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Maskable: artwork stays inside the 80% safe zone so platform masks
+       (circle, squircle, rounded square) never clip the stacked-cell mark. -->
+  <rect width="512" height="512" fill="#0f1117"/>
+  <rect x="128" y="300" width="80" height="112" rx="15" fill="#edeef1" opacity="0.35"/>
+  <rect x="232" y="221" width="80" height="191" rx="15" fill="#edeef1" opacity="0.6"/>
+  <rect x="336" y="125" width="80" height="287" rx="15" fill="#3CAD3A"/>
+</svg>
