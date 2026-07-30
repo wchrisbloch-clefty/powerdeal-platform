@@ -1,0 +1,138 @@
+import { isAuthorized, unauthorized, ok, serverError } from '../_shared/auth.ts';
+import { serviceClient, listUsers, listDeals, writeState } from '../_shared/appState.ts';
+import { callClaude, parseJsonArray, anthropicConfigured } from '../_shared/anthropic.ts';
+import { POWERDEAL_IDENTITY } from '../_shared/identity.ts';
+
+/**
+ * Weekly Market Watch sweep — Friday 8am CT (13:00 UTC).
+ *
+ * Delegates the fetch/grade/map pipeline to the app's /api/feed/sweep, which
+ * already owns the RSS engine, the tiering rules, and the summary cache.
+ * Reimplementing that here would mean two copies of the grading logic drifting
+ * apart. This function's own job is the weekly ROLLUP: what the week's signals
+ * mean, ranked, with the accounts to call.
+ */
+Deno.serve(async (request: Request) => {
+  if (!isAuthorized(request)) return unauthorized();
+
+  try {
+    const supabase = serviceClient();
+    const appUrl = Deno.env.get('APP_URL');
+    const cronSecret = Deno.env.get('CRON_SECRET');
+
+    // ── 1. Trigger the sweep in the app ──
+    let sweepResult: unknown = null;
+    if (appUrl && cronSecret) {
+      try {
+        const res = await fetch(`${appUrl}/api/feed/sweep`, {
+          method: 'POST',
+          headers: { 'x-cron-secret': cronSecret },
+        });
+        sweepResult = res.ok ? await res.json() : { error: `sweep ${res.status}` };
+      } catch (err) {
+        sweepResult = { error: (err as Error).message };
+      }
+    } else {
+      sweepResult = { skipped: 'APP_URL and CRON_SECRET are required to trigger a sweep.' };
+    }
+
+    // ── 2. Per-user weekly rollup ──
+    const users = await listUsers(supabase);
+    const summaries: Record<string, unknown> = {};
+    const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
+
+    for (const user of users) {
+      if (!user.notify.market_watch) continue;
+
+      const [deals, { data: watchRows }] = await Promise.all([
+        listDeals(supabase, user.user_id),
+        supabase
+          .from('market_watch_log')
+          .select('category, headline, summary, source_tier, impact_rank, deal_ids, outreach_hook')
+          .eq('user_id', user.user_id)
+          .gte('swept_at', weekAgo)
+          .order('impact_rank', { ascending: false })
+          .limit(40),
+      ]);
+
+      const entries = watchRows ?? [];
+
+      if (entries.length === 0) {
+        const state = {
+          generated_at: new Date().toISOString(),
+          items: 0,
+          note: 'No market watch entries this week.',
+        };
+        await writeState(supabase, user.user_id, 'market_watch_latest', state);
+        summaries[user.user_id] = state;
+        continue;
+      }
+
+      let rollup = '';
+      if (anthropicConfigured()) {
+        const roster = deals
+          .map((d) => `${d.deal_id}|${d.company}|${d.vertical}|${d.state ?? '—'}|${d.utility ?? '—'}`)
+          .join('\n');
+
+        const feed = entries
+          .map(
+            (e, i) =>
+              `[${i + 1}] (${e.source_tier}, impact ${e.impact_rank}) ${e.headline}` +
+              (e.summary ? `\n    ${String(e.summary).slice(0, 300)}` : ''),
+          )
+          .join('\n');
+
+        rollup = await callClaude({
+          system: POWERDEAL_IDENTITY,
+          maxTokens: 2500,
+          user: `Write this week's Market Watch rollup.
+
+Structure:
+1. THE WEEK IN ONE LINE — the single most consequential thing that happened for this pipeline.
+2. RANKED SIGNALS — the 5 that matter most, each with the accounts it hits and the specific reason to reach out. Skip anything with no account impact.
+3. PEER RADAR — companies named in the signals that are NOT in the roster and look like prospects.
+4. WHAT TO DO MONDAY — three actions, each tied to a named account.
+
+Only use facts present in the entries below. Never state a rate, price, or timeline that does not appear there.
+
+PIPELINE ROSTER (deal_id|company|vertical|state|utility):
+${roster || '(no active deals)'}
+
+THIS WEEK'S ENTRIES:
+${feed}`,
+        });
+      }
+
+      const accountsHit = new Set<string>();
+      for (const e of entries) {
+        for (const id of (e.deal_ids as string[] | null) ?? []) {
+          const deal = deals.find((d) => d.id === id);
+          if (deal) accountsHit.add(deal.company);
+        }
+      }
+
+      const state = {
+        generated_at: new Date().toISOString(),
+        items: entries.length,
+        accounts_hit: [...accountsHit],
+        top_hooks: entries
+          .filter((e) => e.outreach_hook)
+          .slice(0, 5)
+          .map((e) => ({ headline: e.headline, hook: e.outreach_hook })),
+        rollup: rollup || 'ANTHROPIC_API_KEY not set — rollup skipped.',
+      };
+
+      await writeState(supabase, user.user_id, 'market_watch_latest', state);
+      summaries[user.user_id] = { items: entries.length, accounts: accountsHit.size };
+    }
+
+    return ok({
+      ran_at: new Date().toISOString(),
+      sweep: sweepResult,
+      users: Object.keys(summaries).length,
+      summaries,
+    });
+  } catch (err) {
+    return serverError(err);
+  }
+});

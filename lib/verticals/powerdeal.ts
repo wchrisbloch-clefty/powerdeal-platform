@@ -179,7 +179,10 @@ export const powerdeal: VerticalConfig = {
       id: 'the-register-dc',
       name: 'The Register — Data Centers',
       platform: 'rss',
-      url: 'https://www.theregister.com/data_centre/headlines.atom',
+      // UNVERIFIED — no outbound network at build time. If this 404s, try
+      // https://www.theregister.com/data_centre/headlines.atom (The Register
+      // serves section feeds as Atom under /headlines.atom).
+      url: 'https://www.theregister.com/data_centre/rss',
       defaultTier: 'reported',
       category: 'data-center',
       role: 'core',
@@ -192,7 +195,9 @@ export const powerdeal: VerticalConfig = {
       id: 'gccsi',
       name: 'Global CCS Institute',
       platform: 'rss',
-      url: 'https://www.globalccsinstitute.com/news-media/feed/',
+      // UNVERIFIED — no outbound network at build time. If this 404s, try
+      // https://www.globalccsinstitute.com/news-media/feed/
+      url: 'https://www.globalccsinstitute.com/resources/news-media/news/rss/',
       defaultTier: 'verified',
       category: 'ccus',
       role: 'core',

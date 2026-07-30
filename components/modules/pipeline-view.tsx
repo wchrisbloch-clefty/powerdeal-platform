@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Download, Plus, X } from 'lucide-react';
 import type { Deal } from '@/lib/types';
 import { VERTICALS, DEAL_STAGES, RELATIONSHIP_TYPES } from '@/lib/types';
-import { portfolioSnapshot, isAtRisk } from '@/lib/deals';
+import { portfolioSnapshot } from '@/lib/deals';
 import { formatMw, formatUsd, cn } from '@/lib/utils';
 import PipelineTable from './pipeline-table';
 import DealQuickAdd from './deal-quick-add';

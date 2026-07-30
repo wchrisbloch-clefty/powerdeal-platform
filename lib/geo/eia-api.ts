@@ -108,7 +108,7 @@ export async function fetchRatesWithTrend(): Promise<RateWithTrend[]> {
 
   const out: RateWithTrend[] = [];
 
-  for (const [state, list] of byState) {
+  for (const list of byState.values()) {
     list.sort((a, b) => b.period.localeCompare(a.period));
     const latest = list[0];
     if (!latest) continue;

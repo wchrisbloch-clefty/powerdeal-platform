@@ -68,17 +68,15 @@ insert into deals (
  'Combustion-fighter',  'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
 ('OG-003',  'Phillips 66',            'O&G-Down', 'Direct', 'Primary',   'TX', null,
  'Combustion-fighter',  'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('OG-004',  'PBF Energy',             'O&G-Down', 'Direct', 'Secondary', 'LA', null,
- 'Combustion-fighter',  'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
 
 -- ── OIL & GAS — MIDSTREAM ───────────────────────────────
-('OG-005',  'Energy Transfer',        'O&G-Mid',  'Direct', 'Primary',   'TX', 'Oncor',
+('OG-004',  'Energy Transfer',        'O&G-Mid',  'Direct', 'Primary',   'TX', 'Oncor',
  'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('OG-006',  'Williams Companies',     'O&G-Mid',  'Direct', 'Secondary', 'OK', null,
+('OG-005',  'Williams Companies',     'O&G-Mid',  'Direct', 'Secondary', 'OK', null,
  'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('OG-007',  'Kinder Morgan',          'O&G-Mid',  'Direct', 'Primary',   'TX', 'CenterPoint',
+('OG-006',  'Kinder Morgan',          'O&G-Mid',  'Direct', 'Primary',   'TX', 'CenterPoint',
  'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
-('OG-008',  'Targa Resources',        'O&G-Mid',  'Direct', 'Primary',   'TX', 'Oncor',
+('OG-007',  'Targa Resources',        'O&G-Mid',  'Direct', 'Primary',   'TX', 'Oncor',
  'Grid-fighter',        'Prospecting', 0, false, false, 0, 'Template row — verify site, territory, and load before use.', null),
 
 -- ── INDUSTRIAL / CHEMICAL ───────────────────────────────

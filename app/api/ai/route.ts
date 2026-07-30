@@ -114,6 +114,16 @@ async function buildInput(
   task: TaskKind,
   body: z.infer<typeof Body>,
 ): Promise<ChatInput> {
+  // "intel" without a dealId is a portfolio-wide strategic read rather than
+  // an error — it's a genuinely useful question ("how is the book doing?").
+  if (task === 'intel' && !body.dealId) {
+    const [{ data: deals }, signals] = await Promise.all([
+      getDeals(),
+      getRecentSignals(50),
+    ]);
+    return buildPortfolioIntelPrompt(deals, signals, body.content);
+  }
+
   // Tasks that operate on a single account load the full record + signals.
   const needsDeal = [
     'brief', 'qualify', 'plan', 'map-gen', 'outreach', 'intel',
