@@ -1,12 +1,30 @@
+import { redirect } from 'next/navigation';
 import { Sidebar, TabBar } from '@/components/chrome/nav';
 import TopBar from '@/components/chrome/top-bar';
 import { getUser } from '@/lib/supabase/server';
-import { collectEnvWarnings } from '@/lib/env-check';
+import { collectEnvWarnings, envStatus } from '@/lib/env-check';
 
 export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await getUser();
+
+  /**
+   * THE AUTH GATE.
+   *
+   * middleware.ts only checks whether a session cookie exists — it cannot
+   * validate one, because it must not import @supabase/ssr (see the comment
+   * at the top of that file). This is where the token is actually verified:
+   * getUser() revalidates the JWT against the auth server, so a forged or
+   * expired cookie gets past middleware and is rejected here.
+   *
+   * GLOBAL RULE 4: with Supabase unconfigured there is no auth to enforce —
+   * the product runs on seed data with no login, and gating that would break
+   * the zero-key demo path.
+   */
+  if (envStatus().supabase && !user) {
+    redirect('/login?next=/app');
+  }
 
   // Warnings, never errors — the product runs with zero keys (GLOBAL RULE 4).
   // Logged server-side only so the console stays useful during setup.
