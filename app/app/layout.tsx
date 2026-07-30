@@ -10,13 +10,22 @@ export default async function AppLayout({
   const user = await getUser();
 
   /**
-   * THE AUTH GATE.
+   * THE AUTH GATE for every /app/* page.
    *
-   * middleware.ts only checks whether a session cookie exists — it cannot
-   * validate one, because it must not import @supabase/ssr (see the comment
-   * at the top of that file). This is where the token is actually verified:
-   * getUser() revalidates the JWT against the auth server, so a forged or
-   * expired cookie gets past middleware and is rejected here.
+   * There is deliberately NO middleware.ts. Next.js middleware compiles to a
+   * Vercel Edge Function, and three consecutive deploys died there with
+   * `ReferenceError: __dirname is not defined` thrown at module init — from
+   * Next's own middleware runtime, not from application code, and not
+   * reproducible in a local build. It 500'd every route including the public
+   * landing page.
+   *
+   * Gating here instead is strictly better anyway: getUser() revalidates the
+   * JWT against the auth server, which edge middleware reading a cookie could
+   * never do. Behind this sit getAuthedClient() on every read, 401s in the
+   * API routes, and RLS in Postgres.
+   *
+   * Route handlers under /app (e.g. /app/capture) bypass this layout and
+   * carry their own check — keep it that way when adding one.
    *
    * GLOBAL RULE 4: with Supabase unconfigured there is no auth to enforce —
    * the product runs on seed data with no login, and gating that would break
