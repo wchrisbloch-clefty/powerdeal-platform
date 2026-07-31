@@ -9,11 +9,31 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 /**
+ * GET /api/feed/sweep — the cron entry point.
+ *
+ * Vercel Cron issues GET, so the scheduled job could never have reached the
+ * POST handler below. Authorization is required here with no interactive
+ * fallback: an unauthenticated GET must not be able to trigger a full sweep.
+ */
+export async function GET(request: NextRequest) {
+  if (!isCronAuthorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+  }
+  return POST(request);
+}
+
+/**
  * POST /api/feed/sweep — pull every configured source, grade, map, store.
  *
+ * The feed no longer waits on this. /app/intelligence fetches its own sources
+ * on load, so the sweep's job is PERSISTENCE: writing notable items to
+ * feed_items and market_watch_log so trends accumulate over time and the weekly
+ * recap has material to work from. Nothing a reader sees on arrival depends on
+ * it having run.
+ *
  * Two callers:
- *   · A signed-in user hitting "Run sweep" — scoped to their own account.
- *   · A cron job with the CRON_SECRET header — sweeps every user.
+ *   · The cron, with the CRON_SECRET header — sweeps every user.
+ *   · The operator pressing "Sweep" — scoped to the single account.
  */
 export async function POST(request: NextRequest) {
   // ── Cron path ──

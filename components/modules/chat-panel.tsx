@@ -28,15 +28,30 @@ export default function ChatPanel({
   brainReady,
   brainError,
   aiAvailable,
+  about,
+  initialDealId,
 }: {
   deals: Deal[];
   brainReady: boolean;
   brainError: string | null;
   aiAvailable: boolean;
+  /** Entity this conversation arrived pre-grounded on, from an entity page. */
+  about?: string;
+  initialDealId?: string;
 }) {
   const [turns, setTurns] = useState<Turn[]>([]);
-  const [input, setInput] = useState('');
-  const [dealId, setDealId] = useState<string>('');
+  /**
+   * A pre-grounded arrival fills the composer rather than sending it. The
+   * question is a starting point the reader will usually want to sharpen, and
+   * firing a model call off a navigation spends tokens on a question nobody
+   * actually asked.
+   */
+  const [input, setInput] = useState(() =>
+    about
+      ? `What should I know about ${about} right now, and what does it mean for my accounts?`
+      : '',
+  );
+  const [dealId, setDealId] = useState<string>(initialDealId ?? '');
   const ai = useAiStream();
   const endRef = useRef<HTMLDivElement>(null);
 

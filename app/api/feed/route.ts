@@ -1,24 +1,47 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
-import { getFeedItems, getDeals } from '@/lib/data';
+import { getDeals } from '@/lib/data';
 import { canonicalUrl, hashString } from '@/lib/utils';
 import { summarizeItem } from '@/lib/engine/summarize';
 import { mapToAccounts } from '@/lib/engine/tiering';
 import { canRun } from '@/lib/engine/model-routing';
+import { getLiveFeed } from '@/lib/engine/live-feed';
 
 export const dynamic = 'force-dynamic';
+// Ten feeds and up to ten eager summaries on a cold cache.
+export const maxDuration = 60;
 
-/** GET /api/feed — paginated, category-filtered feed. */
+/**
+ * GET /api/feed — the live feed.
+ *
+ * Fetches the configured sources on every call (behind a ~10 minute cache) and
+ * falls back to seed if every one of them is unreachable. It never returns an
+ * empty list and never waits on a sweep: the sweep's job is now persistence for
+ * trends and the weekly recap, not filling this response.
+ */
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
-  const { data, isSeed } = await getFeedItems({
-    category: p.get('category'),
-    limit: Math.min(Number(p.get('limit') ?? 20), 100),
-    offset: Math.max(Number(p.get('offset') ?? 0), 0),
-    since: p.get('since'),
+  const category = p.get('category');
+  const limit = Math.min(Number(p.get('limit') ?? 40), 100);
+  const offset = Math.max(Number(p.get('offset') ?? 0), 0);
+
+  const { data: deals } = await getDeals();
+  const feed = await getLiveFeed(deals, p.get('refresh') === '1');
+
+  let items = feed.items;
+  if (category && category !== 'all') items = items.filter((i) => i.category === category);
+
+  return NextResponse.json({
+    items: items.slice(offset, offset + limit),
+    total: items.length,
+    isSeed: feed.isSeed,
+    live: feed.live,
+    fetchedAt: feed.fetchedAt,
+    sourcesFetched: feed.sourcesFetched,
+    sourcesFailed: feed.sourcesFailed,
+    eagerCount: feed.eagerCount,
   });
-  return NextResponse.json({ items: data, isSeed });
 }
 
 const Capture = z.object({

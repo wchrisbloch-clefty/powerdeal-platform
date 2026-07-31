@@ -138,6 +138,39 @@ export function classifyTier(item: RawItem): TierResult {
   };
 }
 
+/**
+ * Grade a result that did not come from a configured source — a web search hit.
+ *
+ * Graded on the same evidence as everything else rather than being stamped
+ * INFERRED wholesale: a search that surfaces an ferc.gov docket has found a
+ * primary source, and flattening that to "web result" would throw away the one
+ * thing the provenance spine exists to preserve. The starting tier is INFERRED,
+ * so a domain has to earn its way up.
+ */
+export function classifyExternal(result: {
+  title: string;
+  url: string;
+  source: string;
+  desc?: string;
+}): TierResult {
+  return classifyTier({
+    key: '',
+    title: result.title,
+    url: result.url,
+    summary: result.desc ?? '',
+    content: '',
+    byline: null,
+    imageUrl: null,
+    publishedAt: null,
+    sourceId: 'web',
+    sourceName: result.source,
+    category: '',
+    platform: 'rss',
+    defaultTier: 'inferred',
+    role: 'core',
+  });
+}
+
 /** Breaking = published in the last 6 hours and reporting a concrete action. */
 export function isBreaking(item: RawItem): boolean {
   if (!item.publishedAt) return false;

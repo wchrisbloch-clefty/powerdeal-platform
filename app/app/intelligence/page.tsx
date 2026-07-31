@@ -1,6 +1,7 @@
-import { getFeedItems, getDeals, getUserSettings } from '@/lib/data';
+import { getDeals, getUserSettings } from '@/lib/data';
 import { getTickerData } from '@/lib/ticker-data';
 import { getActiveVertical } from '@/lib/active-vertical';
+import { getLiveFeed } from '@/lib/engine/live-feed';
 import { runDiscovery, type CoverageGap } from '@/lib/engine/discover';
 import { findPeerCandidates } from '@/lib/engine/peer-radar';
 import { computeTrends } from '@/lib/engine/trending';
@@ -8,24 +9,37 @@ import { getFeedStates } from '@/lib/feed-state';
 import IntelFeed from '@/components/modules/intel-feed';
 
 export const metadata = { title: 'Intelligence' };
-// Discovery hits the network, so this is the throttle on how often that runs.
-export const revalidate = 900;
+
+/**
+ * Live on load.
+ *
+ * This page used to read persisted rows and show "no sweep has run yet" until
+ * someone pressed a button — the first screen of the product was an
+ * instruction. It now fetches the configured sources itself (behind the live
+ * feed's ~10 minute cache) and always renders something, falling back to seed
+ * only when every source is unreachable.
+ *
+ * force-dynamic rather than a revalidate window: the caching that matters now
+ * lives in getLiveFeed, which is shared with /api/feed and the entity pages, so
+ * a second cache here would only make the two disagree about how fresh the page
+ * is.
+ */
+export const dynamic = 'force-dynamic';
 
 export default async function IntelligencePage() {
-  const [{ data: items, isSeed }, { data: deals }, ticker, settings, states] =
-    await Promise.all([
-      getFeedItems({ limit: 40 }),
-      getDeals(),
-      getTickerData(),
-      getUserSettings(),
-      getFeedStates(),
-    ]);
+  const [{ data: deals }, ticker, settings, states] = await Promise.all([
+    getDeals(),
+    getTickerData(),
+    getUserSettings(),
+    getFeedStates(),
+  ]);
 
+  const feed = await getLiveFeed(deals);
   const vertical = getActiveVertical();
 
   /**
    * Discovery is best-effort and must never take the page down with it. It
-   * fetches live feeds that can be slow, blocked or gone — a Intelligence page
+   * fetches live feeds that can be slow, blocked or gone — an Intelligence page
    * that 500s because an outlet's RSS moved is a far worse outcome than one
    * missing its gap block for 15 minutes.
    */
@@ -33,7 +47,7 @@ export default async function IntelligencePage() {
   try {
     gaps = await runDiscovery(
       vertical,
-      items.map((i) => ({ title: i.title, publishedAt: i.published_at })),
+      feed.items.map((i) => ({ title: i.title, publishedAt: i.published_at })),
       settings?.source_prefs?.enabled ?? [],
     );
   } catch (err) {
@@ -42,20 +56,19 @@ export default async function IntelligencePage() {
 
   const peers = findPeerCandidates(gaps, deals);
 
-  // Trends rank on the reader's own vocabulary first — pipeline companies and
-  // their utilities — then on domain terms.
-  const entities = [
-    ...deals.map((d) => d.company),
-    ...deals.map((d) => d.utility).filter((u): u is string => Boolean(u)),
-  ];
-  const trends = computeTrends(items, entities);
+  // Trending and Today's Topics read one ranked pool, drawn from the reader's
+  // own vocabulary: utilities, regulators, pipeline companies, watchlist topics.
+  const trends = computeTrends(feed.items, deals, 12);
 
   return (
     <IntelFeed
-      items={items}
+      items={feed.items}
       deals={deals}
       ticker={ticker}
-      isSeed={isSeed}
+      isSeed={feed.isSeed}
+      live={feed.live}
+      fetchedAt={feed.fetchedAt}
+      eagerCount={feed.eagerCount}
       gaps={gaps}
       peers={peers}
       trends={trends}

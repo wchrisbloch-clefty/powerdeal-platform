@@ -2,17 +2,18 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { RefreshCw, Zap, Rows3, LayoutGrid, Share2 } from 'lucide-react';
+import { RefreshCw, Zap, Rows3, LayoutGrid, Share2, Database } from 'lucide-react';
 import type { FeedItem, Deal } from '@/lib/types';
 import type { CoverageGap } from '@/lib/engine/discover';
 import type { PeerCandidate } from '@/lib/engine/peer-radar';
 import type { Trend } from '@/lib/engine/trending';
 import type { ItemState, FeedStateMap } from '@/lib/feed-state';
 import { getActiveVertical } from '@/lib/active-vertical';
-import { cn } from '@/lib/utils';
+import { cn, relativeTime } from '@/lib/utils';
 import FeedItemCard from './feed-item';
 import CoverageGapBlock from './coverage-gap';
 import TrendingPanel from './trending-panel';
+import TopicChips from './topic-chips';
 import Ticker, { type TickerData } from './ticker';
 import Button from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/card';
@@ -24,6 +25,9 @@ export default function IntelFeed({
   deals,
   ticker,
   isSeed,
+  live,
+  fetchedAt,
+  eagerCount,
   gaps,
   peers,
   trends,
@@ -32,7 +36,12 @@ export default function IntelFeed({
   items: FeedItem[];
   deals: Deal[];
   ticker: TickerData;
+  /** True when every source was unreachable and this is seed content. */
   isSeed: boolean;
+  live: boolean;
+  fetchedAt: string;
+  /** Items beyond this index summarize lazily, on open. */
+  eagerCount: number;
   gaps: CoverageGap[];
   peers: PeerCandidate[];
   trends: Trend[];
@@ -43,8 +52,9 @@ export default function IntelFeed({
   const [category, setCategory] = useState('all');
   const [topic, setTopic] = useState<string | null>(null);
   const [view, setView] = useState<View>('grid');
+  const [refreshing, setRefreshing] = useState(false);
   const [sweeping, setSweeping] = useState(false);
-  const [sweepMsg, setSweepMsg] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   // Mirrored client-side so a triage click is instant rather than waiting on a
   // server round trip and a re-render of the whole feed.
@@ -71,9 +81,29 @@ export default function IntelFeed({
 
   const breaking = filtered.filter((i) => i.breaking);
 
+  /** Force a refetch of the live sources, bypassing the ~10 minute cache. */
+  async function refresh() {
+    setRefreshing(true);
+    setNote(null);
+    try {
+      await fetch('/api/feed?refresh=1&limit=1');
+      router.refresh();
+    } catch {
+      setNote('Could not refresh the sources.');
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  /**
+   * The sweep is background work now — the cron runs it and the page no longer
+   * depends on it. It stays reachable because persistence is what makes trends
+   * accumulate and gives the weekly recap material, and there are times you
+   * want that to happen now rather than at the next cron tick.
+   */
   async function sweep() {
     setSweeping(true);
-    setSweepMsg(null);
+    setNote(null);
     try {
       const res = await fetch('/api/feed/sweep', { method: 'POST' });
       const body = (await res.json()) as {
@@ -83,13 +113,13 @@ export default function IntelFeed({
       };
       if (!res.ok) throw new Error(body.error ?? `Sweep failed (${res.status})`);
       const hits = body.accounts_hit?.length ?? 0;
-      setSweepMsg(
-        `${body.new_items ?? 0} new items` +
-          (hits > 0 ? `, ${hits} account${hits === 1 ? '' : 's'} hit` : ', no account hits'),
+      setNote(
+        `Persisted ${body.new_items ?? 0} items` +
+          (hits > 0 ? `, ${hits} account${hits === 1 ? '' : 's'} hit.` : ', no account hits.'),
       );
       router.refresh();
     } catch (err) {
-      setSweepMsg(err instanceof Error ? err.message : 'Sweep failed.');
+      setNote(err instanceof Error ? err.message : 'Sweep failed.');
     } finally {
       setSweeping(false);
     }
@@ -101,18 +131,32 @@ export default function IntelFeed({
         <div>
           <p className="eyebrow">Market Watch</p>
           <h1 className="mt-1 font-display text-2xl text-text">Intelligence</h1>
+          <p className="mt-1 text-xs text-text-faint">
+            {live ? 'Live from' : 'Seed content —'} {vertical.sources.length} configured sources ·
+            updated {relativeTime(fetchedAt)}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          {sweepMsg ? <span className="text-xs text-text-dim">{sweepMsg}</span> : null}
+          {note ? <span className="text-xs text-text-dim">{note}</span> : null}
           {/* Capture is the Web Share Target landing — reachable directly so it
               is not only usable from a phone's share sheet. */}
           <Button variant="ghost" size="sm" onClick={() => router.push('/app/intelligence/capture')}>
             <Share2 size={14} />
             Capture
           </Button>
-          <Button variant="primary" size="sm" onClick={sweep} disabled={sweeping}>
-            <RefreshCw size={14} className={cn(sweeping && 'animate-spin')} />
-            {sweeping ? 'Sweeping…' : 'Run sweep'}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={sweep}
+            disabled={sweeping}
+            title="Persist notable items so trends accumulate and the weekly recap has material. Runs on a cron too."
+          >
+            <Database size={14} className={cn(sweeping && 'animate-pulse')} />
+            {sweeping ? 'Sweeping…' : 'Sweep'}
+          </Button>
+          <Button variant="primary" size="sm" onClick={refresh} disabled={refreshing}>
+            <RefreshCw size={14} className={cn(refreshing && 'animate-spin')} />
+            {refreshing ? 'Refreshing…' : 'Refresh'}
           </Button>
         </div>
       </header>
@@ -130,6 +174,22 @@ export default function IntelFeed({
           </p>
         </div>
       )}
+
+      {/*
+        Seed is the honest failure mode, not a setup instruction. The old empty
+        state told the reader to run a sweep before the page would show
+        anything; the feed now fetches on load, so the only reason to see this
+        is that every source was unreachable.
+      */}
+      {isSeed && (
+        <p className="rounded-card border border-rule bg-bg-raised px-3.5 py-2.5 text-sm text-text-dim">
+          Every configured source was unreachable, so this is seed content — not
+          today&rsquo;s news. <span className="text-text">Refresh</span> to try
+          again, or check Settings › Sources.
+        </p>
+      )}
+
+      <TopicChips trends={trends} activeTopic={topic} onFilter={setTopic} />
 
       {/* ── Filters + view toggle ── */}
       <div className="flex items-center gap-3">
@@ -168,13 +228,6 @@ export default function IntelFeed({
         </p>
       ) : null}
 
-      {isSeed && (
-        <p className="rounded-card border border-rule bg-bg-raised px-3.5 py-2.5 text-sm text-text-dim">
-          No sweep has run yet. Hit <span className="text-text">Run sweep</span> to pull the{' '}
-          {vertical.sources.length} configured sources, grade them, and map them to your accounts.
-        </p>
-      )}
-
       {/* Feed left, discovery + trending right. The sidebar drops below the
           feed on narrow screens rather than squeezing both. */}
       <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">
@@ -183,8 +236,8 @@ export default function IntelFeed({
 
           {filtered.length === 0 ? (
             <EmptyState
-              title="Nothing in this category yet"
-              body="Run a sweep, or widen the filter. Discovery sources are off by default — turn them on in Settings to catch stories your core sources missed."
+              title="Nothing matches this filter"
+              body="Widen the category or clear the topic filter. Discovery sources are off by default — turn them on in Settings to catch stories your core sources missed."
             />
           ) : (
             <div className={cn('grid gap-3', view === 'grid' && 'xl:grid-cols-2')}>
@@ -195,18 +248,17 @@ export default function IntelFeed({
                   deals={deals}
                   state={states[item.id]}
                   onStateChange={onStateChange}
+                  // Position in the UNFILTERED list decides this: the top 10 by
+                  // recency were summarized on the server, and filtering the
+                  // view doesn't change which those were.
+                  lazySummary={items.indexOf(item) >= eagerCount}
                 />
               ))}
             </div>
           )}
         </div>
 
-        <TrendingPanel
-          trends={trends}
-          activeTopic={topic}
-          onSelect={setTopic}
-          className="min-w-0"
-        />
+        <TrendingPanel trends={trends} className="min-w-0" />
       </div>
     </div>
   );

@@ -1,17 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ChevronDown, ExternalLink, Zap, UserPlus, Clock, X,
-  Maximize2, BookOpenText, MessagesSquare, Check, Send, FileText,
+  Maximize2, BookOpenText, MessagesSquare, Check, Send, FileText, Loader2,
 } from 'lucide-react';
 import type { FeedItem as FeedItemType, Deal } from '@/lib/types';
 import type { ItemState } from '@/lib/feed-state';
 import { relativeTime, cn } from '@/lib/utils';
 import { categoryLabel, getActiveVertical } from '@/lib/active-vertical';
+import { entitiesIn } from '@/lib/engine/entities';
 import ProvenanceChip, { ConfidenceRule } from '@/components/ui/provenance-chip';
+import { EntityChip } from '@/components/ui/entity-link';
 import Badge from '@/components/ui/badge';
 
 const ARRIVAL_LABELS: Record<string, string> = {
@@ -48,11 +50,18 @@ export default function FeedItemCard({
   deals,
   state,
   onStateChange,
+  lazySummary = false,
 }: {
   item: FeedItemType;
   deals: Deal[];
   state?: ItemState;
   onStateChange?: (id: string, state: ItemState | null) => void;
+  /**
+   * True for items below the feed's eager window: they carry a raw feed snippet
+   * and get their real AI summary and outreach hook from /api/action the first
+   * time the reader opens them.
+   */
+  lazySummary?: boolean;
 }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -62,9 +71,57 @@ export default function FeedItemCard({
   const [note, setNote] = useState<string | null>(null);
   const vertical = getActiveVertical();
 
+  // Filled in by the lazy fetch; falls back to whatever the item arrived with.
+  const [lazy, setLazy] = useState<{ synthesis: string | null; action: string | null } | null>(null);
+  const [lazyBusy, setLazyBusy] = useState(false);
+  const [lazyDone, setLazyDone] = useState(false);
+
+  const synthesis = lazy?.synthesis ?? item.synthesis;
+  const action = lazy?.action ?? item.action;
+
   const hits = item.deal_ids
     .map((id) => deals.find((d) => d.id === id))
     .filter((d): d is Deal => Boolean(d));
+
+  // Entities named in this item — every one links to its page, so a card is a
+  // way into "what else is happening with SDG&E", not just this one story.
+  const entities = useMemo(() => entitiesIn(item, deals), [item, deals]);
+
+  /**
+   * Upgrade the snippet to a real summary. Fires once, on first open, and only
+   * for items the feed did not already summarize eagerly.
+   */
+  async function loadSummary() {
+    if (!lazySummary || lazyDone || lazyBusy) return;
+    setLazyBusy(true);
+    try {
+      const res = await fetch('/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: item.title,
+          url: item.url ?? undefined,
+          body: item.synthesis ?? undefined,
+          source: item.source_name ?? undefined,
+          category: item.category ?? undefined,
+        }),
+      });
+      if (res.ok) {
+        const body = (await res.json()) as { synthesis?: string | null; action?: string | null };
+        setLazy({ synthesis: body.synthesis ?? null, action: body.action ?? null });
+      }
+    } catch {
+      // Keep the snippet. A failed upgrade is invisible rather than destructive.
+    } finally {
+      setLazyBusy(false);
+      setLazyDone(true);
+    }
+  }
+
+  function open(next: boolean) {
+    setExpanded(next);
+    if (next) void loadSummary();
+  }
 
   async function mark(next: ItemState | null, extra: Record<string, unknown> = {}) {
     setBusy(true);
@@ -97,7 +154,7 @@ export default function FeedItemCard({
           source_name: item.source_name ?? 'Feed',
           source_tier: item.tier,
           headline: item.title.slice(0, 300),
-          detail: item.synthesis ?? null,
+          detail: synthesis ?? null,
           url: item.url,
           deal_ids: [deal.id],
         }),
@@ -193,11 +250,26 @@ export default function FeedItemCard({
         </span>
       </div>
 
-      {item.synthesis ? (
+      {synthesis ? (
         <p className={cn('text-sm leading-relaxed text-text-dim', !expanded && 'line-clamp-3')}>
-          {item.synthesis}
+          {synthesis}
         </p>
       ) : null}
+
+      {lazyBusy ? (
+        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-text-faint">
+          <Loader2 size={11} className="animate-spin" aria-hidden />
+          Summarizing…
+        </p>
+      ) : null}
+
+      {entities.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {entities.map((e) => (
+            <EntityChip key={e.name} entity={e} />
+          ))}
+        </div>
+      )}
 
       {/* Account mapping — the line that turns news into a call list. */}
       {hits.length > 0 && (
@@ -217,8 +289,8 @@ export default function FeedItemCard({
         </p>
       )}
 
-      {item.action ? (
-        <p className="mt-2 text-sm italic text-accent-dim">→ {item.action}</p>
+      {action ? (
+        <p className="mt-2 text-sm italic text-accent-dim">→ {action}</p>
       ) : null}
 
       {/* ── Primary rail: what happens to the work ── */}
@@ -288,7 +360,7 @@ export default function FeedItemCard({
 
       {/* ── Secondary rail: what the reader sees ── */}
       <div className="mt-1.5 flex flex-wrap items-center gap-1">
-        <RailButton icon={Maximize2} label="Dive deeper" onClick={() => setExpanded((v) => !v)} />
+        <RailButton icon={Maximize2} label="Dive deeper" onClick={() => open(!expanded)} />
         {item.url ? (
           <RailButton
             icon={BookOpenText}
@@ -300,15 +372,12 @@ export default function FeedItemCard({
           icon={MessagesSquare}
           label="Ask"
           onClick={() => {
-            try {
-              sessionStorage.setItem(
-                'powerdeal:ask-context',
-                JSON.stringify({ title: item.title, synthesis: item.synthesis, url: item.url }),
-              );
-            } catch {
-              // sessionStorage unavailable — chat still opens, just cold.
-            }
-            router.push('/app/chat');
+            // Grounded through the URL, which is what /app/chat actually reads.
+            // This used to stash context in sessionStorage that nothing ever
+            // picked up, so the button opened a cold chat every time.
+            const params = new URLSearchParams({ about: item.title });
+            if (hits[0]) params.set('deal', hits[0].id);
+            router.push(`/app/chat?${params.toString()}`);
           }}
         />
         <RailButton icon={X} label="Dismiss" disabled={busy} onClick={() => mark('not-for-me')} />
@@ -332,10 +401,10 @@ export default function FeedItemCard({
         </div>
       )}
 
-      {!expanded && ((item.synthesis && item.synthesis.length > 200) || item.byline) ? (
+      {!expanded && ((synthesis && synthesis.length > 200) || item.byline || lazySummary) ? (
         <button
           type="button"
-          onClick={() => setExpanded(true)}
+          onClick={() => open(true)}
           className="mt-2 inline-flex items-center gap-1 text-xs text-text-dim hover:text-text"
         >
           More

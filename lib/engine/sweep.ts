@@ -8,6 +8,9 @@ import { classifyTier, isBreaking, mapToAccounts, verticalTagsFor } from './tier
 import { fetchContent } from './fetch-content';
 import { summarizeItem, CACHE_TTL_HOURS } from './summarize';
 import { canRun } from './model-routing';
+// The hook lives with the live feed so a reader sees the same sentence before
+// and after a sweep persists the item.
+import { buildHook } from './live-feed';
 import type { SourcePrefs } from '@/lib/types';
 
 /**
@@ -213,41 +216,13 @@ async function processItem(
     category: item.category,
     vertical_tags: verticalTagsFor(item),
     deal_ids: matches.map((m) => m.dealId),
-    action: buildHook(matches, item),
+    action: buildHook(matches, item.sourceName),
     // The hook is a heuristic suggestion, never a verified claim.
     action_tier: 'inferred',
     breaking: isBreaking(item),
     cached_at: new Date().toISOString(),
     user_id: userId,
   };
-}
-
-/**
- * Outreach hook.
- *
- * Deliberately names the mapping basis rather than writing a pitch line. A
- * generated "call them about cost certainty" that isn't grounded in the item
- * is worse than saying plainly why the item surfaced.
- */
-function buildHook(
-  matches: ReturnType<typeof mapToAccounts>,
-  item: RawItem,
-): string | null {
-  const top = matches[0];
-  if (!top) return null;
-
-  const others = matches.length > 1 ? ` (+${matches.length - 1} more)` : '';
-
-  switch (top.basis) {
-    case 'company':
-      return `${top.company} named directly${others} — read it before your next touch.`;
-    case 'utility':
-      return `Hits ${top.company}'s utility territory${others}. Territory-level news is a live re-engagement reason.`;
-    case 'state+vertical':
-      return `Same state and vertical as ${top.company}${others}. Weak match — confirm relevance before using it.`;
-    default:
-      return `Relevant to ${top.company}${others}. Source: ${item.sourceName}.`;
-  }
 }
 
 function mapCategoryToWatch(category: string): string {
