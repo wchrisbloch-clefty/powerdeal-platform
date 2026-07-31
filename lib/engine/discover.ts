@@ -50,6 +50,32 @@ function similarity(a: Set<string>, b: Set<string>): number {
 const SIMILARITY_THRESHOLD = 0.34;
 
 /** Group items that are covering the same story. */
+/**
+ * The outlet that actually published an item.
+ *
+ * WHY THIS IS NOT JUST sourceName: a cluster's strength is "how many distinct
+ * outlets are covering this", and PowerDeal's discovery net is three Google
+ * News queries rather than the many discrete publisher feeds The Hub uses.
+ * Keyed on feed name, every item from one query counts as ONE outlet, so no
+ * cluster ever reaches the two-outlet minimum and the gap block is
+ * permanently empty — which is exactly what shipped until this was fixed.
+ *
+ * Aggregator feeds put the real publisher in the title suffix
+ * ("Strategic Biofuels secures Class VI permit - Biomass Magazine"), so that
+ * is where the outlet comes from. A curated feed keeps its own name.
+ */
+const AGGREGATOR_TITLE = /^(.*\S)\s+-\s+([^-]{2,60})$/;
+
+export function publisherOf(item: Pick<RawItem, 'title' | 'sourceName'>): string {
+  const match = AGGREGATOR_TITLE.exec(item.title);
+  return match ? match[2].trim() : item.sourceName;
+}
+
+/** Headline without the aggregator's trailing " - Publisher". */
+export function cleanHeadline(title: string): string {
+  return AGGREGATOR_TITLE.exec(title)?.[1]?.trim() ?? title;
+}
+
 export function clusterItems(items: RawItem[]): Cluster[] {
   const clusters: { tokens: Set<string>; items: RawItem[] }[] = [];
 
@@ -68,7 +94,7 @@ export function clusterItems(items: RawItem[]): Cluster[] {
   }
 
   return clusters.map((c) => {
-    const outlets = [...new Set(c.items.map((i) => i.sourceName))];
+    const outlets = [...new Set(c.items.map(publisherOf))];
     // The earliest item in a cluster is usually the cleanest headline.
     const primary =
       [...c.items].sort((a, b) => {
@@ -78,7 +104,7 @@ export function clusterItems(items: RawItem[]): Cluster[] {
       })[0] ?? c.items[0];
 
     return {
-      headline: primary.title,
+      headline: cleanHeadline(primary.title),
       outletCount: outlets.length,
       outlets,
       items: c.items,
