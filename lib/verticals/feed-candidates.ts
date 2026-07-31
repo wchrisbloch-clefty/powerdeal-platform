@@ -16,6 +16,26 @@
  *
  * Once a source is settled, delete its entry. A stale candidate list is just
  * noise in the probe output.
+ *
+ * ── ROUND 1 RESULTS (2026-07-31) ──────────────────────────────────────────
+ * Settled and removed from this list:
+ *   gccsi         → https://www.globalccsinstitute.com/feed/   (12 items)
+ *   ngi           → https://www.naturalgasintel.com/feed/      (10 items)
+ *   chemical-week → no public feed exists; replaced with an aggregator query
+ *
+ * Still open, and what round 1 ruled out:
+ *   ferc-news, cap-rate-tracker, thunder-said — 403 on every path even with a
+ *     browser UA. Not a user-agent problem: almost certainly the WAF blocking
+ *     Vercel's datacenter egress ranges, which no header can fix. Round 2 goes
+ *     at the underlying primary source instead of the publisher's own feed.
+ *   acc-news, hart-energy, industrial-info, netl-news — every guessed path
+ *     404s. Round 2 tries the Federal Register API for the government one and
+ *     aggregator queries for the trade press, which have likely closed their
+ *     public feeds the way Chemical Week did.
+ *   the-register-dc — three section paths all returned 50 items with an
+ *     identical generic feed title, so the section slug is probably ignored
+ *     and all of them serve the whole site. sampleTitles was added to the
+ *     probe to settle whether these differ at all.
  */
 
 export interface CandidateSet {
@@ -27,106 +47,95 @@ export interface CandidateSet {
   urls: string[];
 }
 
+/**
+ * The Federal Register publishes every FERC/DOE/EPA rule and notice, exposes a
+ * documented RSS API meant to be polled, and does not sit behind a WAF. For a
+ * VERIFIED-tier source that is strictly better than scraping an agency
+ * newsroom: it is the rule itself rather than a press release about it.
+ */
+const FR = 'https://www.federalregister.gov/api/v1/documents.rss';
+const frAgency = (agency: string, term?: string) =>
+  `${FR}?conditions%5Bagencies%5D%5B%5D=${agency}` +
+  (term ? `&conditions%5Bterm%5D=${encodeURIComponent(term)}` : '') +
+  '&order=newest&per_page=40';
+
+const gnews = (q: string) =>
+  `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`;
+
 export const FEED_CANDIDATES: CandidateSet[] = [
   {
     sourceId: 'ferc-news',
-    failure: '403 — suspected user-agent block, URL may still be correct',
+    failure: '403 on all ferc.gov paths — WAF blocking datacenter egress',
     urls: [
-      'https://www.ferc.gov/news-events/news/rss.xml',
-      'https://www.ferc.gov/rss/headlines.xml',
-      'https://www.ferc.gov/news-events/news/feed',
-    ],
-  },
-  {
-    sourceId: 'cap-rate-tracker',
-    failure: '403 — suspected user-agent block',
-    urls: [
-      'https://www.americanprogress.org/tag/utility-rates/feed/',
-      'https://www.americanprogress.org/feed/',
-    ],
-  },
-  {
-    sourceId: 'thunder-said',
-    failure: '403 — suspected Cloudflare user-agent block',
-    urls: [
-      'https://thundersaidenergy.com/feed/',
-      'https://thundersaidenergy.com/rss',
+      frAgency('federal-energy-regulatory-commission'),
+      gnews('FERC order interconnection OR transmission OR capacity market'),
     ],
   },
   {
     sourceId: 'netl-news',
-    failure: '404 — moved',
+    failure: '404 on all netl.doe.gov paths',
     urls: [
-      'https://netl.doe.gov/rss.xml',
-      'https://netl.doe.gov/node/feed',
-      'https://netl.doe.gov/newsroom/rss',
-      'https://www.netl.doe.gov/rss/news.xml',
+      frAgency('energy-department', 'carbon capture'),
+      'https://www.energy.gov/rss/articles.xml',
+      'https://www.energy.gov/fecm/rss.xml',
+      gnews('NETL OR "Department of Energy" carbon capture funding'),
     ],
   },
   {
-    sourceId: 'gccsi',
-    failure: '404 — moved',
+    sourceId: 'cap-rate-tracker',
+    failure: '403 on americanprogress.org — WAF',
     urls: [
-      'https://www.globalccsinstitute.com/feed/',
-      'https://www.globalccsinstitute.com/news-media/feed/',
-      'https://www.globalccsinstitute.com/rss.xml',
+      gnews('utility rate case approved industrial customers'),
+      frAgency('energy-department', 'electricity rates'),
+    ],
+  },
+  {
+    sourceId: 'thunder-said',
+    failure: '403 on thundersaidenergy.com — Cloudflare',
+    urls: [gnews('solid oxide fuel cell cost OR efficiency analysis')],
+  },
+  {
+    sourceId: 'acc-news',
+    failure: '404 on all americanchemistry.com paths',
+    urls: [
+      'https://www.americanchemistry.com/chemistry-in-america/news-trends/rss.xml',
+      gnews('"American Chemistry Council" OR chemical manufacturing output'),
     ],
   },
   {
     sourceId: 'hart-energy',
-    failure: '404 — moved',
+    failure: '404 on all hartenergy.com paths',
     urls: [
-      'https://www.hartenergy.com/feed',
-      'https://www.hartenergy.com/rss.xml',
-      'https://www.hartenergy.com/feeds/news.rss',
-    ],
-  },
-  {
-    sourceId: 'ngi',
-    failure: '404 — moved',
-    urls: [
-      'https://www.naturalgasintel.com/feed/',
-      'https://naturalgasintel.com/feed/',
-      'https://www.naturalgasintel.com/rss.xml',
-    ],
-  },
-  {
-    sourceId: 'acc-news',
-    failure: '404 — moved',
-    urls: [
-      'https://www.americanchemistry.com/feed',
-      'https://www.americanchemistry.com/rss',
-      'https://www.americanchemistry.com/chemistry-in-america/news-trends/feed',
+      'https://www.hartenergy.com/rss/all',
+      'https://www.hartenergy.com/news/feed',
+      gnews('midstream natural gas processing plant OR gathering system'),
     ],
   },
   {
     sourceId: 'industrial-info',
-    failure: '404 — moved',
+    failure: '404 on all industrialinfo.com paths',
     urls: [
-      'https://www.industrialinfo.com/rss/news.xml',
-      'https://www.industrialinfo.com/news/rss.xml',
-      'https://www.industrialinfo.com/feed',
+      'https://www.industrialinfo.com/rss.xml',
+      gnews('industrial capital project OR plant expansion announced'),
     ],
   },
   {
     sourceId: 'the-register-dc',
-    failure: '404 — moved; section slug likely renamed',
+    failure:
+      'section paths all return 50 items with an identical generic title — checking whether they actually differ',
     urls: [
       'https://www.theregister.com/on_prem/headlines.atom',
       'https://www.theregister.com/data_centre/headlines.atom',
-      'https://www.theregister.com/on_prem/systems/headlines.atom',
       'https://www.theregister.com/headlines.atom',
     ],
   },
   {
-    sourceId: 'chemical-week',
-    failure: '200 but zero items — served HTML, not a feed',
+    sourceId: 'reddit-oilandgas',
+    failure: '429 — Reddit throttles datacenter IPs; r/energy got through',
     urls: [
-      'https://chemweek.com/feed/',
-      'https://www.chemweek.com/rss',
-      // Chemical Week folded into S&P Global Commodity Insights; if none of the
-      // above are feeds, the fallback is the Google News query below.
-      'https://news.google.com/rss/search?q=chemical+plant+expansion+OR+petrochemical+capacity&hl=en-US&gl=US&ceid=US:en',
+      'https://www.reddit.com/r/oilandgas/.rss',
+      'https://old.reddit.com/r/oilandgas/.rss',
+      'https://www.reddit.com/r/oilandgas/new/.rss?limit=25',
     ],
   },
 ];

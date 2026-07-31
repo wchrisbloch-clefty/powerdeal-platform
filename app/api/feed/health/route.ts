@@ -28,6 +28,7 @@ interface SourceHealth {
   itemCount: number;
   message: string | null;
   feedTitle: string | null;
+  sampleTitles: string[];
 }
 
 /** Probe result for one URL, independent of which source it belongs to. */
@@ -38,6 +39,12 @@ interface UrlHealth {
   message: string | null;
   /** First feed <title>, so a wrong-but-live URL is obvious in the output. */
   feedTitle: string | null;
+  /**
+   * First few item titles. Item count alone cannot tell a correctly-scoped
+   * feed from a site-wide one served at a section URL — the only way to know
+   * a source is on-topic is to read what it actually carries.
+   */
+  sampleTitles: string[];
 }
 
 async function probeUrl(url: string): Promise<UrlHealth> {
@@ -54,6 +61,7 @@ async function probeUrl(url: string): Promise<UrlHealth> {
         httpStatus: res.status,
         itemCount: 0,
         feedTitle: null,
+        sampleTitles: [],
         message:
           res.status === 404
             ? 'Feed URL has moved. Find the current one and update lib/verticals/powerdeal.ts.'
@@ -67,11 +75,17 @@ async function probeUrl(url: string): Promise<UrlHealth> {
 
     const body = await res.text();
     const itemCount = (body.match(/<(?:item|entry)\b/gi) ?? []).length;
-    // Feed title, not an <item> title — first <title> in the document.
-    const feedTitle =
-      /<title[^>]*>\s*(?:<!\[CDATA\[)?([\s\S]{1,160}?)(?:\]\]>)?\s*<\/title>/i
-        .exec(body)?.[1]
-        ?.trim() ?? null;
+
+    // All <title> values in document order. The first is the channel/feed
+    // title; the rest are items.
+    const titles = [
+      ...body.matchAll(
+        /<title[^>]*>\s*(?:<!\[CDATA\[)?([\s\S]{1,200}?)(?:\]\]>)?\s*<\/title>/gi,
+      ),
+    ].map((m) => m[1].replace(/\s+/g, ' ').trim());
+
+    const feedTitle = titles[0] ?? null;
+    const sampleTitles = titles.slice(1, 4);
 
     if (itemCount === 0) {
       return {
@@ -79,17 +93,26 @@ async function probeUrl(url: string): Promise<UrlHealth> {
         httpStatus: res.status,
         itemCount: 0,
         feedTitle,
+        sampleTitles,
         message: 'Responded 200 but contains no items — likely an HTML page, not a feed.',
       };
     }
 
-    return { status: 'ok', httpStatus: res.status, itemCount, feedTitle, message: null };
+    return {
+      status: 'ok',
+      httpStatus: res.status,
+      itemCount,
+      feedTitle,
+      sampleTitles,
+      message: null,
+    };
   } catch (err) {
     return {
       status: 'error',
       httpStatus: null,
       itemCount: 0,
       feedTitle: null,
+      sampleTitles: [],
       message: (err as Error).message,
     };
   }
@@ -171,6 +194,7 @@ export async function GET(request: Request) {
               httpStatus: c.httpStatus,
               itemCount: c.itemCount,
               feedTitle: c.feedTitle,
+              sampleTitles: c.sampleTitles,
             })),
         }
       : {}),

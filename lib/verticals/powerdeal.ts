@@ -99,7 +99,9 @@ export const powerdeal: VerticalConfig = {
       id: 'ngi',
       name: 'Natural Gas Intelligence',
       platform: 'rss',
-      url: 'https://www.naturalgasintel.com/rss/news/',
+      // VERIFIED live 2026-07-31 via /api/feed/health — 10 items. The old
+      // /rss/news/ path 404s.
+      url: 'https://www.naturalgasintel.com/feed/',
       defaultTier: 'reported',
       category: 'og',
       role: 'core',
@@ -153,14 +155,26 @@ export const powerdeal: VerticalConfig = {
     },
     {
       id: 'chemical-week',
-      name: 'Chemical Week',
+      name: 'Chemicals — aggregated',
       platform: 'rss',
-      url: 'https://chemweek.com/rss',
-      defaultTier: 'reported',
+      /**
+       * Chemical Week has no public feed any more: chemweek.com/rss and
+       * /feed/ both return 200 with the HTML homepage (verified 2026-07-31).
+       * The title folded into S&P Global Commodity Insights, behind a
+       * subscription.
+       *
+       * Rather than drop industrial-chemicals coverage entirely, this is an
+       * aggregator query. Graded 'inferred', not 'reported', because an
+       * aggregator vouches for nothing about the underlying outlet — matching
+       * how the other Google News sources are graded. It stays 'core' so the
+       * items still reach the feed, just at the lowest confidence.
+       */
+      url: 'https://news.google.com/rss/search?q=chemical+plant+expansion+OR+petrochemical+capacity&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
       category: 'industrial',
       role: 'core',
       rationale:
-        'Specialty and commodity chemicals — M&A, capacity additions, ESG moves.',
+        'Chemicals capacity and expansion news. Aggregated — Chemical Week closed its public feed.',
     },
 
     // DATA CENTER
@@ -195,9 +209,9 @@ export const powerdeal: VerticalConfig = {
       id: 'gccsi',
       name: 'Global CCS Institute',
       platform: 'rss',
-      // UNVERIFIED — no outbound network at build time. If this 404s, try
-      // https://www.globalccsinstitute.com/news-media/feed/
-      url: 'https://www.globalccsinstitute.com/resources/news-media/news/rss/',
+      // VERIFIED live 2026-07-31 via /api/feed/health — 12 items, "Global CCS
+      // Institute". The old /resources/news-media/news/rss/ path 404s.
+      url: 'https://www.globalccsinstitute.com/feed/',
       defaultTier: 'verified',
       category: 'ccus',
       role: 'core',
