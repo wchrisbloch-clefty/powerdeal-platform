@@ -78,6 +78,32 @@
  * EPA publishes permit-level Class VI activity on its UIC pages with no feed.
  * A verified-tier source would require scraping those pages or a paid
  * regulatory data provider — a real integration, not a URL change.
+ *
+ * ── CCUS SOURCE ROUND, 2026-07-31 ─────────────────────────────────────────
+ * Five more CCUS sources probed. One feed, one scraper, three dead ends.
+ *
+ *   Sabin Center Climate Law Blog — WORKS, added as sabin-climate-law.
+ *   Arnold & Porter Environmental Edge — blog page 200, every feed path 404.
+ *     The Sabin Center feed above is the same collaboration's upstream.
+ *   Hunton Andrews Kurth — all feed paths 404; huntonnickelreport.com fails
+ *     DNS entirely; /insights is a JS shell with no table.
+ *   CCUSMap — reachable, no feed at any path. Email updates only, so
+ *     email-to-hub is the route if it is ever wanted.
+ *   Climate Stacks — /api/projects returns 200 titled "Sign in". An API
+ *     exists but is account-gated: a credentials question, not a technical
+ *     one. Worth revisiting with a login.
+ *
+ *   EPA UIC — RESOLVED, and the scraper was worth building. The pages hold no
+ *     <table> at all; the record is a Qlik Sense dashboard iframed from
+ *     awsedap.epa.gov, whose Engine API is a stateful WebSocket protocol and
+ *     not serverless-friendly. But the same page links a PDF snapshot of the
+ *     tracker with its date in the filename
+ *     (permit-tracker_5-22-26.pdf), which is change-detectable without
+ *     parsing anything. See lib/engine/epa-class-vi.ts.
+ *
+ * Discovered while probing: North Dakota, Texas, West Virginia and Wyoming
+ * hold Class VI primacy, so EPA's tracker excludes wells in those states.
+ * Their programmes have separate sites, listed in PRIMACY_STATES.
  */
 
 export interface CandidateSet {
@@ -89,32 +115,4 @@ export interface CandidateSet {
   urls: string[];
 }
 
-export const FEED_CANDIDATES: CandidateSet[] = [
-  {
-    /**
-     * Round 2 returned NO tableCount for either EPA page — zero <table>
-     * elements. So the Class VI record is not tabular markup, and the sample
-     * titles that came back ("Lock", "Primary navigation") were SVG icon
-     * titles from the page chrome, confirming we only saw the shell.
-     *
-     * This round reports iframes, body size and permit-ish links instead. An
-     * ArcGIS or Power BI iframe would be the good outcome: those are backed
-     * by a documented REST API returning JSON, which is both easier to
-     * consume and far more stable than markup EPA can restyle at will. A list
-     * of PDF links is the workable-but-worse outcome. A small bodyChars with
-     * neither means the data is rendered client-side and needs a headless
-     * browser, which is a different conversation.
-     *
-     * Also probing EPA's GeoPlatform, which is where their public map layers
-     * live, in case the Class VI layer is queryable directly.
-     */
-    sourceId: 'ccus-epa-dashboard',
-    failure: 'no tables found; determining how the record is actually served',
-    urls: [
-      'https://www.epa.gov/uic/current-class-vi-projects-under-review-epa',
-      'https://www.epa.gov/uic/class-vi-wells-permitted-epa',
-      'https://www.epa.gov/uic/underground-injection-control-well-inventory',
-      'https://geopub.epa.gov/arcgis/rest/services?f=json',
-    ],
-  },
-];
+export const FEED_CANDIDATES: CandidateSet[] = [];

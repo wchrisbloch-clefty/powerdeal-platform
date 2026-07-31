@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Deal, FeedItem, SourceTier } from '@/lib/types';
 import { getActiveVertical, resolveSources } from '@/lib/active-vertical';
 import { fetchSources, withinHours, sortByRecency, type RawItem } from './rss';
+import { fetchEpaClassVi } from './epa-class-vi';
 import { classifyTier, isBreaking, mapToAccounts, verticalTagsFor } from './tiering';
 import { fetchContent } from './fetch-content';
 import { summarizeItem, CACHE_TTL_HOURS } from './summarize';
@@ -59,7 +60,26 @@ export async function runSweep(
   };
 
   // ── 1. Fetch ──
-  const raw = sortByRecency(withinHours(await fetchSources(sources), windowHours));
+  /**
+   * The EPA Class VI tracker is scraped, not an RSS feed — EPA publishes none
+   * (see lib/engine/epa-class-vi.ts). It rides alongside the feeds rather than
+   * in the source list because it has no URL to configure and cannot be muted
+   * per-user through source_prefs.
+   *
+   * Exempt from the recency window on purpose: EPA refreshes it every few
+   * months, so a 72-hour filter would discard it on almost every sweep. Dedupe
+   * by URL hash already guarantees each revision surfaces exactly once.
+   */
+  const [feedItems, epaItems] = await Promise.all([
+    fetchSources(sources),
+    fetchEpaClassVi(),
+  ]);
+  result.sources_fetched += epaItems.length > 0 ? 1 : 0;
+
+  const raw = [
+    ...epaItems,
+    ...sortByRecency(withinHours(feedItems, windowHours)),
+  ];
   if (raw.length === 0) {
     result.errors.push('No items returned — every source failed or the window is empty.');
     return result;
