@@ -52,6 +52,32 @@
  * and Reddit all block or throttle Vercel's datacenter egress ranges. No user
  * agent fixes that. When a source 403s or 429s on every candidate path, the
  * answer is a different source, not another header.
+ *
+ * ── EPA CLASS VI: RULED OUT 2026-07-31, THREE ROUNDS ──────────────────────
+ * Added class-vi-permits as an aggregated source instead. Recording the dead
+ * ends so nobody spends this again:
+ *
+ *   Federal Register, six term phrasings across two rounds — "Class VI",
+ *     Class VI, "underground injection control", "geologic sequestration",
+ *     "carbon sequestration", "carbon dioxide injection". Every one returned
+ *     either 0 items or the same off-topic set (heavy-duty engine penalties,
+ *     a plywood emissions standard, an Oklahoma air plan). The term search is
+ *     loose full-text and does not honour phrases.
+ *   Federal Register conditions[publication_date][gte] — IGNORED. Sending
+ *     gte=2024-01-01 still returned a feed titled "published on or after
+ *     06/30/2026". The RSS endpoint caps at ~30 days regardless, so no
+ *     low-volume topic can ever fill it. ferc-news is unaffected only because
+ *     FERC files 141 documents inside that window; do not assume the same for
+ *     any narrower Federal Register query added later.
+ *   epa.gov/rss/epa-news.xml, /feeds/epa-news.rss, /newsreleases/rss.xml —
+ *     404.
+ *   epa.gov/newsreleases/search/rss and its field_press_office variant —
+ *     HTTP 202 with an empty body, on two separate runs. Not a transient
+ *     async generation; it simply never returns content.
+ *
+ * EPA publishes permit-level Class VI activity on its UIC pages with no feed.
+ * A verified-tier source would require scraping those pages or a paid
+ * regulatory data provider — a real integration, not a URL change.
  */
 
 export interface CandidateSet {
@@ -63,61 +89,4 @@ export interface CandidateSet {
   urls: string[];
 }
 
-export const FEED_CANDIDATES: CandidateSet[] = [
-  {
-    sourceId: 'epa-class-vi',
-    failure:
-      'NEW SOURCE — restoring VERIFIED-tier CCUS coverage lost when netl-news moved to the DOE-wide feed',
-    /**
-     * ROUND 1 (2026-07-31): all four phrasings failed. "Class VI",
-     * "underground injection control" and "geologic sequestration" each
-     * returned 0 items; "carbon dioxide injection" returned 3, all off-topic
-     * (heavy-duty engine penalties, a plywood emissions standard, an Oklahoma
-     * air plan) — the term search is loose full-text, not topical.
-     *
-     * The feed titles revealed why the empties were empty: the FR API applies
-     * a default window, "published on or after 06/30/2026". That is ~30 days.
-     * FERC survives it because FERC files constantly; EPA Class VI actions are
-     * far lower volume.
-     *
-     * ROUND 2 is diagnostic. Widening to a 2024 start separates the two
-     * possible causes:
-     *   - items come back → it was only the 30-day window, and a wide window
-     *     is the fix for a low-volume regulatory source.
-     *   - still empty → the Federal Register does not carry individual Class
-     *     VI permit decisions at all (EPA posts many to its UIC pages), and
-     *     no query against it will ever work. Then the answer is EPA's own
-     *     newsroom feed, which is why those are here too.
-     */
-    /**
-     * ROUND 2 ruled out the Federal Register entirely, on two counts:
-     *
-     *  - publication_date[gte] is IGNORED. Sending gte=2024-01-01 still
-     *    returned a feed titled "published on or after 06/30/2026". The RSS
-     *    endpoint hard-caps at ~30 days whatever you ask for, so it can never
-     *    give historical depth for a low-volume topic. (ferc-news is unharmed
-     *    — FERC files enough to fill 30 days with 141 documents.)
-     *  - Unquoted "Class VI" returned 6 items, the same off-topic set as
-     *    round 1: heavy-duty engine penalties, a plywood emissions standard,
-     *    an Oklahoma air plan. The term search matches "Class" and "VI"
-     *    loosely. EPA publishes permit-level Class VI activity on its UIC
-     *    pages, not in the Federal Register.
-     *
-     * ROUND 3 is the last attempt, and only on EPA's own endpoints.
-     * /rss/epa-news.xml 404s. /newsreleases/search/rss returned HTTP 202 with
-     * an empty body — Drupal generating the feed asynchronously — so it is
-     * retried here alongside the non-search paths, which should not need
-     * generating at all.
-     *
-     * If all of these fail, stop: there is no verified EPA feed to have, and
-     * the aggregated Class VI source added to powerdeal.ts in this commit is
-     * the honest ceiling.
-     */
-    urls: [
-      'https://www.epa.gov/newsreleases/search/rss',
-      'https://www.epa.gov/newsreleases/rss.xml',
-      'https://www.epa.gov/newsreleases/search/rss/field_press_office/headquarters',
-      'https://www.epa.gov/feeds/epa-news.rss',
-    ],
-  },
-];
+export const FEED_CANDIDATES: CandidateSet[] = [];
