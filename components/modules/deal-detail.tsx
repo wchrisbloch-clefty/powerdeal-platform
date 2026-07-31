@@ -19,6 +19,8 @@ import { Card, CardBody, CardHeader, CardTitle, Stat } from '@/components/ui/car
 import HealthRing from '@/components/ui/health-ring';
 import Badge, { StagePill } from '@/components/ui/badge';
 import ProvenanceChip from '@/components/ui/provenance-chip';
+import EntityLink, { EntityChip } from '@/components/ui/entity-link';
+import { entitiesIn } from '@/lib/engine/entities';
 import Button from '@/components/ui/button';
 import AiOutput from '@/components/ui/ai-output';
 import SignalCapture from './signal-capture';
@@ -109,10 +111,32 @@ export default function DealDetail({
             {deal.geo_tier ? <Badge tone="neutral">{deal.geo_tier}</Badge> : null}
           </div>
           <h1 className="mt-1.5 font-display text-2xl text-text">{deal.company}</h1>
+          {/*
+            The company and its utility link out to their entity pages. This
+            page answers "where is this deal", the entity page answers "what is
+            happening to this account and this territory across every source" —
+            and a rate move on the utility is a re-engagement reason for the
+            deal sitting on it.
+          */}
           <p className="mt-0.5 text-sm text-text-dim">
             {deal.vertical}
             {deal.state ? ` · ${deal.state}` : ''}
-            {deal.utility ? ` · ${deal.utility}` : ''}
+            {deal.utility && deal.utility.toLowerCase() !== 'multi' ? (
+              <>
+                {' · '}
+                <EntityLink entity={{ name: deal.utility, type: 'utility' }} />
+              </>
+            ) : deal.utility ? (
+              ` · ${deal.utility}`
+            ) : null}
+          </p>
+          <p className="mt-1.5">
+            <EntityLink
+              entity={{ name: deal.company, type: 'company' }}
+              className="text-xs text-text-dim no-underline hover:text-text"
+            >
+              See all coverage of {deal.company} →
+            </EntityLink>
           </p>
           {flags.length > 0 && (
             <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -143,7 +167,16 @@ export default function DealDetail({
               <Stat label="Vertical" value={deal.vertical} />
               <Stat label="Geo tier" value={deal.geo_tier ?? '—'} />
               <Stat label="State" value={deal.state ?? '—'} />
-              <Stat label="Utility" value={deal.utility ?? '—'} />
+              <Stat
+                label="Utility"
+                value={
+                  deal.utility && deal.utility.toLowerCase() !== 'multi' ? (
+                    <EntityLink entity={{ name: deal.utility, type: 'utility' }} />
+                  ) : (
+                    (deal.utility ?? '—')
+                  )
+                }
+              />
               <Stat label="Value prop" value={deal.value_prop ?? 'Not yet diagnosed'} />
               <Stat label="Beachhead site" value={deal.beachhead_site ?? '—'} />
               <Stat label="Size" value={formatMw(deal.size_mw)} />
@@ -405,6 +438,10 @@ export default function DealDetail({
                         {m.summary && (
                           <p className="mt-0.5 text-sm text-text-dim">{m.summary}</p>
                         )}
+                        {/* Same entity chips as a feed card — a market watch
+                            row is a feed item that was persisted, so it opens
+                            onto the same pages. */}
+                        <MarketWatchEntities entry={m} deals={[deal]} />
                         {m.outreach_hook && (
                           <p className="mt-1 text-sm italic text-accent-dim">
                             → {m.outreach_hook}
@@ -556,6 +593,36 @@ function Field({ label, value }: { label: string; value: string | null }) {
     <div>
       <p className="eyebrow mb-0.5">{label}</p>
       <p className="whitespace-pre-wrap text-sm text-text">{value}</p>
+    </div>
+  );
+}
+
+/**
+ * Entities named in a market watch row.
+ *
+ * Reuses the feed's extractor by shaping the row like a feed item — which is
+ * what it is, the sweep persisted it from one — so a row here links to exactly
+ * the same entity pages a feed card does.
+ */
+function MarketWatchEntities({
+  entry,
+  deals,
+}: {
+  entry: MarketWatchEntry;
+  deals: Deal[];
+}) {
+  const entities = entitiesIn(
+    { title: entry.headline, synthesis: entry.summary ?? null },
+    deals,
+    4,
+  );
+  if (entities.length === 0) return null;
+
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1.5">
+      {entities.map((e) => (
+        <EntityChip key={e.name} entity={e} />
+      ))}
     </div>
   );
 }
