@@ -23,19 +23,36 @@ Deno.serve(async (request: Request) => {
     const cronSecret = Deno.env.get('CRON_SECRET');
 
     // ── 1. Trigger the sweep in the app ──
+    // Vercel Deployment Protection guards *.vercel.app by default, so this
+    // call gets a 401 from Vercel's edge before the route runs. Vercel Cron
+    // invocations are exempt; an external POST from here is not. Set
+    // VERCEL_PROTECTION_BYPASS (Vercel → Settings → Deployment Protection →
+    // Protection Bypass for Automation) to get through it, or serve the app
+    // from a custom domain, which the default policy exempts.
     let sweepResult: unknown = null;
+    let sweepError: string | null = null;
     if (appUrl && cronSecret) {
       try {
-        const res = await fetch(`${appUrl}/api/feed/sweep`, {
-          method: 'POST',
-          headers: { 'x-cron-secret': cronSecret },
-        });
-        sweepResult = res.ok ? await res.json() : { error: `sweep ${res.status}` };
+        const headers: Record<string, string> = { 'x-cron-secret': cronSecret };
+        const bypass = Deno.env.get('VERCEL_PROTECTION_BYPASS');
+        if (bypass) headers['x-vercel-protection-bypass'] = bypass;
+
+        const res = await fetch(`${appUrl}/api/feed/sweep`, { method: 'POST', headers });
+        if (res.ok) {
+          sweepResult = await res.json();
+        } else {
+          sweepError = res.status === 401
+            ? 'sweep 401 — CRON_SECRET mismatch, or Vercel Deployment Protection is blocking the call (set VERCEL_PROTECTION_BYPASS)'
+            : `sweep ${res.status}`;
+          sweepResult = { error: sweepError };
+        }
       } catch (err) {
-        sweepResult = { error: (err as Error).message };
+        sweepError = (err as Error).message;
+        sweepResult = { error: sweepError };
       }
     } else {
-      sweepResult = { skipped: 'APP_URL and CRON_SECRET are required to trigger a sweep.' };
+      sweepError = 'APP_URL and CRON_SECRET are required to trigger a sweep.';
+      sweepResult = { skipped: sweepError };
     }
 
     // ── 2. Per-user weekly rollup ──
@@ -131,10 +148,16 @@ ${feed}`,
       summaries[user.user_id] = { items: entries.length, accounts: accountsHit.size };
     }
 
+    // A failed sweep is a failed run, even though the rollup above still wrote.
+    // Reporting ok:true here would put "healthy" on the status page for a job
+    // whose entire purpose — refreshing the feed the rollup reads — did not
+    // happen. The rollup would then summarise last week's data every week,
+    // and nothing anywhere would say so.
     await recordAgentRun(supabase, ownerForRecord, 'market-watch', {
-      ok: true,
+      ok: !sweepError,
       durationMs: Date.now() - startedAt,
       itemsProcessed: Object.keys(summaries).length,
+      ...(sweepError ? { error: sweepError } : {}),
     });
 
     return ok({
