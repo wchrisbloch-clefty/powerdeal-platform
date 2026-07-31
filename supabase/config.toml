@@ -1,0 +1,23 @@
+# Supabase CLI project config.
+#
+# The three scheduled functions are invoked by pg_cron, which sends only the
+# `x-cron-secret` header — it has no Supabase JWT to present. With Supabase's
+# default JWT verification on, the platform gateway would reject every one of
+# those calls with a 401 before the function's own isAuthorized() check ever
+# ran: the pg_cron schedule would look healthy while nothing executed.
+#
+# Setting verify_jwt = false here makes that declarative, so it survives a
+# deploy that forgets the --no-verify-jwt flag. These functions are NOT
+# unauthenticated as a result — each one gates on CRON_SECRET via
+# _shared/auth.ts, which denies everything when the secret is unset.
+
+project_id = "nwbbcczawvmgtjeelyvf"
+
+[functions.market-watch]
+verify_jwt = false
+
+[functions.stall-alert]
+verify_jwt = false
+
+[functions.ccus-sweep]
+verify_jwt = false

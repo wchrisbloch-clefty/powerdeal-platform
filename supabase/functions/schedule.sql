@@ -1,9 +1,20 @@
 -- ═══════════════════════════════════════════════════════
 -- PowerDeal — pg_cron schedules
 --
--- BEFORE RUNNING, replace both placeholders throughout this file:
---   {PROJECT_REF}  → your Supabase project ref (the subdomain in your URL)
---   {CRON_SECRET}  → the value of CRON_SECRET (openssl rand -hex 32)
+-- BEFORE RUNNING: replace {CRON_SECRET} throughout this file (5 places) with
+-- the real value. The project ref is already filled in.
+--
+-- {CRON_SECRET} is deliberately NOT committed. It is the only thing standing
+-- between the public internet and three functions that write to every user's
+-- data, so it stays out of git — paste it in the SQL editor at run time.
+-- Generate with: openssl rand -hex 32
+--
+-- ⚠️  The functions MUST be deployed with JWT verification OFF (supabase/
+-- config.toml sets this declaratively; --no-verify-jwt does it per deploy).
+-- pg_cron sends only the x-cron-secret header and has no Supabase JWT to
+-- present — with verification on, the platform gateway 401s every call BEFORE
+-- the function's own auth check runs. The schedule looks healthy, nothing
+-- executes, and cron.job_run_details is the only place the 401 appears.
 --
 -- Times are UTC. The CT offsets below are for CDT (UTC-5). During CST
 -- (UTC-6) each job fires one hour LATER in local time — pg_cron has no
@@ -30,7 +41,7 @@ select cron.schedule(
   '0 13 * * 5',
   $$
   select net.http_post(
-    url := 'https://{PROJECT_REF}.functions.supabase.co/market-watch',
+    url := 'https://nwbbcczawvmgtjeelyvf.functions.supabase.co/market-watch',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'x-cron-secret', '{CRON_SECRET}'
@@ -51,7 +62,7 @@ select cron.schedule(
   '0 12 * * *',
   $$
   select net.http_post(
-    url := 'https://{PROJECT_REF}.functions.supabase.co/stall-alert',
+    url := 'https://nwbbcczawvmgtjeelyvf.functions.supabase.co/stall-alert',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'x-cron-secret', '{CRON_SECRET}'
@@ -69,7 +80,7 @@ select cron.schedule(
   '0 11 * * *',
   $$
   select net.http_post(
-    url := 'https://{PROJECT_REF}.functions.supabase.co/ccus-sweep',
+    url := 'https://nwbbcczawvmgtjeelyvf.functions.supabase.co/ccus-sweep',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'x-cron-secret', '{CRON_SECRET}'
@@ -96,6 +107,6 @@ select cron.schedule(
 --
 -- Fire one by hand:
 --   select net.http_post(
---     url := 'https://{PROJECT_REF}.functions.supabase.co/stall-alert',
+--     url := 'https://nwbbcczawvmgtjeelyvf.functions.supabase.co/stall-alert',
 --     headers := jsonb_build_object('x-cron-secret', '{CRON_SECRET}'),
 --     body := '{}'::jsonb);
