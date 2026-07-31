@@ -63,4 +63,37 @@ export interface CandidateSet {
   urls: string[];
 }
 
-export const FEED_CANDIDATES: CandidateSet[] = [];
+/**
+ * Federal Register query builder. Same approach that repaired ferc-news: the
+ * FR publishes the agency action itself, exposes an RSS API meant to be
+ * polled, and sits behind no WAF — so it holds up as a VERIFIED-tier source.
+ */
+const frEpa = (term: string) =>
+  'https://www.federalregister.gov/api/v1/documents.rss' +
+  '?conditions%5Bagencies%5D%5B%5D=environmental-protection-agency' +
+  `&conditions%5Bterm%5D=${encodeURIComponent(term)}` +
+  '&order=newest&per_page=40';
+
+export const FEED_CANDIDATES: CandidateSet[] = [
+  {
+    sourceId: 'epa-class-vi',
+    failure:
+      'NEW SOURCE — restoring VERIFIED-tier CCUS coverage lost when netl-news moved to the DOE-wide feed',
+    /**
+     * Four phrasings because it is not obvious which one the Federal Register
+     * actually indexes. EPA files these as "Underground Injection Control
+     * Program" notices, so the literal string "Class VI" may appear only in
+     * the body — or only in some of them.
+     *
+     * The DOE + carbon-capture attempt is the cautionary case: it returned 2
+     * items and one was an advisory-committee renewal. Judge these on
+     * sampleTitles being real Class VI permit actions, not on item count.
+     */
+    urls: [
+      frEpa('"Class VI"'),
+      frEpa('underground injection control'),
+      frEpa('geologic sequestration'),
+      frEpa('carbon dioxide injection'),
+    ],
+  },
+];
