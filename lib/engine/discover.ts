@@ -101,8 +101,18 @@ export interface CoverageGap extends Cluster {
  * outlets — a single blog post is noise, three outlets on the same story is a
  * hole in the reader's coverage.
  */
+/**
+ * Only the headline and date of a core item matter for gap detection, so this
+ * accepts the narrow shape. Lets the Intelligence page pass stored FeedItems
+ * without inventing the rest of a RawItem.
+ */
+export interface CoreHeadline {
+  title: string;
+  publishedAt: string | null;
+}
+
 export function findCoverageGaps(
-  coreItems: RawItem[],
+  coreItems: CoreHeadline[],
   discoveryItems: RawItem[],
   minOutlets = 2,
 ): CoverageGap[] {
@@ -135,7 +145,7 @@ export function findCoverageGaps(
  */
 export async function runDiscovery(
   vertical: VerticalConfig,
-  coreItems: RawItem[],
+  coreItems: CoreHeadline[],
   enabledDiscoveryIds: string[] = [],
   windowHours = 48,
 ): Promise<CoverageGap[]> {
@@ -147,5 +157,9 @@ export async function runDiscovery(
   if (nets.length === 0) return [];
 
   const discovered = withinHours(await fetchSources(nets, 3), windowHours);
-  return findCoverageGaps(withinHours(coreItems, windowHours), discovered);
+  const cutoff = Date.now() - windowHours * 3600_000;
+  const recentCore = coreItems.filter(
+    (i) => !i.publishedAt || Date.parse(i.publishedAt) >= cutoff,
+  );
+  return findCoverageGaps(recentCore, discovered);
 }

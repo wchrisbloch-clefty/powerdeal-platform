@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Download, Plus, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Download, Plus, X } from 'lucide-react';
 import type { UserSettings, SourceTier, CustomSource } from '@/lib/types';
 import type { VerticalConfig } from '@/lib/verticals/types';
 import type { EnvStatus } from '@/lib/env-check';
@@ -117,6 +117,40 @@ export default function SettingsPanel({
     } finally {
       setSaving(false);
     }
+  }
+
+  /**
+   * Sweep order. `prefs.order` holds only the ids that have been moved, so a
+   * source never touched keeps its config position — an operator who reorders
+   * two feeds should not silently re-sort the other nineteen.
+   */
+  function orderedSources() {
+    const order = prefs.order ?? [];
+    return [...vertical.sources].sort((a, b) => {
+      const ai = order.indexOf(a.id);
+      const bi = order.indexOf(b.id);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }
+
+  function moveSource(id: string, delta: -1 | 1) {
+    setPrefs((p) => {
+      // Seed from the currently displayed order so the first move is relative
+      // to what the operator is actually looking at.
+      const current = (p.order ?? []).length > 0
+        ? [...(p.order ?? [])]
+        : orderedSources().map((s) => s.id);
+      const from = current.indexOf(id);
+      if (from === -1) return p;
+      const to = from + delta;
+      if (to < 0 || to >= current.length) return p;
+      const next = [...current];
+      [next[from], next[to]] = [next[to], next[from]];
+      return { ...p, order: next };
+    });
   }
 
   function toggleSource(id: string, isDiscovery: boolean) {
@@ -268,7 +302,7 @@ export default function SettingsPanel({
           <div>
             <p className="eyebrow mb-2">Core sources ({vertical.sources.length})</p>
             <div className="space-y-1.5">
-              {vertical.sources.map((s) => {
+              {orderedSources().map((s, i, arr) => {
                 const on = !prefs.muted.includes(s.id);
                 const h = healthById.get(s.id);
                 return (
@@ -282,6 +316,26 @@ export default function SettingsPanel({
                       onChange={() => toggleSource(s.id, false)}
                       className="mt-1 h-3.5 w-3.5 shrink-0 accent-[color:var(--color-accent)]"
                     />
+                    <span className="mt-0.5 flex shrink-0 flex-col">
+                      <button
+                        type="button"
+                        aria-label={`Move ${s.name} up`}
+                        disabled={i === 0}
+                        onClick={(e) => { e.preventDefault(); moveSource(s.id, -1); }}
+                        className="text-text-faint hover:text-text disabled:opacity-25"
+                      >
+                        <ChevronUp size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Move ${s.name} down`}
+                        disabled={i === arr.length - 1}
+                        onClick={(e) => { e.preventDefault(); moveSource(s.id, 1); }}
+                        className="text-text-faint hover:text-text disabled:opacity-25"
+                      >
+                        <ChevronDown size={12} />
+                      </button>
+                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">
                         <span className={cn('text-sm', on ? 'text-text' : 'text-text-faint')}>

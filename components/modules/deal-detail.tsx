@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, BookOpen, CheckCircle2, FileText, HelpCircle, Map as MapIcon,
   Radio, Send, ShieldCheck, AlertTriangle,
@@ -46,6 +47,7 @@ export default function DealDetail({
   transitions: StageTransition[];
   isSeed: boolean;
 }) {
+  const params = useSearchParams();
   const [tab, setTab] = useState<Tab>('intel');
   const [activeTask, setActiveTask] = useState<TaskKind | null>(null);
   const [capturing, setCapturing] = useState(false);
@@ -60,6 +62,30 @@ export default function DealDetail({
     setActiveTask(task);
     await ai.run({ task, dealId: deal.id });
   }
+
+  /**
+   * Arrive with a task already chosen — /app/pipeline/[id]?ai=outreach.
+   *
+   * This is the landing for "Draft outreach" on a feed item. Without it the
+   * handoff would drop the reader on the deal page with no indication of why
+   * they are there, and they would have to find the button themselves.
+   *
+   * Guarded by a ref rather than the effect deps so it fires once per arrival:
+   * re-running a 40-second model call because a parent re-rendered would be
+   * both expensive and confusing.
+   */
+  const armed = useRef(false);
+  useEffect(() => {
+    if (armed.current) return;
+    const requested = params.get('ai');
+    if (!requested) return;
+    if (!AI_ACTIONS.some((t) => t.task === requested)) return;
+    armed.current = true;
+    void runTask(requested as TaskKind);
+    // runTask is stable for the life of this component; deps intentionally
+    // narrow so a parent re-render cannot retrigger the call.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
 
   return (
     <div className="space-y-5">
