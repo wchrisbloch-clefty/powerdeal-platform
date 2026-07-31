@@ -12,6 +12,7 @@ import type { ItemState } from '@/lib/feed-state';
 import { relativeTime, cn } from '@/lib/utils';
 import { categoryLabel, getActiveVertical } from '@/lib/active-vertical';
 import { entitiesIn } from '@/lib/engine/entities';
+import { PLATFORM_LABELS, platformOf } from '@/lib/platforms';
 import ProvenanceChip, { ConfidenceRule } from '@/components/ui/provenance-chip';
 import { EntityChip } from '@/components/ui/entity-link';
 import Badge from '@/components/ui/badge';
@@ -209,6 +210,10 @@ export default function FeedItemCard({
     >
       <div className="flex flex-wrap items-center gap-2">
         <ProvenanceChip tier={item.tier} />
+        {/* Provenance and channel are different questions — how much to trust
+            it, and where it came from — so both are readable at a glance now
+            that RSS and social share one stream. */}
+        <Badge tone="neutral">{PLATFORM_LABELS[platformOf(item)]}</Badge>
         {item.source_name ? (
           <span className="truncate text-xs text-text-dim">{item.source_name}</span>
         ) : null}

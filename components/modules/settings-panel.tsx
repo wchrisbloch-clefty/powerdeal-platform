@@ -1,46 +1,28 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, ChevronDown, ChevronUp, Download, Plus, X } from 'lucide-react';
-import type { UserSettings, SourceTier, CustomSource } from '@/lib/types';
-import type { VerticalConfig } from '@/lib/verticals/types';
+import Link from 'next/link';
+import { Check, Download, Plus, X } from 'lucide-react';
+import type { UserSettings } from '@/lib/types';
 import type { EnvStatus } from '@/lib/env-check';
 import { POWERDEAL_VERSION } from '@/lib/brand';
 import { cn } from '@/lib/utils';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import Button from '@/components/ui/button';
 import Badge from '@/components/ui/badge';
-import ProvenanceChip from '@/components/ui/provenance-chip';
 
-interface SourceHealthReport {
-  checked: number;
-  ok: number;
-  broken: number;
-  sources: {
-    id: string;
-    name: string;
-    status: 'ok' | 'empty' | 'error';
-    httpStatus: number | null;
-    itemCount: number;
-    message: string | null;
-  }[];
-}
-
-const DEFAULTS: Required<Pick<UserSettings, 'source_prefs' | 'watchlist'>> = {
-  source_prefs: { muted: [], enabled: [], order: [], custom: [] },
+const DEFAULTS: Required<Pick<UserSettings, 'watchlist'>> = {
   watchlist: { accounts: [], topics: [], verticals: [], utilities: [] },
 };
 
 export default function SettingsPanel({
   settings,
-  vertical,
   env,
   brainReady,
   brainError,
   canPersist,
 }: {
   settings: UserSettings | null;
-  vertical: VerticalConfig;
   env: EnvStatus;
   brainReady: boolean;
   brainError: string | null;
@@ -51,7 +33,6 @@ export default function SettingsPanel({
    */
   canPersist: boolean;
 }) {
-  const [prefs, setPrefs] = useState(settings?.source_prefs ?? DEFAULTS.source_prefs);
   const [watchlist, setWatchlist] = useState(settings?.watchlist ?? DEFAULTS.watchlist);
   const [density, setDensity] = useState(settings?.display_density ?? 'comfortable');
   const [mapLayer, setMapLayer] = useState(settings?.default_map_layer ?? 'non-attainment');
@@ -64,26 +45,8 @@ export default function SettingsPanel({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [newSource, setNewSource] = useState({ name: '', url: '', category: 'power-markets' });
   const [newTopic, setNewTopic] = useState('');
   const [newUtility, setNewUtility] = useState('');
-
-  const [health, setHealth] = useState<SourceHealthReport | null>(null);
-  const [checking, setChecking] = useState(false);
-
-  async function checkSources() {
-    setChecking(true);
-    try {
-      const res = await fetch('/api/feed/health');
-      setHealth((await res.json()) as SourceHealthReport);
-    } catch {
-      setError('Could not reach the source health check.');
-    } finally {
-      setChecking(false);
-    }
-  }
-
-  const healthById = new Map(health?.sources.map((s) => [s.id, s]) ?? []);
 
   async function save() {
     if (!canPersist) {
@@ -99,7 +62,9 @@ export default function SettingsPanel({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          source_prefs: prefs,
+          // source_prefs deliberately absent: Intelligence › Sources owns it.
+          // The PATCH schema is partial, and sending this panel's stale copy
+          // would silently undo source changes made there.
           watchlist,
           display_density: density,
           default_map_layer: mapLayer,
@@ -119,76 +84,6 @@ export default function SettingsPanel({
     }
   }
 
-  /**
-   * Sweep order. `prefs.order` holds only the ids that have been moved, so a
-   * source never touched keeps its config position — an operator who reorders
-   * two feeds should not silently re-sort the other nineteen.
-   */
-  function orderedSources() {
-    const order = prefs.order ?? [];
-    return [...vertical.sources].sort((a, b) => {
-      const ai = order.indexOf(a.id);
-      const bi = order.indexOf(b.id);
-      if (ai === -1 && bi === -1) return 0;
-      if (ai === -1) return 1;
-      if (bi === -1) return -1;
-      return ai - bi;
-    });
-  }
-
-  function moveSource(id: string, delta: -1 | 1) {
-    setPrefs((p) => {
-      // Seed from the currently displayed order so the first move is relative
-      // to what the operator is actually looking at.
-      const current = (p.order ?? []).length > 0
-        ? [...(p.order ?? [])]
-        : orderedSources().map((s) => s.id);
-      const from = current.indexOf(id);
-      if (from === -1) return p;
-      const to = from + delta;
-      if (to < 0 || to >= current.length) return p;
-      const next = [...current];
-      [next[from], next[to]] = [next[to], next[from]];
-      return { ...p, order: next };
-    });
-  }
-
-  function toggleSource(id: string, isDiscovery: boolean) {
-    setPrefs((p) => {
-      if (isDiscovery) {
-        // Discovery is opt-in — presence in `enabled` is the switch.
-        const on = p.enabled.includes(id);
-        return {
-          ...p,
-          enabled: on ? p.enabled.filter((s) => s !== id) : [...p.enabled, id],
-        };
-      }
-      // Core is opt-out — presence in `muted` is the switch.
-      const muted = p.muted.includes(id);
-      return { ...p, muted: muted ? p.muted.filter((s) => s !== id) : [...p.muted, id] };
-    });
-  }
-
-  function addCustomSource() {
-    if (!newSource.name.trim() || !newSource.url.trim()) return;
-    try {
-      new URL(newSource.url);
-    } catch {
-      setError('Custom source URL is not valid.');
-      return;
-    }
-    const source: CustomSource = {
-      id: `custom-${newSource.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-      name: newSource.name.trim(),
-      url: newSource.url.trim(),
-      category: newSource.category,
-      // A user-added feed is REPORTED at best — we have not vetted it.
-      defaultTier: 'reported' as SourceTier,
-    };
-    setPrefs((p) => ({ ...p, custom: [...p.custom, source] }));
-    setNewSource({ name: '', url: '', category: 'power-markets' });
-    setError(null);
-  }
 
   return (
     <div className="space-y-5">
@@ -260,193 +155,29 @@ export default function SettingsPanel({
         </CardBody>
       </Card>
 
-      {/* ── Sources ── */}
+      {/*
+        Source management moved to Intelligence › Sources.
+
+        It was two levels away from the feed it curates, and it covered only
+        RSS — the social sources were configured nowhere at all. Choosing a
+        channel is the same decision whether it is a publisher feed or a
+        subreddit, so both now live together next to the stream they feed.
+      */}
       <Card>
         <CardHeader>
           <div>
-            <CardTitle>Source management</CardTitle>
+            <CardTitle>Sources</CardTitle>
             <p className="mt-0.5 text-xs text-text-dim">
-              Core sources feed the Intelligence page. Discovery nets never do — they
-              only surface what your core sources missed.
+              Curation moved next to the feed it curates.
             </p>
           </div>
-          <Button variant="secondary" size="sm" onClick={checkSources} disabled={checking}>
-            {checking ? 'Checking…' : 'Check all feeds'}
-          </Button>
+          <Link
+            href="/app/intelligence?tab=sources"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-rule px-2.5 text-xs text-text-dim transition-colors hover:border-accent-border hover:text-text"
+          >
+            Open Sources
+          </Link>
         </CardHeader>
-        <CardBody className="space-y-4">
-          {/* Publisher feed URLs move. A dead source otherwise just makes the
-              feed quieter, with nothing to tell you why. */}
-          {health && (
-            <div
-              className={cn(
-                'rounded-md border px-3 py-2 text-sm',
-                health.broken === 0
-                  ? 'border-accent-border bg-accent-bg text-accent-dim'
-                  : 'border-rule bg-bg text-text',
-              )}
-            >
-              {health.broken === 0 ? (
-                <>All {health.ok} feeds responded with items.</>
-              ) : (
-                <>
-                  <strong>{health.broken}</strong> of {health.checked} feeds are not
-                  returning items. Fix the URL in{' '}
-                  <span className="font-mono text-xs">lib/verticals/powerdeal.ts</span>,
-                  or mute the source below.
-                </>
-              )}
-            </div>
-          )}
-
-          <div>
-            <p className="eyebrow mb-2">Core sources ({vertical.sources.length})</p>
-            <div className="space-y-1.5">
-              {orderedSources().map((s, i, arr) => {
-                const on = !prefs.muted.includes(s.id);
-                const h = healthById.get(s.id);
-                return (
-                  <label
-                    key={s.id}
-                    className="flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-1.5 hover:bg-bg-overlay"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() => toggleSource(s.id, false)}
-                      className="mt-1 h-3.5 w-3.5 shrink-0 accent-[color:var(--color-accent)]"
-                    />
-                    <span className="mt-0.5 flex shrink-0 flex-col">
-                      <button
-                        type="button"
-                        aria-label={`Move ${s.name} up`}
-                        disabled={i === 0}
-                        onClick={(e) => { e.preventDefault(); moveSource(s.id, -1); }}
-                        className="text-text-faint hover:text-text disabled:opacity-25"
-                      >
-                        <ChevronUp size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Move ${s.name} down`}
-                        disabled={i === arr.length - 1}
-                        onClick={(e) => { e.preventDefault(); moveSource(s.id, 1); }}
-                        className="text-text-faint hover:text-text disabled:opacity-25"
-                      >
-                        <ChevronDown size={12} />
-                      </button>
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className={cn('text-sm', on ? 'text-text' : 'text-text-faint')}>
-                          {s.name}
-                        </span>
-                        <ProvenanceChip tier={s.defaultTier} />
-                        {h ? (
-                          <Badge tone={h.status === 'ok' ? 'success' : 'danger'}>
-                            {h.status === 'ok' ? `${h.itemCount} items` : (h.httpStatus ?? 'error')}
-                          </Badge>
-                        ) : null}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-text-dim">{s.rationale}</span>
-                      {h?.message ? (
-                        <span className="mt-0.5 block text-xs text-danger">{h.message}</span>
-                      ) : null}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="border-t border-rule pt-3">
-            <p className="eyebrow mb-2">Discovery nets ({vertical.discovery.length})</p>
-            <div className="space-y-1.5">
-              {vertical.discovery.map((s) => (
-                <label
-                  key={s.id}
-                  className="flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-1.5 hover:bg-bg-overlay"
-                >
-                  <input
-                    type="checkbox"
-                    checked={prefs.enabled.includes(s.id)}
-                    onChange={() => toggleSource(s.id, true)}
-                    className="mt-1 h-3.5 w-3.5 shrink-0 accent-[color:var(--color-accent)]"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm text-text">{s.name}</span>
-                      <ProvenanceChip tier="inferred" />
-                    </span>
-                    <span className="mt-0.5 block text-xs text-text-dim">{s.rationale}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="border-t border-rule pt-3">
-            <p className="eyebrow mb-2">Custom sources</p>
-            {prefs.custom.length > 0 && (
-              <ul className="mb-2.5 space-y-1.5">
-                {prefs.custom.map((c) => (
-                  <li
-                    key={c.id}
-                    className="flex items-center gap-2 rounded-md border border-rule px-2.5 py-1.5"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm text-text">{c.name}</span>
-                      <span className="block truncate text-xs text-text-faint">{c.url}</span>
-                    </span>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${c.name}`}
-                      onClick={() =>
-                        setPrefs((p) => ({
-                          ...p,
-                          custom: p.custom.filter((s) => s.id !== c.id),
-                        }))
-                      }
-                      className="rounded p-1 text-text-dim hover:text-danger"
-                    >
-                      <X size={13} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <input
-                value={newSource.name}
-                onChange={(e) => setNewSource((s) => ({ ...s, name: e.target.value }))}
-                placeholder="Source name"
-                className={cn(inputClass, 'min-w-[130px] flex-1')}
-              />
-              <input
-                value={newSource.url}
-                onChange={(e) => setNewSource((s) => ({ ...s, url: e.target.value }))}
-                placeholder="https://example.com/feed"
-                className={cn(inputClass, 'min-w-[180px] flex-[2]')}
-              />
-              <select
-                value={newSource.category}
-                onChange={(e) => setNewSource((s) => ({ ...s, category: e.target.value }))}
-                className={inputClass}
-              >
-                {vertical.categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.label}</option>
-                ))}
-              </select>
-              <Button variant="secondary" size="sm" onClick={addCustomSource}>
-                <Plus size={13} /> Add
-              </Button>
-            </div>
-            <p className="mt-1.5 text-xs text-text-faint">
-              Custom feeds are graded REPORTED — we have not vetted them as primary
-              sources.
-            </p>
-          </div>
-        </CardBody>
       </Card>
 
       {/* ── Watchlist ── */}

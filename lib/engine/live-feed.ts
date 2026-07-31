@@ -88,7 +88,25 @@ export async function getLiveFeed(deals: Deal[], force = false): Promise<LiveFee
 
 async function buildLiveFeed(deals: Deal[]): Promise<LiveFeed> {
   const vertical = getActiveVertical();
-  const sources = resolveSources(vertical).filter((s) => s.role === 'core');
+  const resolved = resolveSources(vertical);
+
+  /**
+   * One stream, many channels.
+   *
+   * Social used to be a separate destination with its own rails, which meant a
+   * Reddit thread about a Valero expansion and a rate filing about the same
+   * plant lived on different pages and neither knew about the other. They are
+   * both signals about the same account, so they belong in the same pool,
+   * graded and account-mapped by the same rules — the only thing that differs
+   * is the channel, and that is a filter, not a destination.
+   *
+   * Reddit rides in from the discovery list because that is where it is
+   * configured; it keeps its own tier (never better than INFERRED) via
+   * classifyTier, so merging the streams does not launder its provenance.
+   */
+  const sources = resolved.filter(
+    (s) => s.role === 'core' || s.platform === 'reddit',
+  );
 
   let raw: RawItem[] = [];
   try {
@@ -153,8 +171,23 @@ async function buildLiveFeed(deals: Deal[]): Promise<LiveFeed> {
     }
   });
 
+  /**
+   * Captures belong in the stream too.
+   *
+   * A shared LinkedIn post is the one kind of item the fetchers can never
+   * find — someone chose to keep it. Leaving those in the database and off the
+   * feed meant the act of capturing something removed it from view, which is
+   * the opposite of what capturing is for.
+   */
+  const captured = await fetchCaptured(supabase);
+  const items = [...graded.map((g) => g.item), ...captured].sort((a, b) => {
+    const at = Date.parse(a.published_at ?? a.cached_at);
+    const bt = Date.parse(b.published_at ?? b.cached_at);
+    return (Number.isNaN(bt) ? 0 : bt) - (Number.isNaN(at) ? 0 : at);
+  });
+
   return {
-    items: graded.map((g) => g.item),
+    items,
     live: true,
     isSeed: false,
     fetchedAt: new Date().toISOString(),
@@ -171,6 +204,34 @@ async function buildLiveFeed(deals: Deal[]): Promise<LiveFeed> {
  * same id on every load, so "not for me" sticks without the item ever having
  * been persisted.
  */
+/**
+ * Manually captured items, newest first.
+ *
+ * Best-effort: a capture table that is unreachable should quiet the feed by a
+ * few rows, never take the page down.
+ */
+async function fetchCaptured(
+  supabase: ReturnType<typeof getAdminClient>,
+  limit = 25,
+): Promise<FeedItem[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('feed_items')
+      .select('*')
+      .eq('user_id', POWERDEAL_USER_ID)
+      .in('arrival', ['share', 'manual'])
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .limit(limit);
+
+    if (error) throw new Error(error.message);
+    return (data ?? []) as FeedItem[];
+  } catch (err) {
+    console.warn('[live-feed] captured read failed:', (err as Error).message);
+    return [];
+  }
+}
+
 interface GradedItem {
   item: FeedItem;
   matches: ReturnType<typeof mapToAccounts>;

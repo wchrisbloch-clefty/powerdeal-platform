@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Home, BarChart3, RadioTower, Map, TrendingUp, Layers,
-  DollarSign, FileText, MessageSquare, SlidersHorizontal,
+  Home, BarChart3, RadioTower, Map,
+  FileText, MessageSquare, SlidersHorizontal,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Wordmark } from '@/components/ui/bloom-logo';
@@ -19,18 +19,34 @@ export interface NavItem {
   primary?: boolean;
 }
 
+/**
+ * Destinations only.
+ *
+ * This was ten items, four of which were not destinations but views of the same
+ * intelligence — Social, CCUS and Pricing are now tabs inside Intelligence, and
+ * Sources moved out of Settings to join them. A nav item should answer "where
+ * am I going", not "how do I want this filtered"; filters belong at the top of
+ * the destination they filter.
+ */
 export const NAV_ITEMS: NavItem[] = [
-  { href: '/app', label: 'Dashboard', icon: Home },
+  { href: '/app', label: 'Dashboard', icon: Home, primary: true },
   { href: '/app/pipeline', label: 'Pipeline', icon: BarChart3, primary: true },
   { href: '/app/intelligence', label: 'Intelligence', icon: RadioTower, primary: true },
   { href: '/app/maps', label: 'Maps', icon: Map, primary: true },
-  { href: '/app/social', label: 'Social', icon: TrendingUp },
-  { href: '/app/ccus', label: 'CCUS', icon: Layers },
-  { href: '/app/pricing-intel', label: 'Pricing', icon: DollarSign },
   { href: '/app/forge', label: 'Forge', icon: FileText },
   { href: '/app/chat', label: 'Chat', icon: MessageSquare, primary: true },
-  { href: '/app/settings', label: 'Settings', icon: SlidersHorizontal, primary: true },
 ];
+
+/**
+ * Pinned to the bottom and de-emphasized. Settings is somewhere you go once to
+ * configure and then rarely again — giving it equal weight in the main list
+ * spends the reader's attention on it every single time they navigate.
+ */
+export const SETTINGS_ITEM: NavItem = {
+  href: '/app/settings',
+  label: 'Settings',
+  icon: SlidersHorizontal,
+};
 
 function useIsActive() {
   const pathname = usePathname();
@@ -84,6 +100,29 @@ export function Sidebar() {
           );
         })}
       </ul>
+
+      <div className="shrink-0 border-t border-rule px-2 pb-1 pt-2">
+        <Link
+          href={SETTINGS_ITEM.href}
+          aria-current={isActive(SETTINGS_ITEM.href) ? 'page' : undefined}
+          className={cn(
+            'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors',
+            isActive(SETTINGS_ITEM.href)
+              ? 'bg-bg-raised font-medium text-text'
+              : 'text-text-faint hover:bg-bg-raised hover:text-text-dim',
+          )}
+        >
+          <span
+            aria-hidden
+            className={cn(
+              'h-4 w-0.5 rounded-full',
+              isActive(SETTINGS_ITEM.href) ? 'bg-accent' : 'bg-transparent',
+            )}
+          />
+          <SETTINGS_ITEM.icon size={16} strokeWidth={1.75} />
+          {SETTINGS_ITEM.label}
+        </Link>
+      </div>
 
       <div className="shrink-0 border-t border-rule px-4 py-3">
         <p className="font-mono text-[10px] uppercase tracking-wider text-text-faint">

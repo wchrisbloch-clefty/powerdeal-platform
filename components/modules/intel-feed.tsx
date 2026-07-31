@@ -9,6 +9,13 @@ import type { PeerCandidate } from '@/lib/engine/peer-radar';
 import type { Trend } from '@/lib/engine/trending';
 import type { ItemState, FeedStateMap } from '@/lib/feed-state';
 import { getActiveVertical } from '@/lib/active-vertical';
+import {
+  FEED_PLATFORMS,
+  PLATFORM_LABELS,
+  platformCounts,
+  platformOf,
+  type FeedPlatform,
+} from '@/lib/platforms';
 import { cn, relativeTime } from '@/lib/utils';
 import FeedItemCard from './feed-item';
 import CoverageGapBlock from './coverage-gap';
@@ -51,6 +58,7 @@ export default function IntelFeed({
   const router = useRouter();
   const vertical = getActiveVertical();
   const [category, setCategory] = useState('all');
+  const [platform, setPlatform] = useState<FeedPlatform | 'all'>('all');
   const [topic, setTopic] = useState<string | null>(null);
   const [view, setView] = useState<View>('grid');
   const [refreshing, setRefreshing] = useState(false);
@@ -69,8 +77,15 @@ export default function IntelFeed({
     setStates((prev) => ({ ...prev, [id]: next ?? undefined }));
   }
 
+  /**
+   * Category and platform are independent axes and combine freely — "CCUS on
+   * YouTube" is a state a reader can reach. They are separate rows rather than
+   * one merged chip strip because they answer different questions: what a story
+   * is about, and where it came from.
+   */
   const filtered = useMemo(() => {
     let out = category === 'all' ? items : items.filter((i) => i.category === category);
+    if (platform !== 'all') out = out.filter((i) => platformOf(i) === platform);
     if (topic) {
       const needle = topic.toLowerCase();
       out = out.filter((i) =>
@@ -78,7 +93,9 @@ export default function IntelFeed({
       );
     }
     return out;
-  }, [items, category, topic]);
+  }, [items, category, platform, topic]);
+
+  const counts = useMemo(() => platformCounts(items), [items]);
 
   const breaking = filtered.filter((i) => i.breaking);
 
@@ -216,6 +233,30 @@ export default function IntelFeed({
         </div>
       </div>
 
+      {/* ── Platform row ── */}
+      <div className="scrollbar-thin -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        <Chip active={platform === 'all'} onClick={() => setPlatform('all')}>
+          All channels
+        </Chip>
+        {FEED_PLATFORMS.map((p) => {
+          const count = counts[p];
+          return (
+            <Chip
+              key={p}
+              active={platform === p}
+              onClick={() => setPlatform(p)}
+              // A channel with nothing in it stays visible but unclickable —
+              // hiding it would make the feed look like it has fewer channels
+              // than it does, and "no LinkedIn captures yet" is information.
+              disabled={count === 0}
+            >
+              {PLATFORM_LABELS[p]}
+              <span className="ml-1 font-mono text-[10px] opacity-60">{count}</span>
+            </Chip>
+          );
+        })}
+      </div>
+
       {topic ? (
         <p className="text-xs text-text-dim">
           Filtered to <span className="text-text">{topic}</span>{' '}
@@ -275,22 +316,26 @@ export default function IntelFeed({
 function Chip({
   active,
   onClick,
+  disabled,
   children,
 }: {
   active: boolean;
   onClick: () => void;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-pressed={active}
       className={cn(
         'whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors',
         active
           ? 'border-accent-border bg-accent-bg text-accent-dim'
           : 'border-rule bg-bg-raised text-text-dim hover:text-text',
+        disabled && 'cursor-not-allowed opacity-40 hover:text-text-dim',
       )}
     >
       {children}
