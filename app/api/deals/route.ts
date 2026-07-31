@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { getAuthedClient } from '@/lib/supabase/server';
+import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { getDeals } from '@/lib/data';
 import { computeHealthScore, computeMeddpiccScore, nextDealId } from '@/lib/deals';
 import { VERTICALS, RELATIONSHIP_TYPES, DEAL_STAGES } from '@/lib/types';
@@ -33,8 +33,8 @@ export async function GET() {
 
 /** POST /api/deals — create. deal_id is generated from the vertical prefix. */
 export async function POST(request: NextRequest) {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) {
+  const supabase = getAdminClient();
+  if (!supabase) {
     return NextResponse.json(
       { error: 'Sign in to create deals. The template pipeline is read-only.' },
       { status: 401 },
@@ -53,9 +53,12 @@ export async function POST(request: NextRequest) {
   }
 
   // Generate the human deal_id from what already exists for this user.
+  // The user_id filter is explicit because the service role bypasses RLS —
+  // without it the next id would be derived from every user's deals.
   const { data: existing } = await supabase
     .from('deals')
     .select('deal_id')
+    .eq('user_id', POWERDEAL_USER_ID)
     .like('deal_id', '%-%');
 
   const dealId = nextDealId(
@@ -66,7 +69,7 @@ export async function POST(request: NextRequest) {
   const draft = {
     ...parsed,
     deal_id: dealId,
-    user_id: user.id,
+    user_id: POWERDEAL_USER_ID,
     days_in_stage: 0,
     multi_threaded: false,
     decision_mapped: false,

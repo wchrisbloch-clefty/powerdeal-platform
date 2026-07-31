@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { getAuthedClient } from '@/lib/supabase/server';
+import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { getRecentSignals } from '@/lib/data';
 import { SIGNAL_TYPES } from '@/lib/types';
 
@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
 
 /** POST /api/signals — log a signal against one or more deals. */
 export async function POST(request: NextRequest) {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) {
+  const supabase = getAdminClient();
+  if (!supabase) {
     return NextResponse.json(
       { error: 'Sign in to log signals — the Intelligence Log needs somewhere to persist.' },
       { status: 401 },
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('intelligence_log')
-    .insert({ ...parsed, user_id: user.id })
+    .insert({ ...parsed, user_id: POWERDEAL_USER_ID })
     .select()
     .single();
 

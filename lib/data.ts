@@ -1,5 +1,5 @@
 import 'server-only';
-import { getAuthedClient } from './supabase/server';
+import { ownerSelect } from './supabase/admin';
 import { SEED_DEALS, SEED_FEED_ITEMS } from './seed-data';
 import type {
   Deal, FeedItem, Signal, MarketWatchEntry, CcusEvent,
@@ -9,10 +9,18 @@ import type {
 /**
  * Server-side data access.
  *
- * Every reader returns real rows when Supabase is configured and the user is
- * signed in, and falls back to seed data otherwise. Pages never branch on
- * "is Supabase configured" — they just render what they get, plus the
- * `isSeed` flag so the UI can be honest about it.
+ * Every reader returns real rows when Supabase is configured and falls back to
+ * seed data otherwise. Pages never branch on "is Supabase configured" — they
+ * just render what they get, plus the `isSeed` flag so the UI can be honest
+ * about it.
+ *
+ * Reads go through ownerSelect() from ./supabase/admin, which uses the
+ * service role and applies `.eq('user_id', POWERDEAL_USER_ID)` itself. There
+ * is no signed-in user to derive scope from since sign-in was removed, and
+ * the service role bypasses RLS — so that scope is this layer's job, not the
+ * database's. See the header of ./supabase/admin for why it is centralised.
+ *
+ * This file is `server-only`. None of it can reach a client bundle.
  */
 
 export interface DataResult<T> {
@@ -22,12 +30,10 @@ export interface DataResult<T> {
 }
 
 export async function getDeals(): Promise<DataResult<Deal[]>> {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) return { data: SEED_DEALS, isSeed: true };
+  const query = ownerSelect('deals');
+  if (!query) return { data: SEED_DEALS, isSeed: true };
 
-  const { data, error } = await supabase
-    .from('deals')
-    .select('*')
+  const { data, error } = await query
     .neq('stage', 'Archived')
     .order('health_score', { ascending: true });
 
@@ -42,16 +48,12 @@ export async function getDeals(): Promise<DataResult<Deal[]>> {
 }
 
 export async function getDeal(id: string): Promise<DataResult<Deal | null>> {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) {
+  const query = ownerSelect('deals');
+  if (!query) {
     return { data: SEED_DEALS.find((d) => d.id === id) ?? null, isSeed: true };
   }
 
-  const { data, error } = await supabase
-    .from('deals')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle();
+  const { data, error } = await query.eq('id', id).maybeSingle();
 
   if (error || !data) {
     const seeded = SEED_DEALS.find((d) => d.id === id) ?? null;
@@ -61,12 +63,10 @@ export async function getDeal(id: string): Promise<DataResult<Deal | null>> {
 }
 
 export async function getSignalsForDeal(dealId: string): Promise<Signal[]> {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) return [];
+  const query = ownerSelect('intelligence_log');
+  if (!query) return [];
 
-  const { data } = await supabase
-    .from('intelligence_log')
-    .select('*')
+  const { data } = await query
     .contains('deal_ids', [dealId])
     .order('logged_at', { ascending: false })
     .limit(50);
@@ -75,12 +75,10 @@ export async function getSignalsForDeal(dealId: string): Promise<Signal[]> {
 }
 
 export async function getRecentSignals(limit = 50): Promise<Signal[]> {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) return [];
+  const query = ownerSelect('intelligence_log');
+  if (!query) return [];
 
-  const { data } = await supabase
-    .from('intelligence_log')
-    .select('*')
+  const { data } = await query
     .order('logged_at', { ascending: false })
     .limit(limit);
 
@@ -88,12 +86,10 @@ export async function getRecentSignals(limit = 50): Promise<Signal[]> {
 }
 
 export async function getMarketWatchForDeal(dealId: string): Promise<MarketWatchEntry[]> {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) return [];
+  const query = ownerSelect('market_watch_log');
+  if (!query) return [];
 
-  const { data } = await supabase
-    .from('market_watch_log')
-    .select('*')
+  const { data } = await query
     .contains('deal_ids', [dealId])
     .order('swept_at', { ascending: false })
     .limit(30);
@@ -102,12 +98,10 @@ export async function getMarketWatchForDeal(dealId: string): Promise<MarketWatch
 }
 
 export async function getMarketWatch(limit = 40): Promise<MarketWatchEntry[]> {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) return [];
+  const query = ownerSelect('market_watch_log');
+  if (!query) return [];
 
-  const { data } = await supabase
-    .from('market_watch_log')
-    .select('*')
+  const { data } = await query
     .order('impact_rank', { ascending: false })
     .order('swept_at', { ascending: false })
     .limit(limit);
@@ -116,12 +110,10 @@ export async function getMarketWatch(limit = 40): Promise<MarketWatchEntry[]> {
 }
 
 export async function getStageTransitions(dealId: string): Promise<StageTransition[]> {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) return [];
+  const query = ownerSelect('stage_transitions');
+  if (!query) return [];
 
-  const { data } = await supabase
-    .from('stage_transitions')
-    .select('*')
+  const { data } = await query
     .eq('deal_id', dealId)
     .order('transitioned_at', { ascending: false });
 
@@ -136,13 +128,11 @@ export interface FeedQuery {
 }
 
 export async function getFeedItems(q: FeedQuery = {}): Promise<DataResult<FeedItem[]>> {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) return { data: SEED_FEED_ITEMS, isSeed: true };
+  const base = ownerSelect('feed_items');
+  if (!base) return { data: SEED_FEED_ITEMS, isSeed: true };
 
   const limit = q.limit ?? 20;
-  let query = supabase
-    .from('feed_items')
-    .select('*')
+  let query = base
     .order('published_at', { ascending: false, nullsFirst: false })
     .range(q.offset ?? 0, (q.offset ?? 0) + limit - 1);
 
@@ -159,12 +149,10 @@ export async function getFeedItems(q: FeedQuery = {}): Promise<DataResult<FeedIt
 }
 
 export async function getCcusEvents(limit = 40): Promise<DataResult<CcusEvent[]>> {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) return { data: [], isSeed: true };
+  const query = ownerSelect('ccus_events');
+  if (!query) return { data: [], isSeed: true };
 
-  const { data } = await supabase
-    .from('ccus_events')
-    .select('*')
+  const { data } = await query
     .order('event_date', { ascending: false, nullsFirst: false })
     .limit(limit);
 
@@ -172,27 +160,20 @@ export async function getCcusEvents(limit = 40): Promise<DataResult<CcusEvent[]>
 }
 
 export async function getUserSettings(): Promise<UserSettings | null> {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) return null;
+  // ownerSelect already filters user_id — no second .eq needed here.
+  const query = ownerSelect('user_settings');
+  if (!query) return null;
 
-  const { data } = await supabase
-    .from('user_settings')
-    .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  const { data } = await query.maybeSingle();
 
   return (data as UserSettings) ?? null;
 }
 
 export async function getAppState<T = unknown>(key: string): Promise<T | null> {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) return null;
+  const query = ownerSelect('app_state', 'value');
+  if (!query) return null;
 
-  const { data } = await supabase
-    .from('app_state')
-    .select('value')
-    .eq('key', key)
-    .maybeSingle();
+  const { data } = await query.eq('key', key).maybeSingle();
 
   return (data?.value as T) ?? null;
 }

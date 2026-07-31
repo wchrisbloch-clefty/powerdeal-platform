@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { getAuthedClient } from '@/lib/supabase/server';
+import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { getDeal, getSignalsForDeal, getMarketWatchForDeal, getStageTransitions } from '@/lib/data';
 import { computeHealthScore, computeMeddpiccScore } from '@/lib/deals';
 import { DEAL_STAGES, VERTICALS, RELATIONSHIP_TYPES } from '@/lib/types';
@@ -63,8 +63,8 @@ const UpdateDeal = z
 /** PATCH /api/deals/[id] — partial update. */
 export async function PATCH(request: NextRequest, { params }: Params) {
   const { id } = await params;
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) {
+  const supabase = getAdminClient();
+  if (!supabase) {
     return NextResponse.json(
       { error: 'Sign in to edit deals. The template pipeline is read-only.' },
       { status: 401 },
@@ -82,9 +82,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
+  // user_id is explicit on every deal query in this file: the service role
+  // bypasses RLS, so an id alone would read or write another user's row.
   const { data: current, error: readError } = await supabase
     .from('deals')
     .select('*')
+    .eq('user_id', POWERDEAL_USER_ID)
     .eq('id', id)
     .maybeSingle();
 
@@ -109,6 +112,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const { data, error } = await supabase
     .from('deals')
     .update(update)
+    .eq('user_id', POWERDEAL_USER_ID)
     .eq('id', id)
     .select()
     .single();
@@ -126,14 +130,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
  */
 export async function DELETE(_request: NextRequest, { params }: Params) {
   const { id } = await params;
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) {
+  const supabase = getAdminClient();
+  if (!supabase) {
     return NextResponse.json({ error: 'Sign in to archive deals.' }, { status: 401 });
   }
 
   const { data, error } = await supabase
     .from('deals')
     .update({ stage: 'Archived' })
+    .eq('user_id', POWERDEAL_USER_ID)
     .eq('id', id)
     .select()
     .single();

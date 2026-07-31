@@ -37,14 +37,19 @@ export default function SettingsPanel({
   env,
   brainReady,
   brainError,
-  signedIn,
+  canPersist,
 }: {
   settings: UserSettings | null;
   vertical: VerticalConfig;
   env: EnvStatus;
   brainReady: boolean;
   brainError: string | null;
-  signedIn: boolean;
+  /**
+   * Whether writes will survive. Formerly `signedIn`; sign-in was removed, so
+   * persistence now depends on the service-role key being configured rather
+   * than on a session.
+   */
+  canPersist: boolean;
 }) {
   const [prefs, setPrefs] = useState(settings?.source_prefs ?? DEFAULTS.source_prefs);
   const [watchlist, setWatchlist] = useState(settings?.watchlist ?? DEFAULTS.watchlist);
@@ -81,8 +86,10 @@ export default function SettingsPanel({
   const healthById = new Map(health?.sources.map((s) => [s.id, s]) ?? []);
 
   async function save() {
-    if (!signedIn) {
-      setError('Sign in to persist settings. Changes here are session-only.');
+    if (!canPersist) {
+      setError(
+        'Supabase is not configured, so settings cannot be saved. Changes here are session-only.',
+      );
       return;
     }
     setSaving(true);
@@ -162,9 +169,10 @@ export default function SettingsPanel({
         </Button>
       </header>
 
-      {!signedIn && (
+      {!canPersist && (
         <p className="rounded-card border border-rule bg-bg-raised px-3.5 py-2.5 text-sm text-text-dim">
-          Not signed in — changes here apply to this session only and will not persist.
+          Supabase is not configured — changes here apply to this session only and
+          will not persist.
         </p>
       )}
       {error && (

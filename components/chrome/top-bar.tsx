@@ -3,13 +3,18 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Search, LogOut } from 'lucide-react';
+import { Search } from 'lucide-react';
 import ThemeToggle from './theme-toggle';
 import { Wordmark } from '@/components/ui/bloom-logo';
-import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 
-export default function TopBar({ email }: { email?: string | null }) {
+/**
+ * Sign-in was removed — the deployment is single-user behind Vercel SSO — so
+ * there is no account chip or sign-out control here any more. Leaving a
+ * sign-out button that cleared a session nothing depends on would have been a
+ * dead affordance.
+ */
+export default function TopBar() {
   const router = useRouter();
   const [query, setQuery] = useState('');
 
@@ -20,15 +25,6 @@ export default function TopBar({ email }: { email?: string | null }) {
     // Search is pipeline-scoped — the deal list is the thing worth finding.
     router.push(`/app/pipeline?q=${encodeURIComponent(q)}`);
   }
-
-  async function signOut() {
-    const supabase = createClient();
-    if (supabase) await supabase.auth.signOut();
-    router.push('/');
-    router.refresh();
-  }
-
-  const initial = email?.trim()?.[0]?.toUpperCase() ?? '·';
 
   return (
     <header
@@ -65,28 +61,6 @@ export default function TopBar({ email }: { email?: string | null }) {
       <div className="ml-auto flex items-center gap-2">
         <ThemeToggle />
 
-        {email ? (
-          <>
-            <span
-              title={email}
-              className={cn(
-                'inline-flex h-8 w-8 items-center justify-center rounded-full',
-                'border border-rule bg-bg-raised font-mono text-xs text-text-dim',
-              )}
-            >
-              {initial}
-            </span>
-            <button
-              type="button"
-              onClick={signOut}
-              aria-label="Sign out"
-              title="Sign out"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-rule text-text-dim transition-colors hover:bg-bg-raised hover:text-text"
-            >
-              <LogOut size={15} strokeWidth={1.75} />
-            </button>
-          </>
-        ) : null}
       </div>
     </header>
   );

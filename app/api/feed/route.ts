@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { getAuthedClient } from '@/lib/supabase/server';
+import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { getFeedItems, getDeals } from '@/lib/data';
 import { canonicalUrl, hashString } from '@/lib/utils';
 import { summarizeItem } from '@/lib/engine/summarize';
@@ -37,8 +37,8 @@ const Capture = z.object({
  * choosing to share something says it's interesting, not that it's verified.
  */
 export async function POST(request: NextRequest) {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) {
+  const supabase = getAdminClient();
+  if (!supabase) {
     return NextResponse.json({ error: 'Sign in to capture items.' }, { status: 401 });
   }
 
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     deal_ids: matches.map((m) => m.dealId),
     action_tier: 'inferred' as const,
     cached_at: new Date().toISOString(),
-    user_id: user.id,
+    user_id: POWERDEAL_USER_ID,
   };
 
   const { data, error } = await supabase

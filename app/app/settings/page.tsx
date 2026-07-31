@@ -1,5 +1,5 @@
 import { getUserSettings } from '@/lib/data';
-import { getUser } from '@/lib/supabase/server';
+import { isAdminConfigured } from '@/lib/supabase/admin';
 import { getActiveVertical } from '@/lib/active-vertical';
 import { envStatus } from '@/lib/env-check';
 import { BRAIN_READY, BRAIN_ERROR } from '@/lib/prompts/system';
@@ -8,7 +8,7 @@ import SettingsPanel from '@/components/modules/settings-panel';
 export const metadata = { title: 'Settings' };
 
 export default async function SettingsPage() {
-  const [settings, user] = await Promise.all([getUserSettings(), getUser()]);
+  const settings = await getUserSettings();
 
   return (
     <SettingsPanel
@@ -17,7 +17,7 @@ export default async function SettingsPage() {
       env={envStatus()}
       brainReady={BRAIN_READY}
       brainError={BRAIN_ERROR}
-      signedIn={Boolean(user)}
+      canPersist={isAdminConfigured()}
     />
   );
 }

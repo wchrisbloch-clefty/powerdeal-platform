@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getAuthedClient } from '@/lib/supabase/server';
+import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { getDeals } from '@/lib/data';
 import { canonicalUrl, hashString } from '@/lib/utils';
 import { summarizeItem } from '@/lib/engine/summarize';
@@ -21,11 +21,14 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   const origin = request.nextUrl.origin;
 
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) {
+  const supabase = getAdminClient();
+  if (!supabase) {
+    // /login no longer exists — there is nowhere to send someone to fix this,
+    // and a share sheet still expects to land in the app. Carry the reason in
+    // the query string so the page can say why nothing was saved.
     return NextResponse.redirect(
-      `${origin}/login?next=/app/intelligence&error=${encodeURIComponent(
-        'Sign in before sharing into PowerDeal.',
+      `${origin}/app/intelligence?error=${encodeURIComponent(
+        'Supabase is not configured, so the shared item was not saved.',
       )}`,
       { status: 303 },
     );
@@ -93,7 +96,7 @@ export async function POST(request: NextRequest) {
         deal_ids: matches.map((m) => m.dealId),
         action_tier: 'inferred',
         cached_at: new Date().toISOString(),
-        user_id: user.id,
+        user_id: POWERDEAL_USER_ID,
       },
       { onConflict: 'user_id,url_hash' },
     );

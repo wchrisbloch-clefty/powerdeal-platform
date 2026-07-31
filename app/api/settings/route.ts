@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { getAuthedClient } from '@/lib/supabase/server';
+import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { getUserSettings } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
@@ -44,8 +44,8 @@ export async function GET() {
 
 /** PATCH /api/settings — partial update, upserted on the user's row. */
 export async function PATCH(request: NextRequest) {
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) {
+  const supabase = getAdminClient();
+  if (!supabase) {
     return NextResponse.json(
       { error: 'Sign in to save settings.' },
       { status: 401 },
@@ -65,7 +65,8 @@ export async function PATCH(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('user_settings')
-    .upsert({ user_id: user.id, ...patch }, { onConflict: 'user_id' })
+    // user_id last so no patch key can override the owner.
+    .upsert({ ...patch, user_id: POWERDEAL_USER_ID }, { onConflict: 'user_id' })
     .select()
     .single();
 

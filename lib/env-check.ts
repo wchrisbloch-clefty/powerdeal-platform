@@ -19,8 +19,14 @@ export interface EnvStatus {
 
 export function envStatus(): EnvStatus {
   return {
+    /**
+     * Persistence now depends on the SERVICE ROLE key, not the anon key.
+     * Sign-in was removed, so there is no session for RLS to key off — all
+     * data access runs service-role and scoped in code. Reporting the anon
+     * key here would show green while every query returned nothing.
+     */
     supabase: Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
     ),
     anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
     groq: Boolean(process.env.GROQ_API_KEY),
@@ -39,7 +45,7 @@ export function collectEnvWarnings(): string[] {
 
   if (!env.supabase) {
     warnings.push(
-      'NEXT_PUBLIC_SUPABASE_URL / ANON_KEY missing — running on seed data, no auth, nothing persists.',
+      'NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing — running on seed data, nothing persists.',
     );
   }
   if (!env.anthropic) {

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getAuthedClient, createServiceClient } from '@/lib/supabase/server';
+import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { runSweep } from '@/lib/engine/sweep';
 import { isCronAuthorized } from '@/lib/cron-auth';
 import type { Deal, UserSettings } from '@/lib/types';
@@ -18,7 +18,9 @@ export const maxDuration = 300;
 export async function POST(request: NextRequest) {
   // ── Cron path ──
   if (isCronAuthorized(request)) {
-    const service = createServiceClient();
+    // Cron sweeps every user, so this is the one place that deliberately does
+    // NOT scope to POWERDEAL_USER_ID — it iterates user_settings itself.
+    const service = getAdminClient();
     if (!service) {
       return NextResponse.json(
         { error: 'SUPABASE_SERVICE_ROLE_KEY is required for scheduled sweeps.' },
@@ -48,21 +50,28 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Interactive path ──
-  const { supabase, user } = await getAuthedClient();
-  if (!supabase || !user) {
+  // No session to read: sign-in was removed, so this runs as the service role
+  // scoped to the single operator. Both queries filter user_id explicitly
+  // because that bypasses RLS.
+  const supabase = getAdminClient();
+  if (!supabase) {
     return NextResponse.json(
-      { error: 'Sign in to run a sweep — swept items need somewhere to persist.' },
-      { status: 401 },
+      { error: 'Supabase is not configured — swept items need somewhere to persist.' },
+      { status: 503 },
     );
   }
 
   const [{ data: deals }, { data: settings }] = await Promise.all([
-    supabase.from('deals').select('*'),
-    supabase.from('user_settings').select('source_prefs').eq('user_id', user.id).maybeSingle(),
+    supabase.from('deals').select('*').eq('user_id', POWERDEAL_USER_ID),
+    supabase
+      .from('user_settings')
+      .select('source_prefs')
+      .eq('user_id', POWERDEAL_USER_ID)
+      .maybeSingle(),
   ]);
 
   try {
-    const result = await runSweep(supabase, user.id, (deals ?? []) as Deal[], {
+    const result = await runSweep(supabase, POWERDEAL_USER_ID, (deals ?? []) as Deal[], {
       sourcePrefs: (settings?.source_prefs as UserSettings['source_prefs']) ?? null,
     });
     return NextResponse.json(result);
