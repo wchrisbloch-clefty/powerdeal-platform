@@ -89,4 +89,76 @@ export interface CandidateSet {
   urls: string[];
 }
 
-export const FEED_CANDIDATES: CandidateSet[] = [];
+export const FEED_CANDIDATES: CandidateSet[] = [
+  {
+    sourceId: 'ccus-arnold-porter',
+    failure:
+      'NEW — Arnold & Porter Environmental Edge / CCUS Tracker, maintained with the Columbia Sabin Center. Law-firm blogs are the likeliest survivors of the RSS die-off.',
+    urls: [
+      'https://www.arnoldporter.com/en/perspectives/blogs/environmental-edge/rss',
+      'https://www.arnoldporter.com/en/perspectives/blogs/environmental-edge/feed',
+      'https://www.arnoldporter.com/rss/blogs/environmental-edge',
+      'https://www.arnoldporter.com/en/perspectives/blogs/environmental-edge',
+      // The Sabin Center's own Climate Law Blog is the upstream collaborator
+      // and has run a WordPress feed for years.
+      'https://blogs.law.columbia.edu/climatechange/feed/',
+    ],
+  },
+  {
+    sourceId: 'ccus-hunton',
+    failure:
+      'NEW — Hunton Andrews Kurth Class VI Permit Tracker. Their energy/environment blog has historically been WordPress-backed.',
+    urls: [
+      'https://www.huntonak.com/insights/blogs/rss',
+      'https://www.huntonak.com/en/insights.rss',
+      'https://www.huntonak.com/feed',
+      'https://www.huntonnickelreport.com/feed/',
+      'https://www.hunton.com/insights/feed',
+    ],
+  },
+  {
+    sourceId: 'ccus-climate-stacks',
+    failure: 'NEW — Climate Stacks; checking for any feed or API surface.',
+    urls: [
+      'https://climatestacks.com/feed',
+      'https://climatestacks.com/rss',
+      'https://climatestacks.com/feed.xml',
+      'https://climatestacks.com/',
+    ],
+  },
+  {
+    sourceId: 'ccus-ccusmap',
+    failure:
+      'NEW — CCUSMap. They offer update emails, so a feed may not exist; email-to-hub is the fallback route.',
+    urls: [
+      'https://ccusmap.com/feed',
+      'https://ccusmap.com/rss',
+      'https://ccusmap.com/feed.xml',
+      'https://ccusmap.com/',
+    ],
+  },
+  {
+    /**
+     * NOT a feed hunt — a REACHABILITY test before committing to a scraper.
+     *
+     * The EPA UIC Class VI pages are the authoritative record and would carry
+     * VERIFIED tier, but they publish no RSS, so consuming them means periodic
+     * scraping. Before writing that, confirm Vercel can reach epa.gov HTML at
+     * all: every epa.gov *feed* endpoint tried so far returned 404 or an empty
+     * 202, and if the whole domain is unreachable from these egress ranges
+     * then a scraper is wasted work.
+     *
+     * Expect status 'empty' with httpStatus 200 — these are HTML pages, not
+     * feeds. What matters is httpStatus and whether feedTitle comes back as
+     * the real page title rather than a block page.
+     */
+    sourceId: 'ccus-epa-dashboard',
+    failure: 'NEW — reachability probe ahead of building a scraper',
+    urls: [
+      'https://www.epa.gov/uic/class-vi-wells-permitted-epa',
+      'https://www.epa.gov/uic/current-class-vi-projects-under-review-epa',
+      'https://www.epa.gov/uic/class-vi-permitting-process',
+      'https://www.epa.gov/uic',
+    ],
+  },
+];
