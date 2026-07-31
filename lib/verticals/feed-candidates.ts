@@ -68,10 +68,11 @@ export interface CandidateSet {
  * FR publishes the agency action itself, exposes an RSS API meant to be
  * polled, and sits behind no WAF — so it holds up as a VERIFIED-tier source.
  */
-const frEpa = (term: string) =>
+const frEpa = (term: string, since?: string) =>
   'https://www.federalregister.gov/api/v1/documents.rss' +
   '?conditions%5Bagencies%5D%5B%5D=environmental-protection-agency' +
   `&conditions%5Bterm%5D=${encodeURIComponent(term)}` +
+  (since ? `&conditions%5Bpublication_date%5D%5Bgte%5D=${since}` : '') +
   '&order=newest&per_page=40';
 
 export const FEED_CANDIDATES: CandidateSet[] = [
@@ -80,20 +81,33 @@ export const FEED_CANDIDATES: CandidateSet[] = [
     failure:
       'NEW SOURCE — restoring VERIFIED-tier CCUS coverage lost when netl-news moved to the DOE-wide feed',
     /**
-     * Four phrasings because it is not obvious which one the Federal Register
-     * actually indexes. EPA files these as "Underground Injection Control
-     * Program" notices, so the literal string "Class VI" may appear only in
-     * the body — or only in some of them.
+     * ROUND 1 (2026-07-31): all four phrasings failed. "Class VI",
+     * "underground injection control" and "geologic sequestration" each
+     * returned 0 items; "carbon dioxide injection" returned 3, all off-topic
+     * (heavy-duty engine penalties, a plywood emissions standard, an Oklahoma
+     * air plan) — the term search is loose full-text, not topical.
      *
-     * The DOE + carbon-capture attempt is the cautionary case: it returned 2
-     * items and one was an advisory-committee renewal. Judge these on
-     * sampleTitles being real Class VI permit actions, not on item count.
+     * The feed titles revealed why the empties were empty: the FR API applies
+     * a default window, "published on or after 06/30/2026". That is ~30 days.
+     * FERC survives it because FERC files constantly; EPA Class VI actions are
+     * far lower volume.
+     *
+     * ROUND 2 is diagnostic. Widening to a 2024 start separates the two
+     * possible causes:
+     *   - items come back → it was only the 30-day window, and a wide window
+     *     is the fix for a low-volume regulatory source.
+     *   - still empty → the Federal Register does not carry individual Class
+     *     VI permit decisions at all (EPA posts many to its UIC pages), and
+     *     no query against it will ever work. Then the answer is EPA's own
+     *     newsroom feed, which is why those are here too.
      */
     urls: [
-      frEpa('"Class VI"'),
-      frEpa('underground injection control'),
-      frEpa('geologic sequestration'),
-      frEpa('carbon dioxide injection'),
+      frEpa('Class VI', '2024-01-01'),
+      frEpa('carbon sequestration', '2024-01-01'),
+      // EPA's own feeds, in case the Federal Register is simply the wrong
+      // vehicle for permit-level activity.
+      'https://www.epa.gov/newsreleases/search/rss',
+      'https://www.epa.gov/rss/epa-news.xml',
     ],
   },
 ];
