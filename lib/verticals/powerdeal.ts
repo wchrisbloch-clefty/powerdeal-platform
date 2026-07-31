@@ -255,6 +255,39 @@ export const powerdeal: VerticalConfig = {
         'Primary CCUS research organization — project tracking, policy, deployment data.',
     },
     {
+      id: 'class-vi-permits',
+      name: 'Class VI Permits — aggregated',
+      platform: 'rss',
+      /**
+       * Class VI permit movement is a first-order buying signal, and after
+       * netl-news became the DOE-wide feed nothing core was carrying it —
+       * gccsi covers CCUS research and events, not permit decisions.
+       *
+       * This is aggregated rather than primary, and that is not for want of
+       * trying. A verified EPA source was probed three times and does not
+       * exist to be had:
+       *   - Federal Register, four term phrasings: 0 items, or 6 items that
+       *     were heavy-duty engine rules and a plywood emissions standard.
+       *     Its term search matches "Class" and "VI" loosely.
+       *   - Federal Register publication_date[gte] is ignored outright — the
+       *     RSS endpoint caps at ~30 days no matter what is requested, so a
+       *     low-volume topic can never fill it.
+       *   - EPA's own feeds: 404 and an empty HTTP 202.
+       * EPA publishes permit-level Class VI activity on its UIC pages, with
+       * no feed. Hence 'inferred' — the tier reflects what this actually is.
+       *
+       * The live sample was on point (Strategic Biofuels securing a Class VI
+       * permit, Cameron Parish sequestration expansion), which is exactly the
+       * origination trigger this is here for.
+       */
+      url: 'https://news.google.com/rss/search?q=%22Class+VI%22+permit+EPA+carbon+storage&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
+      category: 'ccus',
+      role: 'core',
+      rationale:
+        'Class VI injection permit filings, approvals and denials — the CCUS origination trigger. Aggregated.',
+    },
+    {
       id: 'netl-news',
       name: 'DOE Energy News',
       platform: 'rss',

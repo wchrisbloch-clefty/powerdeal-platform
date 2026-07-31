@@ -63,18 +63,6 @@ export interface CandidateSet {
   urls: string[];
 }
 
-/**
- * Federal Register query builder. Same approach that repaired ferc-news: the
- * FR publishes the agency action itself, exposes an RSS API meant to be
- * polled, and sits behind no WAF — so it holds up as a VERIFIED-tier source.
- */
-const frEpa = (term: string, since?: string) =>
-  'https://www.federalregister.gov/api/v1/documents.rss' +
-  '?conditions%5Bagencies%5D%5B%5D=environmental-protection-agency' +
-  `&conditions%5Bterm%5D=${encodeURIComponent(term)}` +
-  (since ? `&conditions%5Bpublication_date%5D%5Bgte%5D=${since}` : '') +
-  '&order=newest&per_page=40';
-
 export const FEED_CANDIDATES: CandidateSet[] = [
   {
     sourceId: 'epa-class-vi',
@@ -101,13 +89,35 @@ export const FEED_CANDIDATES: CandidateSet[] = [
      *     no query against it will ever work. Then the answer is EPA's own
      *     newsroom feed, which is why those are here too.
      */
+    /**
+     * ROUND 2 ruled out the Federal Register entirely, on two counts:
+     *
+     *  - publication_date[gte] is IGNORED. Sending gte=2024-01-01 still
+     *    returned a feed titled "published on or after 06/30/2026". The RSS
+     *    endpoint hard-caps at ~30 days whatever you ask for, so it can never
+     *    give historical depth for a low-volume topic. (ferc-news is unharmed
+     *    — FERC files enough to fill 30 days with 141 documents.)
+     *  - Unquoted "Class VI" returned 6 items, the same off-topic set as
+     *    round 1: heavy-duty engine penalties, a plywood emissions standard,
+     *    an Oklahoma air plan. The term search matches "Class" and "VI"
+     *    loosely. EPA publishes permit-level Class VI activity on its UIC
+     *    pages, not in the Federal Register.
+     *
+     * ROUND 3 is the last attempt, and only on EPA's own endpoints.
+     * /rss/epa-news.xml 404s. /newsreleases/search/rss returned HTTP 202 with
+     * an empty body — Drupal generating the feed asynchronously — so it is
+     * retried here alongside the non-search paths, which should not need
+     * generating at all.
+     *
+     * If all of these fail, stop: there is no verified EPA feed to have, and
+     * the aggregated Class VI source added to powerdeal.ts in this commit is
+     * the honest ceiling.
+     */
     urls: [
-      frEpa('Class VI', '2024-01-01'),
-      frEpa('carbon sequestration', '2024-01-01'),
-      // EPA's own feeds, in case the Federal Register is simply the wrong
-      // vehicle for permit-level activity.
       'https://www.epa.gov/newsreleases/search/rss',
-      'https://www.epa.gov/rss/epa-news.xml',
+      'https://www.epa.gov/newsreleases/rss.xml',
+      'https://www.epa.gov/newsreleases/search/rss/field_press_office/headquarters',
+      'https://www.epa.gov/feeds/epa-news.rss',
     ],
   },
 ];
