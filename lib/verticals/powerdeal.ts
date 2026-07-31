@@ -73,25 +73,43 @@ export const powerdeal: VerticalConfig = {
     },
     {
       id: 'cap-rate-tracker',
-      name: 'CAP Rate Hikes Tracker',
+      name: 'Rate Cases — aggregated',
       platform: 'rss',
-      url: 'https://www.americanprogress.org/tag/utility-rates/feed/',
-      defaultTier: 'reported',
+      /**
+       * americanprogress.org 403s every path from Vercel even with a browser
+       * UA (verified twice, 2026-07-31), so it is IP-range blocking that no
+       * header changes. Aggregated instead; graded 'inferred' accordingly.
+       * Live sample was on point — NIPSCO industrial cost recovery, Xcel rate
+       * increase — so the origination trigger survives, at lower confidence.
+       */
+      url: 'https://news.google.com/rss/search?q=utility+rate+case+approved+industrial+customers&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
       category: 'power-markets',
       role: 'core',
       rationale:
-        'Tracks utility rate increases across states — the single best origination trigger for the grid-fighter value prop.',
+        'Utility rate increases across states — the best origination trigger for the grid-fighter value prop. Aggregated.',
     },
     {
       id: 'ferc-news',
-      name: 'FERC News',
+      name: 'FERC — Federal Register',
       platform: 'rss',
-      url: 'https://www.ferc.gov/news-events/news/rss.xml',
+      /**
+       * ferc.gov 403s every path from Vercel — WAF against datacenter egress,
+       * not a user-agent problem.
+       *
+       * The Federal Register is a strict upgrade rather than a workaround: it
+       * carries the FERC filings and notices themselves, not press releases
+       * about them, and publishes a documented RSS API intended to be polled.
+       * VERIFIED tier is more defensible here than it was on the newsroom.
+       * Live: 141 items — pipeline certificates, license amendments, protest
+       * deadlines.
+       */
+      url: 'https://www.federalregister.gov/api/v1/documents.rss?conditions%5Bagencies%5D%5B%5D=federal-energy-regulatory-commission&order=newest&per_page=40',
       defaultTier: 'verified',
       category: 'policy',
       role: 'core',
       rationale:
-        'Federal Energy Regulatory Commission — official orders, capacity markets, interconnection.',
+        'FERC orders, certificates and notices as filed — capacity markets, interconnection. Primary source → VERIFIED.',
     },
 
     // OIL & GAS
@@ -120,10 +138,13 @@ export const powerdeal: VerticalConfig = {
     },
     {
       id: 'hart-energy',
-      name: 'Hart Energy',
+      name: 'Midstream — aggregated',
       platform: 'rss',
-      url: 'https://www.hartenergy.com/rss',
-      defaultTier: 'reported',
+      // hartenergy.com 404s on every known feed path (5 tried, 2026-07-31) —
+      // the public feed is gone. Aggregated; 'inferred' accordingly. Live
+      // sample was on point: Momentum Midstream, Trace Midstream gas plant.
+      url: 'https://news.google.com/rss/search?q=midstream+natural+gas+processing+plant+OR+gathering+system&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
       category: 'og',
       role: 'core',
       rationale:
@@ -133,25 +154,30 @@ export const powerdeal: VerticalConfig = {
     // INDUSTRIAL / C&I
     {
       id: 'acc-news',
-      name: 'American Chemistry Council',
+      name: 'Chemical Industry Output — aggregated',
       platform: 'rss',
-      url: 'https://www.americanchemistry.com/rss.xml',
-      defaultTier: 'reported',
+      // americanchemistry.com 404s on every known feed path (4 tried,
+      // 2026-07-31). Aggregated; still surfaces ACC's own releases — the live
+      // sample led with their Weekly Chemistry and Economic Trends.
+      url: 'https://news.google.com/rss/search?q=%22American+Chemistry+Council%22+OR+chemical+manufacturing+output&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
       category: 'industrial',
       role: 'core',
       rationale:
-        'Chemical industry association — member news, regulatory, market data.',
+        'Chemical industry output, association releases, market data. Aggregated.',
     },
     {
       id: 'industrial-info',
-      name: 'Industrial Info Resources',
+      name: 'Capital Projects — aggregated',
       platform: 'rss',
-      url: 'https://www.industrialinfo.com/news/rss/',
-      defaultTier: 'reported',
+      // industrialinfo.com 404s on every known feed path (4 tried,
+      // 2026-07-31); their feed is subscriber-only now. Aggregated.
+      url: 'https://news.google.com/rss/search?q=industrial+capital+project+OR+plant+expansion+announced&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
       category: 'industrial',
       role: 'core',
       rationale:
-        'Capital project tracking across industrial sectors — plant expansions, energy projects.',
+        'Capital project tracking — plant expansions and new builds, the load-growth trigger. Aggregated.',
     },
     {
       id: 'chemical-week',
@@ -193,10 +219,20 @@ export const powerdeal: VerticalConfig = {
       id: 'the-register-dc',
       name: 'The Register — Data Centers',
       platform: 'rss',
-      // UNVERIFIED — no outbound network at build time. If this 404s, try
-      // https://www.theregister.com/data_centre/headlines.atom (The Register
-      // serves section feeds as Atom under /headlines.atom).
-      url: 'https://www.theregister.com/data_centre/rss',
+      /**
+       * data_centre is retired — both /rss and /headlines.atom under it 404.
+       * on_prem is the successor section.
+       *
+       * Worth recording how this was settled: on_prem/headlines.atom and the
+       * site-wide headlines.atom both return exactly 50 items under the same
+       * generic "www.theregister.com - Articles" title, so item count alone
+       * could not tell them apart. Comparing actual item titles showed the
+       * section really does filter — on_prem returned Cisco/Azure Local and a
+       * datacenter-protest story while the site-wide feed returned Amazon
+       * earnings and LinkedIn. Taking the item count on faith would have
+       * buried the Data Center category under general tech news.
+       */
+      url: 'https://www.theregister.com/on_prem/headlines.atom',
       defaultTier: 'reported',
       category: 'data-center',
       role: 'core',
@@ -220,26 +256,39 @@ export const powerdeal: VerticalConfig = {
     },
     {
       id: 'netl-news',
-      name: 'NETL News',
+      name: 'DOE Energy News',
       platform: 'rss',
-      url: 'https://netl.doe.gov/rss/news',
+      /**
+       * netl.doe.gov 404s on every known path (4 tried, 2026-07-31). The DOE
+       * department feed is live and primary-source, so VERIFIED holds.
+       *
+       * Note the honest cost: this is DOE-wide, not NETL's CCS programme, so
+       * the category moves ccus -> policy. A Federal Register query filtered
+       * to DOE + "carbon capture" was the narrower alternative and was tried,
+       * but returned 2 items, one of them an advisory-committee renewal — too
+       * thin and not actually on topic. Dedicated CCUS coverage now rests on
+       * the Global CCS Institute feed plus the Class VI discovery query.
+       */
+      url: 'https://www.energy.gov/rss/articles.xml',
       defaultTier: 'verified',
-      category: 'ccus',
+      category: 'policy',
       role: 'core',
       rationale:
-        'DOE National Energy Technology Laboratory — CCS research, funding, Class VI data.',
+        'US Department of Energy announcements — funding, grid, carbon management. Primary source → VERIFIED.',
     },
-    {
-      id: 'thunder-said',
-      name: 'Thunder Said Energy',
-      platform: 'rss',
-      url: 'https://thundersaidenergy.com/feed/',
-      defaultTier: 'reported',
-      category: 'power-markets',
-      role: 'core',
-      rationale:
-        'Independent energy research — SOFC, technology cost curves, energy transition.',
-    },
+    /**
+     * DROPPED 2026-07-31 — thunder-said (Thunder Said Energy).
+     *
+     * thundersaidenergy.com 403s from Vercel on every path (Cloudflare, IP
+     * range not user agent). Deliberately NOT replaced with an aggregator: the
+     * candidate query for SOFC cost analysis came back dominated by
+     * market-report spam ("Market Size & Forecast to 2035") and a Substack
+     * post. Thunder Said earned its slot on analytical quality, and swapping
+     * it for SEO filler would degrade the feed while looking like a fix.
+     *
+     * Better restorations, in order: a paid Thunder Said subscription with a
+     * token feed, or fetching through a proxy on a residential/allowed range.
+     */
 
     // DEFENSE
     {
@@ -306,17 +355,18 @@ export const powerdeal: VerticalConfig = {
       enabledByDefault: false,
       rationale: 'Street-level energy discussion — sentiment, emerging topics.',
     },
-    {
-      id: 'reddit-oilandgas',
-      name: 'Reddit r/oilandgas',
-      platform: 'reddit',
-      url: 'https://www.reddit.com/r/oilandgas/.rss',
-      defaultTier: 'inferred',
-      category: 'og',
-      role: 'discovery',
-      enabledByDefault: false,
-      rationale: 'Industry practitioner discussion — operational intel.',
-    },
+    /**
+     * DROPPED 2026-07-31 — reddit-oilandgas.
+     *
+     * 429 on every path across two separate probe runs: www, old.reddit, and
+     * /new/?limit=25. Reddit throttles by IP range, so this is not something a
+     * backoff fixes — it never succeeded once. r/energy on the same runs went
+     * through fine and stays.
+     *
+     * Restoring it means an authenticated Reddit API client (OAuth app +
+     * token), which is a real integration rather than a URL change, and is
+     * hard to justify for an opt-in discovery source.
+     */
   ],
 
   // ── WATCHED DOMAINS (blue-ocean opportunity detection) ──

@@ -24,13 +24,21 @@ interface FeedEntry {
 // URLs mirror lib/verticals/powerdeal.ts. Neither could be verified at build
 // time (no outbound network) — check the `errors` array in this function's
 // response after the first scheduled run.
+// Both URLs verified live 2026-07-31 against the deployment's health probe.
+// The originals were dead: the GCCSI /resources/news-media/news/rss/ path and
+// netl.doe.gov/rss/news both 404. CCUS_PATTERN below filters the DOE-wide feed
+// down to carbon-management items, so the broader source does not add noise.
 const SOURCES = [
   {
     name: 'Global CCS Institute',
-    url: 'https://www.globalccsinstitute.com/resources/news-media/news/rss/',
+    url: 'https://www.globalccsinstitute.com/feed/',
     tier: 'verified',
   },
-  { name: 'NETL News', url: 'https://netl.doe.gov/rss/news', tier: 'verified' },
+  {
+    name: 'DOE Energy News',
+    url: 'https://www.energy.gov/rss/articles.xml',
+    tier: 'verified',
+  },
 ];
 
 const CCUS_PATTERN =
