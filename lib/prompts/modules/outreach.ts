@@ -4,13 +4,14 @@ import {
   dealBlock,
   signalsBlock,
   marketWatchBlock,
+  researchBlock,
   territoryBlock,
   type PromptContext,
 } from './shared';
 
 /** Account Outreach Plan — ranked by pain-to-lever fit, never by convenience. */
 export function buildOutreachPrompt(ctx: PromptContext): ChatInput {
-  const { deal, signals, marketWatch } = ctx;
+  const { deal, signals, marketWatch, research } = ctx;
 
   return {
     system: SYSTEM_PROMPT,
@@ -31,6 +32,8 @@ ${signalsBlock(signals)}
 
 MARKET WATCH HITS — live re-engagement angles:
 ${marketWatchBlock(marketWatch)}
+
+${researchBlock(research)}
 
 If there is no credible hook for a target, say so rather than manufacturing urgency.${
       ctx.extra ? `\n\nADDITIONAL CONTEXT FROM THE USER:\n${ctx.extra}` : ''

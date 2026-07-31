@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ChevronDown, ExternalLink, Zap, UserPlus, Clock, X,
-  Maximize2, BookOpenText, MessagesSquare, Check, Send, FileText, Loader2,
+  ChevronDown, ExternalLink, Zap, Clock, X, Maximize2, MessagesSquare,
+  Check, FileText, Loader2, Bookmark, Share2, Undo2,
 } from 'lucide-react';
 import type { FeedItem as FeedItemType, Deal } from '@/lib/types';
 import type { ItemState } from '@/lib/feed-state';
@@ -13,9 +13,13 @@ import { relativeTime, cn } from '@/lib/utils';
 import { categoryLabel, getActiveVertical } from '@/lib/active-vertical';
 import { entitiesIn } from '@/lib/engine/entities';
 import { PLATFORM_LABELS, platformOf } from '@/lib/platforms';
+import { setAskContext } from '@/lib/ask-context';
+import { useSwipeDismiss } from '@/lib/use-swipe';
 import ProvenanceChip, { ConfidenceRule } from '@/components/ui/provenance-chip';
 import { EntityChip } from '@/components/ui/entity-link';
 import Badge from '@/components/ui/badge';
+import DetailPanel from './detail-panel';
+import PromoteToSignal from './promote-to-signal';
 
 const ARRIVAL_LABELS: Record<string, string> = {
   rss: 'RSS',
@@ -27,36 +31,36 @@ const ARRIVAL_LABELS: Record<string, string> = {
 };
 
 /**
- * A single feed item, with The Hub's two-row action rail ported on.
+ * A single feed item, with the depth layer's action rail.
  *
  * Reading order is deliberate and unchanged: provenance first (can I trust
- * this?), then the headline, then the synthesis, then who it hits, then what
- * to do. A reader scanning at speed should be able to stop after the account
+ * this?), then the headline, then the synthesis, then who it hits, then what to
+ * do. A reader scanning at speed should be able to stop after the account
  * mapping line.
  *
- * The rails come from The Hub's ActionableItem, split as asked:
- *   · Primary — Act on it / Assign / Snooze / Not for me. These change the
- *     state of the WORK.
- *   · Secondary — Dive deeper / Explore / Ask / Dismiss. These change what the
- *     READER sees. Keeping the two visually distinct matters: mixing "I
- *     handled this" with "hide this" is how triage state stops meaning
- *     anything a week later.
+ * The rail is seven actions and they are grouped by what they change:
+ *   · Dive deeper / Ask / Share — change what the READER sees or knows.
+ *   · Save to deal / Promote to signal / Add to brief — change the WORK. Each
+ *     writes somewhere a rep will find it later without having to remember.
+ *   · Dismiss — removes it, with a reason and an undo.
  *
- * "Act on it" is PowerDeal-specific and only appears when the item maps to a
- * deal, because both of its outcomes need one — log a signal against the
- * account, or draft outreach for it. An unmapped item has nothing to act on.
+ * Swipe-to-dismiss on touch claims the X axis only; vertical scroll stays with
+ * the browser, because a feed that eats your scroll is unusable one-handed.
  */
 export default function FeedItemCard({
   item,
   deals,
   state,
   onStateChange,
+  onDismissed,
   lazySummary = false,
 }: {
   item: FeedItemType;
   deals: Deal[];
   state?: ItemState;
   onStateChange?: (id: string, state: ItemState | null) => void;
+  /** Lets the feed drop the card and offer an Undo. */
+  onDismissed?: (id: string, reason: string | null) => void;
   /**
    * True for items below the feed's eager window: they carry a raw feed snippet
    * and get their real AI summary and outreach hook from /api/action the first
@@ -65,33 +69,33 @@ export default function FeedItemCard({
   lazySummary?: boolean;
 }) {
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
-  const [actMenu, setActMenu] = useState(false);
-  const [assignMenu, setAssignMenu] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
   const vertical = getActiveVertical();
 
-  // Filled in by the lazy fetch; falls back to whatever the item arrived with.
+  const [detail, setDetail] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [saveMenu, setSaveMenu] = useState(false);
+  const [promoting, setPromoting] = useState(false);
+  const [inBrief, setInBrief] = useState(false);
+  const [saved, setSaved] = useState(false);
+
   const [lazy, setLazy] = useState<{ synthesis: string | null; action: string | null } | null>(null);
   const [lazyBusy, setLazyBusy] = useState(false);
   const [lazyDone, setLazyDone] = useState(false);
 
   const synthesis = lazy?.synthesis ?? item.synthesis;
   const action = lazy?.action ?? item.action;
+  const itemKey = item.url_hash ?? item.id;
 
   const hits = item.deal_ids
     .map((id) => deals.find((d) => d.id === id))
     .filter((d): d is Deal => Boolean(d));
 
-  // Entities named in this item — every one links to its page, so a card is a
-  // way into "what else is happening with SDG&E", not just this one story.
   const entities = useMemo(() => entitiesIn(item, deals), [item, deals]);
 
-  /**
-   * Upgrade the snippet to a real summary. Fires once, on first open, and only
-   * for items the feed did not already summarize eagerly.
-   */
+  const swipe = useSwipeDismiss(() => void dismiss(null));
+
   async function loadSummary() {
     if (!lazySummary || lazyDone || lazyBusy) return;
     setLazyBusy(true);
@@ -119,9 +123,9 @@ export default function FeedItemCard({
     }
   }
 
-  function open(next: boolean) {
-    setExpanded(next);
-    if (next) void loadSummary();
+  function openDetail() {
+    setDetail(true);
+    void loadSummary();
   }
 
   async function mark(next: ItemState | null, extra: Record<string, unknown> = {}) {
@@ -137,47 +141,112 @@ export default function FeedItemCard({
       setNote('Could not save that.');
     } finally {
       setBusy(false);
-      setActMenu(false);
-      setAssignMenu(false);
     }
   }
 
-  /** Log the item as an intelligence signal against a deal. */
-  async function logSignal(deal: Deal) {
+  /** Dismiss with an optional reason, and hand the feed an undo. */
+  async function dismiss(reason: string | null) {
     setBusy(true);
-    setNote(null);
     try {
-      const res = await fetch('/api/signals', {
+      await fetch('/api/dismiss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          signal_type: 'trigger-event',
-          source_name: item.source_name ?? 'Feed',
-          source_tier: item.tier,
-          headline: item.title.slice(0, 300),
-          detail: synthesis ?? null,
-          url: item.url,
-          deal_ids: [deal.id],
-        }),
+        body: JSON.stringify({ id: itemKey, reason }),
       });
-      if (!res.ok) throw new Error('signal failed');
-      setNote(`Logged to ${deal.company}.`);
-      await mark('acted', { dealId: deal.id });
-      router.refresh();
+      onDismissed?.(itemKey, reason);
     } catch {
-      setNote('Could not log that signal.');
+      setNote('Could not dismiss that.');
+    } finally {
       setBusy(false);
     }
   }
 
-  /** Hand off to the deal page with the outreach task pre-armed. */
-  function draftOutreach(deal: Deal) {
-    void mark('acted', { dealId: deal.id });
-    router.push(`/app/pipeline/${deal.id}?ai=outreach`);
+  /** Attach to a deal — the account's Research section, not a personal vault. */
+  async function saveToDeal(deal: Deal) {
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await fetch(`/api/deals/${deal.id}/research`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: item.title,
+          url: item.url,
+          source: item.source_name,
+          tier: item.tier,
+        }),
+      });
+      if (!res.ok) throw new Error('save failed');
+      setSaved(true);
+      setNote(`Saved to ${deal.company}.`);
+    } catch {
+      setNote('Could not save that to the deal.');
+    } finally {
+      setBusy(false);
+      setSaveMenu(false);
+    }
+  }
+
+  /** Flag for the next brief, plan or MAP generated for this account. */
+  async function addToBrief() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await fetch('/api/brief-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: itemKey,
+          title: item.title,
+          url: item.url,
+          source: item.source_name,
+          tier: item.tier,
+          synthesis,
+          dealId: hits[0]?.id ?? null,
+          remove: inBrief,
+        }),
+      });
+      if (!res.ok) throw new Error('queue failed');
+      setInBrief((v) => !v);
+      setNote(inBrief ? 'Removed from the brief queue.' : 'Added — it will appear in Forge.');
+    } catch {
+      setNote('Could not update the brief queue.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Carry the item AND its account into chat, in methodology. */
+  function ask() {
+    setAskContext({
+      title: item.title,
+      synthesis,
+      source: item.source_name,
+      url: item.url,
+      tier: item.tier,
+      dealId: hits[0]?.id ?? null,
+      dealLabel: hits[0] ? `${hits[0].deal_id} — ${hits[0].company}` : null,
+    });
+    const params = new URLSearchParams({ about: item.title });
+    if (hits[0]) params.set('deal', hits[0].id);
+    router.push(`/app/chat?${params.toString()}`);
+  }
+
+  async function share() {
+    const url = item.url ?? window.location.href;
+    try {
+      if (navigator.share) await navigator.share({ title: item.title, url });
+      else {
+        await navigator.clipboard.writeText(url);
+        setNote('Link copied.');
+      }
+    } catch {
+      // A cancelled share sheet is not an error.
+    }
   }
 
   // Triaged items collapse to one line with an Undo. Removing them outright
-  // would make the action feel like a delete, and there would be no way back.
+  // would make the action feel like a delete, with no way back.
   if (state) {
     const label =
       state === 'snoozed' ? 'Snoozed' :
@@ -193,7 +262,7 @@ export default function FeedItemCard({
           type="button"
           onClick={() => mark(null)}
           disabled={busy}
-          className="ml-3 shrink-0 text-xs text-accent-dim underline underline-offset-2"
+          className="ml-3 inline-flex h-11 shrink-0 items-center text-xs text-accent-dim underline underline-offset-2"
         >
           Undo
         </button>
@@ -201,222 +270,213 @@ export default function FeedItemCard({
     );
   }
 
+  const rail = (
+    <div className="flex flex-wrap items-center gap-1">
+      <RailButton icon={Maximize2} label="Dive deeper" onClick={openDetail} />
+      <RailButton icon={MessagesSquare} label="Ask" onClick={ask} />
+      <RailButton
+        icon={Bookmark}
+        label={saved ? 'Saved' : 'Save to deal'}
+        accent={saved}
+        disabled={busy}
+        onClick={() => {
+          // Exactly one mapped deal is unambiguous — save straight to it.
+          if (hits.length === 1) void saveToDeal(hits[0]);
+          else setSaveMenu((v) => !v);
+        }}
+      />
+      <RailButton
+        icon={Zap}
+        label="Promote to signal"
+        disabled={busy}
+        onClick={() => setPromoting((v) => !v)}
+      />
+      <RailButton
+        icon={FileText}
+        label={inBrief ? 'In brief' : 'Add to brief'}
+        accent={inBrief}
+        disabled={busy}
+        onClick={addToBrief}
+      />
+      <RailButton icon={Share2} label="Share" onClick={share} />
+      <RailButton icon={X} label="Dismiss" disabled={busy} onClick={() => void dismiss(null)} />
+    </div>
+  );
+
   return (
-    <article
-      className={cn(
-        'rounded-card border bg-bg-raised p-3.5 transition-colors',
-        item.breaking ? 'border-accent-border' : 'border-rule',
-      )}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <ProvenanceChip tier={item.tier} />
-        {/* Provenance and channel are different questions — how much to trust
-            it, and where it came from — so both are readable at a glance now
-            that RSS and social share one stream. */}
-        <Badge tone="neutral">{PLATFORM_LABELS[platformOf(item)]}</Badge>
-        {item.source_name ? (
-          <span className="truncate text-xs text-text-dim">{item.source_name}</span>
-        ) : null}
-        {item.byline ? (
-          <span className="truncate text-xs text-text-faint">· {item.byline}</span>
-        ) : null}
-        {item.category ? (
-          <span className="text-xs text-text-faint">
-            · {categoryLabel(vertical, item.category)}
-          </span>
-        ) : null}
-        <span className="ml-auto flex items-center gap-1.5">
-          {item.arrival !== 'rss' ? (
-            <Badge tone="neutral">{ARRIVAL_LABELS[item.arrival] ?? item.arrival}</Badge>
-          ) : null}
-          <span className="whitespace-nowrap text-xs text-text-faint">
-            {relativeTime(item.published_at ?? item.cached_at)}
-          </span>
-        </span>
-      </div>
-
-      <h3 className="mt-2 font-display text-[15px] leading-snug text-text">
-        {item.url ? (
-          <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-            {item.title}
-            <ExternalLink size={11} className="ml-1 inline align-baseline opacity-50" />
-          </a>
-        ) : (
-          item.title
+    <>
+      <article
+        {...swipe.handlers}
+        style={{
+          transform: swipe.dx ? `translateX(${swipe.dx}px)` : undefined,
+          transition: swipe.settling ? 'transform 160ms ease-out' : undefined,
+          touchAction: 'pan-y',
+        }}
+        className={cn(
+          'rounded-card border bg-bg-raised p-3.5 transition-colors',
+          item.breaking ? 'border-accent-border' : 'border-rule',
+          swipe.armed && 'border-danger',
         )}
-      </h3>
-
-      {/* Confidence as a bar AND a number — the bar is scannable, the number
-          is what you quote when someone asks how sure you are. */}
-      <div className="my-2.5 flex items-center gap-2">
-        <ConfidenceRule confidence={item.confidence} className="flex-1" />
-        <span className="shrink-0 font-mono text-[11px] text-text-faint">
-          {Math.round(item.confidence * 100)}%
-        </span>
-      </div>
-
-      {synthesis ? (
-        <p className={cn('text-sm leading-relaxed text-text-dim', !expanded && 'line-clamp-3')}>
-          {synthesis}
-        </p>
-      ) : null}
-
-      {lazyBusy ? (
-        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-text-faint">
-          <Loader2 size={11} className="animate-spin" aria-hidden />
-          Summarizing…
-        </p>
-      ) : null}
-
-      {entities.length > 0 && (
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {entities.map((e) => (
-            <EntityChip key={e.name} entity={e} />
-          ))}
-        </div>
-      )}
-
-      {/* Account mapping — the line that turns news into a call list. */}
-      {hits.length > 0 && (
-        <p className="mt-2.5 text-sm text-text-dim">
-          <span className="eyebrow mr-1.5">Hits</span>
-          {hits.map((d, i) => (
-            <span key={d.id}>
-              {i > 0 ? ', ' : ''}
-              <Link
-                href={`/app/pipeline/${d.id}`}
-                className="text-text underline decoration-rule underline-offset-2 hover:decoration-accent"
-              >
-                {d.company}
-              </Link>
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <ProvenanceChip tier={item.tier} />
+          {/* Provenance and channel are different questions — how much to trust
+              it, and where it came from — so both are readable at a glance. */}
+          <Badge tone="neutral">{PLATFORM_LABELS[platformOf(item)]}</Badge>
+          {item.source_name ? (
+            <span className="truncate text-xs text-text-dim">{item.source_name}</span>
+          ) : null}
+          {item.category ? (
+            <span className="text-xs text-text-faint">
+              · {categoryLabel(vertical, item.category)}
             </span>
-          ))}
-        </p>
-      )}
-
-      {action ? (
-        <p className="mt-2 text-sm italic text-accent-dim">→ {action}</p>
-      ) : null}
-
-      {/* ── Primary rail: what happens to the work ── */}
-      <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-rule pt-2.5">
-        {hits.length > 0 ? (
-          <>
-            <RailButton
-              icon={Zap}
-              label="Act on it"
-              accent
-              disabled={busy}
-              onClick={() => setActMenu((v) => !v)}
-            />
-            <RailButton
-              icon={UserPlus}
-              label="Assign"
-              disabled={busy}
-              onClick={() => setAssignMenu((v) => !v)}
-            />
-          </>
-        ) : null}
-        <RailButton
-          icon={Clock}
-          label="Snooze"
-          disabled={busy}
-          onClick={() => mark('snoozed', { hours: 24 })}
-        />
-        <RailButton
-          icon={X}
-          label="Not for me"
-          disabled={busy}
-          onClick={() => mark('not-for-me')}
-        />
-      </div>
-
-      {/* Act on it → the two things a signal can become. */}
-      {actMenu && hits.length > 0 && (
-        <div className="mt-2 rounded-md border border-rule bg-bg p-2">
-          <p className="eyebrow mb-1.5">Act on it</p>
-          <div className="flex flex-col gap-1.5">
-            {hits.map((d) => (
-              <div key={d.id} className="flex flex-wrap items-center gap-1.5">
-                <span className="mr-1 text-xs text-text-dim">{d.company}</span>
-                <MenuButton icon={FileText} label="Log as signal" onClick={() => logSignal(d)} />
-                <MenuButton icon={Send} label="Draft outreach" onClick={() => draftOutreach(d)} />
-              </div>
-            ))}
-          </div>
+          ) : null}
+          <span className="ml-auto flex items-center gap-1.5">
+            {item.arrival !== 'rss' ? (
+              <Badge tone="neutral">{ARRIVAL_LABELS[item.arrival] ?? item.arrival}</Badge>
+            ) : null}
+            <span className="whitespace-nowrap text-xs text-text-faint">
+              {relativeTime(item.published_at ?? item.cached_at)}
+            </span>
+          </span>
         </div>
-      )}
 
-      {assignMenu && hits.length > 0 && (
-        <div className="mt-2 rounded-md border border-rule bg-bg p-2">
-          <p className="eyebrow mb-1.5">Assign to deal</p>
-          <div className="flex flex-wrap gap-1.5">
-            {hits.map((d) => (
-              <MenuButton
-                key={d.id}
-                icon={Check}
-                label={d.company}
-                onClick={() => mark('assigned', { dealId: d.id })}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Secondary rail: what the reader sees ── */}
-      <div className="mt-1.5 flex flex-wrap items-center gap-1">
-        <RailButton icon={Maximize2} label="Dive deeper" onClick={() => open(!expanded)} />
-        {item.url ? (
-          <RailButton
-            icon={BookOpenText}
-            label="Explore"
-            onClick={() => window.open(item.url ?? '', '_blank', 'noopener,noreferrer')}
-          />
-        ) : null}
-        <RailButton
-          icon={MessagesSquare}
-          label="Ask"
-          onClick={() => {
-            // Grounded through the URL, which is what /app/chat actually reads.
-            // This used to stash context in sessionStorage that nothing ever
-            // picked up, so the button opened a cold chat every time.
-            const params = new URLSearchParams({ about: item.title });
-            if (hits[0]) params.set('deal', hits[0].id);
-            router.push(`/app/chat?${params.toString()}`);
-          }}
-        />
-        <RailButton icon={X} label="Dismiss" disabled={busy} onClick={() => mark('not-for-me')} />
-      </div>
-
-      {note ? <p className="mt-2 text-xs text-text-dim">{note}</p> : null}
-
-      {expanded && (
-        <div className="mt-3 space-y-2 border-t border-rule pt-3 text-xs text-text-dim">
-          {item.byline ? <p>By {item.byline}</p> : null}
-          {item.vertical_tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {item.vertical_tags.map((t) => (
-                <Badge key={t} tone="neutral">{t}</Badge>
-              ))}
-            </div>
+        <h3 className="mt-2 font-display text-[15px] leading-snug text-text">
+          {item.url ? (
+            <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+              {item.title}
+              <ExternalLink size={11} className="ml-1 inline align-baseline opacity-50" />
+            </a>
+          ) : (
+            item.title
           )}
-          <p>
-            Confidence {Math.round(item.confidence * 100)}% · action graded {item.action_tier}
-          </p>
-        </div>
-      )}
+        </h3>
 
-      {!expanded && ((synthesis && synthesis.length > 200) || item.byline || lazySummary) ? (
-        <button
-          type="button"
-          onClick={() => open(true)}
-          className="mt-2 inline-flex items-center gap-1 text-xs text-text-dim hover:text-text"
-        >
-          More
-          <ChevronDown size={12} />
-        </button>
-      ) : null}
-    </article>
+        <div className="my-2.5 flex items-center gap-2">
+          <ConfidenceRule confidence={item.confidence} className="flex-1" />
+          <span className="shrink-0 font-mono text-[11px] text-text-faint">
+            {Math.round(item.confidence * 100)}%
+          </span>
+        </div>
+
+        {synthesis ? (
+          <p className={cn('text-sm leading-relaxed text-text-dim', !expanded && 'line-clamp-3')}>
+            {synthesis}
+          </p>
+        ) : null}
+
+        {lazyBusy ? (
+          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-text-faint">
+            <Loader2 size={11} className="animate-spin" aria-hidden />
+            Summarizing…
+          </p>
+        ) : null}
+
+        {entities.length > 0 && (
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {entities.map((e) => (
+              <EntityChip key={e.name} entity={e} />
+            ))}
+          </div>
+        )}
+
+        {/* Account mapping — the line that turns news into a call list. */}
+        {hits.length > 0 && (
+          <p className="mt-2.5 text-sm text-text-dim">
+            <span className="eyebrow mr-1.5">Hits</span>
+            {hits.map((d, i) => (
+              <span key={d.id}>
+                {i > 0 ? ', ' : ''}
+                <Link
+                  href={`/app/pipeline/${d.id}`}
+                  className="text-text underline decoration-rule underline-offset-2 hover:decoration-accent"
+                >
+                  {d.company}
+                </Link>
+              </span>
+            ))}
+          </p>
+        )}
+
+        {action ? <p className="mt-2 text-sm italic text-accent-dim">→ {action}</p> : null}
+
+        <div className="mt-3 border-t border-rule pt-2.5">{rail}</div>
+
+        {/* Ambiguous save — pick the account. */}
+        {saveMenu && (
+          <div className="mt-2 rounded-md border border-rule bg-bg p-2">
+            <p className="eyebrow mb-1.5">Save to which deal?</p>
+            {deals.length === 0 ? (
+              <p className="text-xs text-text-dim">No deals in the pipeline yet.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {(hits.length > 0 ? hits : deals.slice(0, 12)).map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => saveToDeal(d)}
+                    className="inline-flex min-h-[2.25rem] items-center gap-1.5 rounded border border-rule px-2 py-1 text-xs text-text-dim transition-colors hover:border-accent-border hover:text-text"
+                  >
+                    <Check size={11} aria-hidden />
+                    {d.company}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {promoting && (
+          <div className="mt-2 rounded-md border border-rule bg-bg p-2.5">
+            <PromoteToSignal
+              item={item}
+              deals={deals}
+              onDone={(message) => {
+                setPromoting(false);
+                if (message) setNote(message);
+              }}
+            />
+          </div>
+        )}
+
+        {note ? <p className="mt-2 text-xs text-text-dim">{note}</p> : null}
+
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          <RailButton
+            icon={Clock}
+            label="Snooze"
+            disabled={busy}
+            onClick={() => mark('snoozed', { hours: 24 })}
+          />
+          {!expanded && ((synthesis && synthesis.length > 200) || item.byline || lazySummary) ? (
+            <RailButton icon={ChevronDown} label="More" onClick={() => { setExpanded(true); void loadSummary(); }} />
+          ) : null}
+        </div>
+
+        {expanded && (
+          <div className="mt-3 space-y-2 border-t border-rule pt-3 text-xs text-text-dim">
+            {item.byline ? <p>By {item.byline}</p> : null}
+            {item.vertical_tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {item.vertical_tags.map((t) => (
+                  <Badge key={t} tone="neutral">{t}</Badge>
+                ))}
+              </div>
+            )}
+            <p>Confidence {Math.round(item.confidence * 100)}% · action graded {item.action_tier}</p>
+          </div>
+        )}
+      </article>
+
+      {detail && (
+        <DetailPanel
+          item={{ ...item, synthesis, action }}
+          deals={deals}
+          onClose={() => setDetail(false)}
+          actions={rail}
+        />
+      )}
+    </>
   );
 }
 
@@ -438,8 +498,12 @@ function RailButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={label}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors hover:bg-bg-overlay disabled:opacity-40',
+        // 44px min touch target below desktop — the rail is seven items wide
+        // and is the most-tapped thing in the product.
+        'inline-flex min-h-[2.75rem] items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors',
+        'hover:bg-bg-overlay disabled:opacity-40 xl:min-h-0 xl:py-1',
         accent ? 'text-text' : 'text-text-dim hover:text-text',
       )}
     >
@@ -449,23 +513,28 @@ function RailButton({
   );
 }
 
-function MenuButton({
-  icon: Icon,
-  label,
-  onClick,
+/** Exported so the feed can offer an Undo after a dismissal. */
+export function DismissedRow({
+  title,
+  onUndo,
 }: {
-  icon: typeof Zap;
-  label: string;
-  onClick: () => void;
+  title: string;
+  onUndo: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded border border-rule px-2 py-1 text-xs text-text-dim transition-colors hover:border-accent-border hover:text-text"
-    >
-      <Icon size={11} aria-hidden />
-      {label}
-    </button>
+    <article className="flex items-center justify-between rounded-card border border-rule bg-bg-raised px-3.5 py-2.5">
+      <span className="min-w-0 flex-1 truncate text-sm text-text-dim">
+        <span className="eyebrow mr-2">Dismissed</span>
+        {title}
+      </span>
+      <button
+        type="button"
+        onClick={onUndo}
+        className="ml-3 inline-flex h-11 shrink-0 items-center gap-1 text-xs text-accent-dim underline underline-offset-2"
+      >
+        <Undo2 size={12} aria-hidden />
+        Undo
+      </button>
+    </article>
   );
 }

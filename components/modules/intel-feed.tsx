@@ -17,7 +17,7 @@ import {
   type FeedPlatform,
 } from '@/lib/platforms';
 import { cn, relativeTime } from '@/lib/utils';
-import FeedItemCard from './feed-item';
+import FeedItemCard, { DismissedRow } from './feed-item';
 import CoverageGapBlock from './coverage-gap';
 import TrendingPanel from './trending-panel';
 import TopicChips from './topic-chips';
@@ -40,6 +40,7 @@ export default function IntelFeed({
   peers,
   trends,
   initialStates,
+  initialDismissed,
 }: {
   items: FeedItem[];
   deals: Deal[];
@@ -54,6 +55,8 @@ export default function IntelFeed({
   peers: PeerCandidate[];
   trends: Trend[];
   initialStates: FeedStateMap;
+  /** Read back on every load — a dismissal nothing consults is theater. */
+  initialDismissed: Record<string, { reason: string | null; at: string }>;
 }) {
   const router = useRouter();
   const vertical = getActiveVertical();
@@ -78,6 +81,55 @@ export default function IntelFeed({
   }
 
   /**
+   * Dismissed keys, seeded from the server so a dismissal survives a reload.
+   * `justDismissed` is the short-lived undo window — the card is replaced in
+   * place by an Undo row rather than vanishing, so the reader can see what they
+   * just lost and get it back.
+   */
+  const [dismissed, setDismissed] = useState<Set<string>>(
+    () => new Set(Object.keys(initialDismissed)),
+  );
+  const [justDismissed, setJustDismissed] = useState<Record<string, string>>({});
+
+  function onDismissed(key: string, _reason: string | null) {
+    setDismissed((prev) => new Set(prev).add(key));
+    const title = items.find((i) => (i.url_hash ?? i.id) === key)?.title ?? 'Item';
+    setJustDismissed((prev) => ({ ...prev, [key]: title }));
+    // The undo affordance is deliberately brief — long enough to catch a
+    // mis-swipe, short enough that the feed does not fill with tombstones.
+    setTimeout(() => {
+      setJustDismissed((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }, 8000);
+  }
+
+  async function undoDismiss(key: string) {
+    setDismissed((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    setJustDismissed((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    try {
+      await fetch('/api/dismiss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: key, undo: true }),
+      });
+    } catch {
+      // The optimistic restore already happened; a failed write means it
+      // reappears as dismissed on the next load, which is recoverable.
+    }
+  }
+
+  /**
    * Category and platform are independent axes and combine freely — "CCUS on
    * YouTube" is a state a reader can reach. They are separate rows rather than
    * one merged chip strip because they answer different questions: what a story
@@ -85,6 +137,11 @@ export default function IntelFeed({
    */
   const filtered = useMemo(() => {
     let out = category === 'all' ? items : items.filter((i) => i.category === category);
+    // Dismissals are honoured here, not just recorded.
+    out = out.filter((i) => {
+      const key = i.url_hash ?? i.id;
+      return !dismissed.has(key) || key in justDismissed;
+    });
     if (platform !== 'all') out = out.filter((i) => platformOf(i) === platform);
     if (topic) {
       const needle = topic.toLowerCase();
@@ -93,7 +150,7 @@ export default function IntelFeed({
       );
     }
     return out;
-  }, [items, category, platform, topic]);
+  }, [items, category, platform, topic, dismissed, justDismissed]);
 
   const counts = useMemo(() => platformCounts(items), [items]);
 
@@ -283,19 +340,32 @@ export default function IntelFeed({
             />
           ) : (
             <div className={cn('grid gap-3', view === 'grid' && 'xl:grid-cols-2')}>
-              {filtered.map((item) => (
+              {filtered.map((item) => {
+                const key = item.url_hash ?? item.id;
+                if (key in justDismissed) {
+                  return (
+                    <DismissedRow
+                      key={item.id}
+                      title={justDismissed[key]}
+                      onUndo={() => void undoDismiss(key)}
+                    />
+                  );
+                }
+                return (
                 <FeedItemCard
                   key={item.id}
                   item={item}
                   deals={deals}
                   state={states[item.id]}
                   onStateChange={onStateChange}
+                  onDismissed={onDismissed}
                   // Position in the UNFILTERED list decides this: the top 10 by
                   // recency were summarized on the server, and filtering the
                   // view doesn't change which those were.
                   lazySummary={items.indexOf(item) >= eagerCount}
                 />
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

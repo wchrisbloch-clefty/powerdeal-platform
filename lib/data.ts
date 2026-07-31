@@ -177,3 +177,23 @@ export async function getAppState<T = unknown>(key: string): Promise<T | null> {
 
   return (data?.value as T) ?? null;
 }
+
+/**
+ * Feed rows by url_hash — how the Research tab pulls an ingested run's items
+ * back out. Ingested items ARE feed items: same table, same grading, same
+ * card. Only the run metadata lives apart.
+ */
+export async function getFeedItemsByKeys(
+  keys: string[],
+): Promise<Record<string, FeedItem>> {
+  if (keys.length === 0) return {};
+  const query = ownerSelect('feed_items');
+  if (!query) return {};
+
+  const { data } = await query.in('url_hash', keys.slice(0, 500));
+  const out: Record<string, FeedItem> = {};
+  for (const row of (data ?? []) as FeedItem[]) {
+    if (row.url_hash) out[row.url_hash] = row;
+  }
+  return out;
+}

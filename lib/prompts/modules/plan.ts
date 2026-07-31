@@ -4,6 +4,7 @@ import {
   dealBlock,
   signalsBlock,
   marketWatchBlock,
+  researchBlock,
   territoryBlock,
   getAudienceContext,
   type PromptContext,
@@ -11,7 +12,7 @@ import {
 
 /** Account Plan Summary — the deep playbook, full methodology. */
 export function buildPlanPrompt(ctx: PromptContext): ChatInput {
-  const { deal, signals, marketWatch, audiencePersona } = ctx;
+  const { deal, signals, marketWatch, research, audiencePersona } = ctx;
 
   return {
     system: SYSTEM_PROMPT,
@@ -28,6 +29,8 @@ ${signalsBlock(signals, 40)}
 
 MARKET WATCH HITS:
 ${marketWatchBlock(marketWatch, 20)}
+
+${researchBlock(research)}
 
 This is the working playbook, not a pitch. Where the record is thin, say what is unknown and what closes it — do not invent site counts, load figures, or timelines.${
       ctx.extra ? `\n\nADDITIONAL CONTEXT FROM THE USER:\n${ctx.extra}` : ''

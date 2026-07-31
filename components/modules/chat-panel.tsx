@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Send, Square } from 'lucide-react';
+import { Send, Square, X } from 'lucide-react';
+import { clearAskContext, getAskContext, groundingFor, type AskContext } from '@/lib/ask-context';
 import type { Deal } from '@/lib/types';
 import { useAiStream } from '@/lib/use-ai-stream';
 import type { TaskKind } from '@/lib/engine/model-routing';
@@ -52,6 +53,27 @@ export default function ChatPanel({
       : '',
   );
   const [dealId, setDealId] = useState<string>(initialDealId ?? '');
+
+  /**
+   * The item handed over from a feed card's "Ask". Rendered as a dismissable
+   * chip so the reader can see WHY the answer is shaped the way it is — an
+   * invisible context block that silently steers every reply is worse than no
+   * grounding at all.
+   */
+  const [askCtx, setAskCtx] = useState<AskContext | null>(null);
+
+  useEffect(() => {
+    const ctx = getAskContext();
+    if (!ctx) return;
+    setAskCtx(ctx);
+    // If the item mapped to a deal, the account selector follows it.
+    if (ctx.dealId) setDealId(ctx.dealId);
+  }, []);
+
+  function dropContext() {
+    setAskCtx(null);
+    clearAskContext();
+  }
   const ai = useAiStream();
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -73,10 +95,16 @@ export default function ChatPanel({
     setTurns((t) => [...t, userTurn]);
     setInput('');
 
+    // The grounding rides on the FIRST message only. Repeating it on every turn
+    // would re-anchor the model on the article long after the conversation has
+    // moved past it.
+    const grounded =
+      askCtx && turns.length === 0 ? `${groundingFor(askCtx)}\n\nQUESTION: ${message}` : message;
+
     const text = await ai.run({
       task,
       dealId: dealId || undefined,
-      content: message,
+      content: grounded,
       history,
     });
 
@@ -129,6 +157,31 @@ export default function ChatPanel({
 
       {/* ── Conversation ── */}
       <div className="flex min-h-0 flex-1 flex-col">
+        {/* The grounding, made visible. A reader should never wonder why an
+            answer keeps circling one article. */}
+        {askCtx && (
+          <div className="mb-3 flex items-start gap-2 rounded-card border border-accent-border bg-accent-bg px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="eyebrow mb-0.5">
+                Grounded on this item
+                {askCtx.dealLabel ? ` · ${askCtx.dealLabel}` : ''}
+              </p>
+              <p className="truncate text-sm text-text">{askCtx.title}</p>
+              {askCtx.source ? (
+                <p className="truncate text-[11px] text-text-dim">{askCtx.source}</p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={dropContext}
+              aria-label="Remove item context"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-text-dim hover:text-text"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         <div className="scrollbar-thin min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
           {blocked && (
             <div className="rounded-card border border-rule bg-bg-raised p-4">

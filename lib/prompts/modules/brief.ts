@@ -4,6 +4,7 @@ import {
   dealBlock,
   signalsBlock,
   marketWatchBlock,
+  researchBlock,
   territoryBlock,
   getAudienceContext,
   type PromptContext,
@@ -11,7 +12,7 @@ import {
 
 /** Executive Account Brief — the Account Brief standard from the methodology. */
 export function buildBriefPrompt(ctx: PromptContext): ChatInput {
-  const { deal, signals, marketWatch, audiencePersona } = ctx;
+  const { deal, signals, marketWatch, research, audiencePersona } = ctx;
 
   return {
     system: SYSTEM_PROMPT,
@@ -28,6 +29,8 @@ ${signalsBlock(signals)}
 
 MARKET WATCH HITS ON THIS ACCOUNT:
 ${marketWatchBlock(marketWatch)}
+
+${researchBlock(research)}
 
 Where the record has a gap, name it as a gap and state the question that closes it. Do not fill gaps with assumed figures.${
       ctx.extra ? `\n\nADDITIONAL CONTEXT FROM THE USER:\n${ctx.extra}` : ''

@@ -141,6 +141,49 @@ template.
 
 ---
 
+## Research ingest (last30days)
+
+`last30days` runs **on your machine**, not in PowerDeal. It reads browser
+cookies and shells out to `yt-dlp`, neither of which exists in a Vercel
+serverless function. So you run it locally, POST the JSON in, and PowerDeal
+applies its own curation on top.
+
+```bash
+# one-time
+/plugin marketplace add mvanhorn/last30days-skill
+
+# per account
+/last30days Westlake Corporation
+
+# then, for machine-readable output:
+python3 skills/last30days/scripts/last30days.py "Westlake Corporation" \
+  --emit=json > westlake.json
+
+curl -X POST "https://powerdeal-platform.vercel.app/api/ingest/last30days?token=$INGEST_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data @westlake.json
+```
+
+Set `INGEST_TOKEN` to enable the endpoint — it returns 503 while unset, so the
+surface is off by default rather than open. Pass it as `?token=` or
+`Authorization: Bearer`. If you would rather not configure a token and curl,
+Intelligence › Research has a paste-JSON fallback that does the same thing.
+
+Scope a run to one account by adding `"deal_id": "<uuid>"` to the payload; every
+item then lands pre-mapped to that deal.
+
+**The rule that matters.** last30days scores by ENGAGEMENT — upvotes, likes,
+Polymarket odds. PowerDeal scores by TRUST. Every ingested item is re-graded by
+`classifyExternal()` from its source, URL and title, and the engagement number
+is never passed to that function. Engagement is displayed beside the tier badge,
+never folded into it, and rendered in a deliberately different shape so the two
+cannot be confused.
+
+A post with 40k upvotes from an anonymous account is still INFERRED. This
+matters more here than in The Hub, because PowerDeal output goes into
+customer-facing briefs — and when research reaches a brief prompt it carries its
+tier plus an instruction that engagement indicates reach, not accuracy.
+
 ## Repo structure
 
 ```

@@ -12,6 +12,8 @@ export interface PromptContext {
   deal: Deal;
   signals?: Signal[];
   marketWatch?: MarketWatchEntry[];
+  /** Ingested last30days items for this account, engagement-scored. */
+  research?: ResearchContextItem[];
   /** Audience calibration for the Document Forge. */
   audiencePersona?: string;
   /** Free-text the user supplied alongside the request. */
@@ -55,6 +57,55 @@ export function marketWatchBlock(entries: MarketWatchEntry[] = [], limit = 12): 
         (m.outreach_hook ? `\n  hook: ${m.outreach_hook}` : ''),
     )
     .join('\n');
+}
+
+/**
+ * RECENT MARKET RESEARCH — ingested last30days items for this account.
+ *
+ * Kept in its own block, clearly separated from editorial sources, and every
+ * line carries its tier. That separation is the whole safety mechanism: these
+ * items are engagement-scored from social and community sources, and a model
+ * handed them undifferentiated will state a viral Reddit claim as fact in a
+ * document a customer reads.
+ *
+ * Engagement is printed because reach is genuinely useful context — "everyone
+ * in the industry is talking about this" is worth knowing — but the instruction
+ * below says plainly that it is reach, not accuracy.
+ *
+ * Capped at 10 so context stays lean and the Claude bill stays predictable.
+ */
+export function researchBlock(items: ResearchContextItem[] = [], limit = 10): string {
+  if (items.length === 0) return '';
+
+  const lines = items
+    .slice(0, limit)
+    .map(
+      (r) =>
+        `[${r.tier.toUpperCase()}] ${r.title} — ${r.source ?? 'unknown'}` +
+        (r.engagement ? ` · ${r.engagement}` : '') +
+        (r.url ? ` · ${r.url}` : ''),
+    )
+    .join('\n');
+
+  return [
+    `RECENT MARKET RESEARCH (last30days, engagement-scored${items[0]?.runAt ? `, run ${items[0].runAt.slice(0, 10)}` : ''}):`,
+    lines,
+    '',
+    'Research items above are engagement-scored from social and community sources.',
+    'Treat tier badges as the trust signal — engagement counts indicate reach, not',
+    'accuracy. INFERRED items may inform a hypothesis or a discovery question but',
+    'must never be stated as fact in a customer-facing document. Attribute anything',
+    'you use.',
+  ].join('\n');
+}
+
+export interface ResearchContextItem {
+  title: string;
+  source: string | null;
+  url: string | null;
+  tier: string;
+  engagement: string | null;
+  runAt?: string;
 }
 
 /** Territory framing every account-level task shares. */

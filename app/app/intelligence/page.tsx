@@ -14,6 +14,9 @@ import { computeTrends } from '@/lib/engine/trending';
 import { fetchTopicVideos, youtubeConfigured } from '@/lib/engine/youtube';
 import { fetchRatesWithTrend, eiaConfigured } from '@/lib/geo/eia-api';
 import { getFeedStates } from '@/lib/feed-state';
+import { getDismissals } from '@/lib/item-extras';
+import { getResearchRuns } from '@/lib/research';
+import { getFeedItemsByKeys } from '@/lib/data';
 import { buildBenchmarks } from '@/lib/pricing';
 import { isAdminConfigured } from '@/lib/supabase/admin';
 import IntelTabs, { DEFAULT_TAB, isIntelTab, type IntelTab } from '@/components/modules/intel-tabs';
@@ -26,6 +29,7 @@ import SourcesPanel from '@/components/modules/sources-panel';
 import VideoPanel from '@/components/modules/video-panel';
 import CcusTracker from '@/components/modules/ccus-tracker';
 import PricingPanel from '@/components/modules/pricing-panel';
+import ResearchPanel from '@/components/modules/research-panel';
 import { EmptyState } from '@/components/ui/card';
 
 export const metadata = { title: 'Intelligence' };
@@ -90,11 +94,12 @@ async function TabContent({ tab }: { tab: IntelTab }) {
 // ── Feed ────────────────────────────────────────────────────────
 
 async function FeedTab() {
-  const [{ data: deals }, ticker, settings, states] = await Promise.all([
+  const [{ data: deals }, ticker, settings, states, dismissed] = await Promise.all([
     getDeals(),
     getTickerData(),
     getUserSettings(),
     getFeedStates(),
+    getDismissals(),
   ]);
 
   const feed = await getLiveFeed(deals);
@@ -130,6 +135,7 @@ async function FeedTab() {
       peers={findPeerCandidates(gaps, deals)}
       trends={computeTrends(feed.items, deals, 12)}
       initialStates={states}
+      initialDismissed={dismissed}
     />
   );
 }
@@ -233,21 +239,9 @@ async function VideoTab() {
 
 // ── Research ────────────────────────────────────────────────────
 
-function ResearchTab() {
-  /**
-   * Held deliberately. The tab exists because the IA calls for it, but its
-   * content is "ingested last30days runs", which is specified in Part 7 — and
-   * Part 7 has not been received. There is no last30days ingest in this
-   * codebase to read from either.
-   *
-   * An empty tab that says why is honest. One filled with plausible-looking
-   * research would be a fabrication of the exact kind the provenance spine
-   * exists to prevent.
-   */
-  return (
-    <EmptyState
-      title="Research is not wired up yet"
-      body="This tab is meant to show ingested last30days runs. That ingest does not exist in the codebase yet and its spec (Part 7) has not landed, so the tab is a placeholder rather than a guess at what belongs here."
-    />
-  );
+async function ResearchTab() {
+  const [runs, { data: deals }] = await Promise.all([getResearchRuns(), getDeals()]);
+  const keys = [...new Set(runs.flatMap((r) => r.itemKeys))];
+  const itemsByKey = await getFeedItemsByKeys(keys);
+  return <ResearchPanel runs={runs} itemsByKey={itemsByKey} deals={deals} />;
 }

@@ -5,6 +5,7 @@ import {
   type TaskKind,
 } from '@/lib/engine/model-routing';
 import { BRAIN_READY, BRAIN_ERROR, SYSTEM_PROMPT } from '@/lib/prompts/system';
+import { researchForDeal } from '@/lib/research';
 import {
   buildBriefPrompt, buildQualifyPrompt, buildPlanPrompt, buildMapPrompt,
   buildOutreachPrompt, buildCampaignPrompt, buildIntelPrompt,
@@ -135,15 +136,18 @@ async function buildInput(
     const { data: deal } = await getDeal(body.dealId);
     if (!deal) throw new Error('Deal not found.');
 
-    const [signals, marketWatch] = await Promise.all([
+    const [signals, marketWatch, research] = await Promise.all([
       getSignalsForDeal(body.dealId),
       getMarketWatchForDeal(body.dealId),
+      // Ingested last30days items for this account, capped and tier-tagged.
+      researchForDeal(body.dealId).catch(() => []),
     ]);
 
     const ctx = {
       deal,
       signals,
       marketWatch,
+      research,
       audiencePersona: body.audiencePersona,
       extra: body.content,
     };
