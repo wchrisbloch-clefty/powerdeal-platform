@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Deal, FeedItem, SourceTier } from '@/lib/types';
 import { getActiveVertical, resolveSources } from '@/lib/active-vertical';
 import { fetchSources, withinHours, sortByRecency, type RawItem } from './rss';
-import { fetchEpaClassVi } from './epa-class-vi';
+import { fetchClassViTrackers } from './class-vi-trackers';
 import { classifyTier, isBreaking, mapToAccounts, verticalTagsFor } from './tiering';
 import { fetchContent } from './fetch-content';
 import { summarizeItem, CACHE_TTL_HOURS } from './summarize';
@@ -61,23 +61,23 @@ export async function runSweep(
 
   // ── 1. Fetch ──
   /**
-   * The EPA Class VI tracker is scraped, not an RSS feed — EPA publishes none
-   * (see lib/engine/epa-class-vi.ts). It rides alongside the feeds rather than
-   * in the source list because it has no URL to configure and cannot be muted
-   * per-user through source_prefs.
+   * Class VI trackers are scraped, not RSS — neither EPA nor the primacy
+   * states publish a feed (see lib/engine/class-vi-trackers.ts). They ride
+   * alongside the feeds rather than in the source list because they have no
+   * URL to configure and cannot be muted per-user through source_prefs.
    *
-   * Exempt from the recency window on purpose: EPA refreshes it every few
-   * months, so a 72-hour filter would discard it on almost every sweep. Dedupe
-   * by URL hash already guarantees each revision surfaces exactly once.
+   * Exempt from the recency window on purpose: these are refreshed every few
+   * months, so a 72-hour filter would discard them on almost every sweep.
+   * Dedupe by URL hash already guarantees each revision surfaces once.
    */
-  const [feedItems, epaItems] = await Promise.all([
+  const [feedItems, trackerItems] = await Promise.all([
     fetchSources(sources),
-    fetchEpaClassVi(),
+    fetchClassViTrackers(),
   ]);
-  result.sources_fetched += epaItems.length > 0 ? 1 : 0;
+  result.sources_fetched += trackerItems.length;
 
   const raw = [
-    ...epaItems,
+    ...trackerItems,
     ...sortByRecency(withinHours(feedItems, windowHours)),
   ];
   if (raw.length === 0) {

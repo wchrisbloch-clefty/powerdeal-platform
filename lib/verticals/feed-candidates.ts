@@ -104,6 +104,32 @@
  * Discovered while probing: North Dakota, Texas, West Virginia and Wyoming
  * hold Class VI primacy, so EPA's tracker excludes wells in those states.
  * Their programmes have separate sites, listed in PRIMACY_STATES.
+ *
+ * ── PRIMACY STATES + PUBLIC DATABASES, 2026-07-31 ─────────────────────────
+ * Looked for one queryable database before writing four scrapers. There is
+ * no single source covering all four states; the result was one more scraper
+ * and three documented gaps.
+ *
+ *   Texas RRC — TRACKED. Publishes a dated Class VI application list PDF
+ *     (class_vi_application-07262026.pdf) on a stable page, the same shape as
+ *     EPA's tracker, so both are handled by lib/engine/class-vi-trackers.ts.
+ *     Texas keeps superseded lists on the same page, which is why that module
+ *     picks the newest parsed date rather than the first link matched.
+ *   North Dakota DMR — reachable, no dated list. Records are per-well pages.
+ *   West Virginia DEP — reachable; the non-mining UIC permits page has one
+ *     table but nothing Class VI-specific.
+ *   Wyoming DEQ — reachable, no dated list, but DEQ runs a Class VI listserv
+ *     (govdelivery). That suits email-to-hub rather than scraping.
+ *
+ *   EPA Envirofacts — the API is real and works: pub_dim_facility returned
+ *     live GHGRP facility JSON, no key needed. But uic_well does not exist
+ *     (404) and rr_subpart_level_information 502s, so the table names for
+ *     Subpart RR still need to be found from the Envirofacts model docs. That
+ *     remains the most promising route to per-well data across ALL states at
+ *     once, since Subpart RR reporting is federal even where permitting is
+ *     not — worth another pass with correct table names.
+ *   Texas RRC and North Dakota ArcGIS roots — both 404 at the guessed
+ *     hostnames. Neither agency exposes services where expected.
  */
 
 export interface CandidateSet {
@@ -115,66 +141,4 @@ export interface CandidateSet {
   urls: string[];
 }
 
-/**
- * EPA Envirofacts — the government's own public REST API over its programme
- * databases. No key, no auth, JSON out. If the UIC or greenhouse-gas
- * reporting tables carry Class VI wells, ONE queryable source beats four
- * separate state scrapers by a wide margin, and it stays VERIFIED because it
- * is EPA's own record.
- */
-const ef = (table: string) =>
-  `https://data.epa.gov/efservice/${table}/ROWS/0:3/JSON`;
-
-export const FEED_CANDIDATES: CandidateSet[] = [
-  {
-    /**
-     * Preferred outcome. Subpart RR is the greenhouse-gas reporting rule for
-     * geologic sequestration — every Class VI operator injecting CO2 reports
-     * under it, INCLUDING in primacy states, because the reporting duty is
-     * federal even where permitting is not. That would close the exact gap
-     * the four state trackers exist to fill.
-     *
-     * Judge on bodySnippet, not status: Envirofacts answers 200 with an empty
-     * array for a table that exists but is empty, and with an error envelope
-     * for one that does not.
-     */
-    sourceId: 'ccus-epa-envirofacts',
-    failure: 'NEW — one federal database instead of four state scrapers',
-    urls: [
-      ef('rr_subpart_level_information'),
-      ef('uic_well'),
-      ef('pub_dim_facility'),
-      'https://data.epa.gov/efservice/',
-    ],
-  },
-  {
-    /**
-     * ArcGIS REST roots for the two primacy states with real oil-and-gas GIS
-     * estates. A published feature service would be queryable JSON with
-     * proper attributes — far better than scraping either agency's HTML.
-     * Texas matters most here: it holds primacy and is heavy in the pipeline.
-     */
-    sourceId: 'ccus-primacy-gis',
-    failure: 'NEW — looking for queryable services before writing scrapers',
-    urls: [
-      'https://gis.rrc.texas.gov/arcgis/rest/services?f=json',
-      'https://gis.dmr.nd.gov/arcgis/rest/services?f=json',
-    ],
-  },
-  {
-    /**
-     * The four primacy-state pages themselves, as the fallback. Reachability
-     * and structure only — whether each is a table, a link list of permit
-     * PDFs, or a JS shell decides whether a scraper is even possible, and
-     * that differs per state.
-     */
-    sourceId: 'ccus-primacy-states',
-    failure: 'NEW — fallback if no queryable database covers primacy states',
-    urls: [
-      'https://www.rrc.texas.gov/oil-and-gas/applications-and-permits/injection-storage-permits/co2-storage/',
-      'https://www.dmr.nd.gov/dmr/oilgas/classvi',
-      'https://dep.wv.gov/WWE/PERMIT/UIC/Pages/default.aspx',
-      'https://deq.wyoming.gov/water-quality/groundwater/uic/class-vi/',
-    ],
-  },
-];
+export const FEED_CANDIDATES: CandidateSet[] = [];
