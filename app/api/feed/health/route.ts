@@ -70,6 +70,16 @@ interface UrlHealth {
   bodyChars?: number;
   iframes?: string[];
   linkSample?: string[];
+  /**
+   * First slice of a non-HTML body.
+   *
+   * For a JSON API candidate, status and byte count say nothing useful — a
+   * 200 can be an empty array, an error envelope, or a login page. The only
+   * way to judge whether an endpoint returns the records wanted is to look at
+   * what it returns. HTML is excluded because linkSample and the table
+   * inspector already cover it and the markup would swamp the output.
+   */
+  bodySnippet?: string;
 }
 
 /** Collapse an HTML fragment to its visible text. */
@@ -132,7 +142,15 @@ function inspectFirstTable(
  */
 function inspectPageShape(
   body: string,
-): Pick<UrlHealth, 'bodyChars' | 'iframes' | 'linkSample'> {
+): Pick<UrlHealth, 'bodyChars' | 'iframes' | 'linkSample' | 'bodySnippet'> {
+  const looksHtml = /^\s*(?:<!doctype html|<html\b)/i.test(body);
+  if (!looksHtml) {
+    return {
+      bodyChars: body.length,
+      bodySnippet: body.replace(/\s+/g, ' ').trim().slice(0, 500),
+    };
+  }
+
   const iframes = [...body.matchAll(/<iframe\b[^>]*\bsrc=["']([^"']+)["']/gi)]
     .map((m) => m[1])
     .slice(0, 10);
@@ -316,6 +334,7 @@ export async function GET(request: Request) {
               ...(c.bodyChars ? { bodyChars: c.bodyChars } : {}),
               ...(c.iframes ? { iframes: c.iframes } : {}),
               ...(c.linkSample ? { linkSample: c.linkSample } : {}),
+              ...(c.bodySnippet ? { bodySnippet: c.bodySnippet } : {}),
             })),
         }
       : {}),
