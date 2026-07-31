@@ -1,6 +1,7 @@
 import Parser from 'rss-parser';
 import type { SourceConfig } from '@/lib/verticals/types';
 import { canonicalUrl, hashString } from '@/lib/utils';
+import { FEED_REQUEST_HEADERS } from './feed-headers';
 
 /**
  * RSS ingestion. Every source in the vertical config is an open feed — no
@@ -28,12 +29,8 @@ export interface RawItem {
 
 const parser: Parser<Record<string, unknown>, Record<string, unknown>> = new Parser({
   timeout: 12000,
-  headers: {
-    // Some publishers 403 the default node user-agent.
-    'User-Agent':
-      'Mozilla/5.0 (compatible; PowerDealBot/1.0; +https://powerdeal.app)',
-    Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml',
-  },
+  // Shared with the health probe so green there means readable here.
+  headers: FEED_REQUEST_HEADERS,
   customFields: {
     item: [
       ['media:content', 'mediaContent'],
