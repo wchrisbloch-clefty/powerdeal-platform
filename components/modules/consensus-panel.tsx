@@ -93,7 +93,7 @@ export default function ConsensusPanel({ entity }: { entity: string }) {
             </p>
           ) : null}
           {c.sources.length > 0 ? (
-            <p className="mt-2 text-tiny text-text-faint">{c.sources.join(' · ')}</p>
+            <p className="mt-2 text-2xs text-text-faint">{c.sources.join(' · ')}</p>
           ) : null}
         </div>
       ))}

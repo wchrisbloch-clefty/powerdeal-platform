@@ -106,7 +106,7 @@ export default function AgentHealth() {
                 <tr key={job.id} className="border-b border-rule-faint last:border-0 align-top">
                   <td className="py-2 pr-3">
                     <span className="block text-text">{job.label}</span>
-                    <span className="block text-tiny text-text-faint">
+                    <span className="block text-2xs text-text-faint">
                       {job.schedule} · {job.runner === 'vercel' ? 'Vercel cron' : 'Supabase pg_cron'}
                     </span>
                   </td>
@@ -116,7 +116,7 @@ export default function AgentHealth() {
                       <span className="text-text-dim">{style.label}</span>
                     </span>
                     {job.run?.lastError ? (
-                      <span className="mt-0.5 block max-w-col-clamp text-tiny text-danger">
+                      <span className="mt-0.5 block max-w-col-clamp text-2xs text-danger">
                         {job.run.lastError}
                       </span>
                     ) : null}
@@ -130,10 +130,10 @@ export default function AgentHealth() {
                       relativeTime(job.run?.lastSuccessAt ?? job.run?.lastAttemptAt)
                     )}
                   </td>
-                  <td className="py-2 pr-3 font-mono text-tiny text-text-dim">
+                  <td className="py-2 pr-3 font-mono text-2xs text-text-dim">
                     {job.run?.itemsProcessed ?? '—'}
                   </td>
-                  <td className="py-2 font-mono text-tiny text-text-dim">
+                  <td className="py-2 font-mono text-2xs text-text-dim">
                     {job.run?.durationMs != null ? `${(job.run.durationMs / 1000).toFixed(1)}s` : '—'}
                   </td>
                 </tr>
@@ -159,5 +159,5 @@ export default function AgentHealth() {
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-  return <th className="pb-1.5 pr-3 font-normal text-tiny uppercase tracking-wider text-text-faint">{children}</th>;
+  return <th className="pb-1.5 pr-3 font-normal text-2xs uppercase tracking-wider text-text-faint">{children}</th>;
 }

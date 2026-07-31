@@ -129,7 +129,7 @@ export default function WeeklyRecapPanel({ className }: { className?: string }) 
                         >
                           {a.company}
                         </Link>
-                        <span className="ml-1.5 font-mono text-tiny text-text-faint">
+                        <span className="ml-1.5 font-mono text-2xs text-text-faint">
                           {a.hits} hit{a.hits === 1 ? '' : 's'}
                         </span>
                         {a.topHeadline ? (

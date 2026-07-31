@@ -103,7 +103,7 @@ export default function DealDetail({
         <HealthRing score={deal.health_score} size={54} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-tiny uppercase tracking-wider text-text-faint">
+            <span className="font-mono text-2xs uppercase tracking-wider text-text-faint">
               {deal.deal_id}
             </span>
             <StagePill stage={deal.stage} />
@@ -163,7 +163,7 @@ export default function DealDetail({
           {/* ── 2. Core intel ── */}
           <Card>
             <CardHeader><CardTitle>Core intel</CardTitle></CardHeader>
-            <CardBody className="grid grid-cols-2 gap-x-4 gap-y-3.5 sm:grid-cols-3">
+            <CardBody className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
               <Stat label="Vertical" value={deal.vertical} />
               <Stat label="Geo tier" value={deal.geo_tier ?? '—'} />
               <Stat label="State" value={deal.state ?? '—'} />
@@ -193,15 +193,37 @@ export default function DealDetail({
           <Card>
             <CardHeader>
               <CardTitle>MEDDPICC scorecard</CardTitle>
-              <span className="font-mono text-sm tabular-nums text-text-dim">
-                {deal.meddpicc_score}/8
+              {/* A bar, not just a fraction. "1/8" is a number you have to
+                  translate; a bar is a shape you read at a glance, and this is
+                  the single clearest signal of how well the deal is known. */}
+              <span className="flex items-center gap-2">
+                <span
+                  className="h-1.5 w-20 overflow-hidden rounded-full bg-bg-overlay"
+                  role="img"
+                  aria-label={`${deal.meddpicc_score} of 8 pillars known`}
+                >
+                  <span
+                    className={cn(
+                      'block h-full rounded-full',
+                      deal.meddpicc_score >= 6
+                        ? 'bg-success'
+                        : deal.meddpicc_score >= 3
+                          ? 'bg-warning'
+                          : 'bg-danger',
+                    )}
+                    style={{ width: `${(deal.meddpicc_score / 8) * 100}%` }}
+                  />
+                </span>
+                <span className="font-mono text-sm tabular-nums text-text-dim">
+                  {deal.meddpicc_score}/8
+                </span>
               </span>
             </CardHeader>
-            <CardBody className="space-y-2">
+            <CardBody className="space-y-0">
               {meddpicc.map((f) => (
                 <div
                   key={f.key}
-                  className="flex items-start gap-2.5 border-b border-rule-faint pb-2 last:border-0 last:pb-0"
+                  className="flex items-baseline gap-2 border-b border-rule-faint py-1.5 last:border-0"
                 >
                   <span className="mt-0.5 shrink-0" title={f.state}>
                     {f.state === 'known' ? (
@@ -212,16 +234,16 @@ export default function DealDetail({
                       <HelpCircle size={14} className="text-text-faint" strokeWidth={2} />
                     )}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-text">{f.label}</p>
-                    <p className="text-xs text-text-dim">
-                      {typeof f.value === 'string' && f.value
-                        ? f.value
-                        : typeof f.value === 'boolean' && f.value
-                          ? 'Confirmed'
-                          : f.hint}
-                    </p>
-                  </div>
+                  {/* One line per pillar: name, then the one-line read. Two
+                      stacked blocks per row made an eight-row card scroll. */}
+                  <p className="w-col-2xl shrink-0 text-sm font-medium text-text">{f.label}</p>
+                  <p className="min-w-0 flex-1 truncate text-sm text-text-dim">
+                    {typeof f.value === 'string' && f.value
+                      ? f.value
+                      : typeof f.value === 'boolean' && f.value
+                        ? 'Confirmed'
+                        : f.hint}
+                  </p>
                 </div>
               ))}
             </CardBody>

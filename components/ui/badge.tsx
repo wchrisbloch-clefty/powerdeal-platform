@@ -27,7 +27,7 @@ export default function Badge({
       title={title}
       className={cn(
         'inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5',
-        'font-mono text-micro uppercase tracking-wider',
+        'font-mono text-2xs uppercase tracking-wider',
         TONES[tone],
         className,
       )}
@@ -43,7 +43,7 @@ export function StagePill({ stage, className }: { stage: string; className?: str
     <span
       className={cn(
         'inline-flex shrink-0 items-center rounded-full border px-2 py-0.5',
-        'text-tiny font-medium',
+        'text-2xs font-medium',
         stageClass(stage),
         className,
       )}

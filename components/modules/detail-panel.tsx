@@ -178,7 +178,7 @@ role="presentation"
 
           <div className="mt-3 flex items-center gap-2">
             <ConfidenceRule confidence={item.confidence} className="flex-1" />
-            <span className="shrink-0 font-mono text-tiny text-text-faint">
+            <span className="shrink-0 font-mono text-2xs text-text-faint">
               {Math.round(item.confidence * 100)}%
             </span>
           </div>
@@ -202,7 +202,7 @@ role="presentation"
                 <button
                   type="button"
                   onClick={() => copy(keyFacts.facts.map((f) => `• ${f}`).join('\n'), 'all')}
-                  className="ml-auto inline-flex items-center gap-1 text-tiny text-text-dim hover:text-text"
+                  className="ml-auto inline-flex items-center gap-1 text-2xs text-text-dim hover:text-text"
                 >
                   {copied === 'all' ? <Check size={11} /> : <Copy size={11} />}
                   {copied === 'all' ? 'Copied' : 'Copy all'}

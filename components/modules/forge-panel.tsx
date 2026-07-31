@@ -190,7 +190,7 @@ export default function ForgePanel({
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
-            <p className="mt-1.5 text-tiny text-text-faint">
+            <p className="mt-1.5 text-2xs text-text-faint">
               Reorders the argument for the reader. Never changes the facts.
             </p>
           </div>
@@ -223,7 +223,7 @@ export default function ForgePanel({
                   <span className="mt-0.5 block text-xs text-text-dim">
                     {a.description}
                   </span>
-                  <span className="mt-1 block font-mono text-micro uppercase tracking-wider text-text-faint">
+                  <span className="mt-1 block font-mono text-2xs uppercase tracking-wider text-text-faint">
                     {a.formats.join(' · ')}
                   </span>
                 </button>

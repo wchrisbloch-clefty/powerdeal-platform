@@ -101,12 +101,12 @@ function GapRow({ gap }: { gap: CoverageGap }) {
               href={gap.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-display text-card leading-snug text-text hover:text-accent-dim"
+              className="font-display text-base leading-snug text-text hover:text-accent-dim"
             >
               {gap.headline}
             </a>
           ) : (
-            <p className="font-display text-card leading-snug text-text">{gap.headline}</p>
+            <p className="font-display text-base leading-snug text-text">{gap.headline}</p>
           )}
 
           <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs">

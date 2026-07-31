@@ -139,7 +139,7 @@ export default function SignalsPanel({
               {SIGNAL_TYPES.filter((t) => typeCounts.has(t)).map((t) => (
                 <FilterChip key={t} active={type === t} onClick={() => setType(t)}>
                   {t}
-                  <span className="ml-1 font-mono text-micro opacity-60">
+                  <span className="ml-1 font-mono text-2xs opacity-60">
                     {typeCounts.get(t)}
                   </span>
                 </FilterChip>
@@ -238,7 +238,7 @@ function SignalRow({ signal, deals }: { signal: Signal; deals: Deal[] }) {
             <Link
               key={d.id}
               href={`/app/pipeline/${d.id}`}
-              className="inline-flex items-center rounded-full border border-rule bg-bg px-2 py-0.5 text-tiny text-text-dim transition-colors hover:border-accent-border hover:text-text"
+              className="inline-flex items-center rounded-full border border-rule bg-bg px-2 py-0.5 text-2xs text-text-dim transition-colors hover:border-accent-border hover:text-text"
             >
               {d.company}
             </Link>

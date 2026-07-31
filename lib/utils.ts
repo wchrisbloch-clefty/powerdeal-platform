@@ -17,7 +17,9 @@ import { extendTailwindMerge } from 'tailwind-merge';
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {
-      'font-size': [{ text: ['micro', 'tiny', 'note', 'card', 'lede'] }],
+      // Only '2xs' is a NEW font-size name — the rest of the scale reuses
+      // Tailwind's own names, which tailwind-merge already classifies.
+      'font-size': [{ text: ['2xs'] }],
       'text-color': [
         {
           text: [

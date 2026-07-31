@@ -32,9 +32,9 @@ const VARIANTS: Record<Variant, string> = {
  * and this is the button every surface uses.
  */
 const SIZES: Record<Size, string> = {
-  sm: 'min-h-tap xl:min-h-0 h-tap xl:h-8 px-2.5 text-note gap-1.5',
+  sm: 'min-h-tap xl:min-h-0 h-tap xl:h-8 px-2.5 text-sm gap-1.5',
   md: 'min-h-tap xl:min-h-0 h-tap xl:h-9 px-3.5 text-sm gap-2',
-  lg: 'h-11 px-5 text-card gap-2',
+  lg: 'h-11 px-5 text-base gap-2',
 };
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

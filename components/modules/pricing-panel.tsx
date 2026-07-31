@@ -81,7 +81,7 @@ export default function PricingPanel({
                   )}
                   style={{ background: rateColor(r.rate) }}
                 >
-                  <span className="font-mono text-micro font-medium text-white mix-blend-luminosity">
+                  <span className="font-mono text-2xs font-medium text-white mix-blend-luminosity">
                     {r.state}
                   </span>
                 </div>
@@ -91,12 +91,12 @@ export default function PricingPanel({
 
           <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-rule pt-3">
             {RATE_LEGEND.map((l) => (
-              <span key={l.label} className="flex items-center gap-1.5 text-tiny text-text-dim">
+              <span key={l.label} className="flex items-center gap-1.5 text-2xs text-text-dim">
                 <span className="h-2.5 w-2.5 rounded-sm" style={{ background: l.color }} />
                 {l.label}
               </span>
             ))}
-            <span className="ml-auto flex items-center gap-1.5 text-tiny text-text-dim">
+            <span className="ml-auto flex items-center gap-1.5 text-2xs text-text-dim">
               <span className="h-2.5 w-2.5 rounded-sm ring-2 ring-accent" />
               Has a pipeline account
             </span>
@@ -128,7 +128,7 @@ export default function PricingPanel({
                   {['Utility', 'State', 'Industrial rate', 'YoY', 'Accounts'].map((h) => (
                     <th
                       key={h}
-                      className="whitespace-nowrap px-3 py-2 text-left font-mono text-micro uppercase tracking-wider text-text-faint"
+                      className="whitespace-nowrap px-3 py-2 text-left font-mono text-2xs uppercase tracking-wider text-text-faint"
                     >
                       {h}
                     </th>

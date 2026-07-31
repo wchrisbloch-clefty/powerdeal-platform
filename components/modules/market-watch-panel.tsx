@@ -84,7 +84,7 @@ export default function MarketWatchPanel({
           {categories.map(([id, count]) => (
             <FilterChip key={id} active={category === id} onClick={() => setCategory(id)}>
               {id}
-              <span className="ml-1 font-mono text-micro opacity-60">{count}</span>
+              <span className="ml-1 font-mono text-2xs opacity-60">{count}</span>
             </FilterChip>
           ))}
         </div>
@@ -146,7 +146,7 @@ function MarketWatchRow({ entry, deals }: { entry: MarketWatchEntry; deals: Deal
         </span>
       </div>
 
-      <h3 className="mt-2 font-display text-card leading-snug text-text">
+      <h3 className="mt-2 font-display text-base leading-snug text-text">
         {entry.url ? (
           <a href={entry.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
             {entry.headline}
@@ -206,7 +206,7 @@ function ImpactMeter({ rank }: { rank: number }) {
           style={{ width: `${clamped * 10}%` }}
         />
       </span>
-      <span className="font-mono text-micro text-text-faint">{clamped}</span>
+      <span className="font-mono text-2xs text-text-faint">{clamped}</span>
     </span>
   );
 }

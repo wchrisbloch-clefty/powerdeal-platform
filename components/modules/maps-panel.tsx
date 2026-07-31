@@ -149,7 +149,7 @@ export default function MapsPanel({
                       swatch={layer.color}
                     />
                     {layerErrors[layer.id] ? (
-                      <p className="ml-6 mt-0.5 text-tiny text-danger">
+                      <p className="ml-6 mt-0.5 text-2xs text-danger">
                         Failed to load: {layerErrors[layer.id]}
                       </p>
                     ) : null}
@@ -186,7 +186,7 @@ export default function MapsPanel({
               />
             </label>
 
-            <p className="mt-2 text-tiny text-text-faint">
+            <p className="mt-2 text-2xs text-text-faint">
               {filtered.length} of {deals.length} accounts shown
             </p>
           </Section>
@@ -195,7 +195,7 @@ export default function MapsPanel({
             <Section title="Rate legend">
               <ul className="space-y-1">
                 {RATE_LEGEND.map((l) => (
-                  <li key={l.label} className="flex items-center gap-2 text-tiny text-text-dim">
+                  <li key={l.label} className="flex items-center gap-2 text-2xs text-text-dim">
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-sm"
                       style={{ background: l.color }}
@@ -204,7 +204,7 @@ export default function MapsPanel({
                   </li>
                 ))}
               </ul>
-              <p className="mt-1.5 text-tiny text-text-faint">
+              <p className="mt-1.5 text-2xs text-text-faint">
                 Darker = more expensive = stronger grid-fighter case.
               </p>
             </Section>

@@ -189,21 +189,38 @@ export default async function DashboardPage() {
   );
 }
 
+/**
+ * A metric tile.
+ *
+ * Number first and heavy, label second and quiet — the reverse of what the
+ * markup order suggests, which is why the label sits BELOW. Reading order here
+ * is "36 … active deals", not "active deals … 36": the figure is what the eye
+ * is hunting for when someone opens this before a meeting.
+ *
+ * Weight does the hierarchy, not size alone: 36px/700 against 11px uppercase
+ * dim. Two sizes that differ but share a weight read as two labels.
+ */
 function SnapshotTile({
   label,
   value,
+  delta,
   tone,
 }: {
   label: string;
   value: string;
+  /** Comparison line, where one exists — "+3 this week". */
+  delta?: string;
   tone?: 'danger' | 'warn';
 }) {
   const valueClass =
     tone === 'danger' ? 'text-danger' : tone === 'warn' ? 'text-warning' : 'text-text';
   return (
-    <div className="rounded-card border border-rule bg-bg-raised px-3 py-2.5">
-      <p className="eyebrow">{label}</p>
-      <p className={`mt-1 font-display text-xl tabular-nums ${valueClass}`}>{value}</p>
+    <div className="rounded-card border border-rule bg-bg-raised p-4">
+      <p className={`font-display text-3xl font-bold leading-tight tabular-nums ${valueClass}`}>
+        {value}
+      </p>
+      <p className="mt-1 text-2xs uppercase tracking-label text-text-dim">{label}</p>
+      {delta ? <p className="mt-0.5 text-xs text-text-faint">{delta}</p> : null}
     </div>
   );
 }

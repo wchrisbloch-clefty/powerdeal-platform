@@ -147,7 +147,7 @@ export default function ChatPanel({
             ))}
           </select>
           {selected ? (
-            <p className="mt-1.5 text-tiny text-text-faint">
+            <p className="mt-1.5 text-2xs text-text-faint">
               The full deal record and its logged signals are injected on every
               message — you never have to re-explain the account.
             </p>
@@ -168,7 +168,7 @@ export default function ChatPanel({
               </p>
               <p className="truncate text-sm text-text">{askCtx.title}</p>
               {askCtx.source ? (
-                <p className="truncate text-tiny text-text-dim">{askCtx.source}</p>
+                <p className="truncate text-2xs text-text-dim">{askCtx.source}</p>
               ) : null}
             </div>
             <button

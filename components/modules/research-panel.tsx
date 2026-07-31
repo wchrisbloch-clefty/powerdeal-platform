@@ -54,7 +54,7 @@ export default function ResearchPanel({
                 <ChevronRight size={15} className="mt-0.5 shrink-0 text-text-dim" aria-hidden />
               )}
               <span className="min-w-0 flex-1">
-                <span className="block font-display text-card text-text">{run.query}</span>
+                <span className="block font-display text-base text-text">{run.query}</span>
                 <span className="mt-0.5 block text-xs text-text-dim">
                   {run.windowDays}-day window · run {formatDate(run.generatedAt)} ·{' '}
                   <span className="font-mono">{run.itemCount}</span> items
@@ -85,7 +85,7 @@ export default function ResearchPanel({
                           {engagement ? (
                             <div className="mb-1.5 flex flex-wrap items-center gap-2">
                               <EngagementChip label={engagement.label} comments={engagement.comments} />
-                              <span className="text-tiny text-text-faint">
+                              <span className="text-2xs text-text-faint">
                                 reach, not accuracy — the tier badge on the card is the
                                 trust signal
                               </span>
@@ -118,7 +118,7 @@ function EngagementChip({ label, comments }: { label: string; comments?: number 
   return (
     <span
       title="Engagement from the source platform. Not a trust signal."
-      className="inline-flex items-center gap-1 rounded-full bg-bg-overlay px-2 py-0.5 font-mono text-micro text-text-faint"
+      className="inline-flex items-center gap-1 rounded-full bg-bg-overlay px-2 py-0.5 font-mono text-2xs text-text-faint"
     >
       {label}
       {comments ? ` · ${comments} comments` : ''}
@@ -139,7 +139,7 @@ function EmptyResearch() {
         does not run it; you run it locally and POST the JSON here, and PowerDeal
         re-grades everything with its own classifier on arrival.
       </p>
-      <pre className="scrollbar-thin overflow-x-auto rounded-md border border-rule bg-bg p-3 font-mono text-tiny leading-relaxed text-text-dim">
+      <pre className="scrollbar-thin overflow-x-auto rounded-md border border-rule bg-bg p-3 font-mono text-2xs leading-relaxed text-text-dim">
 {`# one-time
 /plugin marketplace add mvanhorn/last30days-skill
 
@@ -226,7 +226,7 @@ function PasteFallback() {
             placeholder='{"schema_version":"1.0","query":"...","results":[...]}'
             className={cn(
               'w-full resize-y rounded-md border border-rule bg-bg px-2 py-1.5',
-              'font-mono text-tiny leading-relaxed text-text placeholder:text-text-faint',
+              'font-mono text-2xs leading-relaxed text-text placeholder:text-text-faint',
               'focus:border-accent-border focus:outline-none',
             )}
           />

@@ -75,10 +75,14 @@ export function Stat({
 }) {
   return (
     <div className={cn('min-w-0', className)}>
-      <div className="eyebrow mb-1">{label}</div>
-      <div className="truncate text-sm text-text" title={hint}>
+      {/* Label above value, uppercase micro-label — the definition-list shape.
+          The old version gave label and value nearly equal weight and a full
+          line of padding each, which is what made a six-field grid take the
+          vertical space of a paragraph. */}
+      <dt className="text-2xs uppercase leading-tight tracking-label text-text-dim">{label}</dt>
+      <dd className="mt-0.5 truncate text-base leading-snug text-text" title={hint}>
         {value}
-      </div>
+      </dd>
     </div>
   );
 }

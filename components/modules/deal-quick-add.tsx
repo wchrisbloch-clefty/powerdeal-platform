@@ -90,7 +90,7 @@ export default function DealQuickAdd({
             <h2 id="quick-add-title" className="font-display text-lg text-text">
               Add deal
             </h2>
-            <p className="mt-0.5 font-mono text-tiny text-text-faint">
+            <p className="mt-0.5 font-mono text-2xs text-text-faint">
               Will be created as {previewId}
             </p>
           </div>

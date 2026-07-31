@@ -125,7 +125,7 @@ export function Sidebar() {
       </div>
 
       <div className="shrink-0 border-t border-rule px-4 py-3">
-        <p className="font-mono text-micro uppercase tracking-wider text-text-faint">
+        <p className="font-mono text-2xs uppercase tracking-wider text-text-faint">
           Brain v{POWERDEAL_VERSION}
         </p>
       </div>
@@ -155,7 +155,7 @@ export function TabBar() {
             href={item.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-micro',
+              'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-2xs',
               active ? 'text-accent' : 'text-text-dim',
             )}
           >

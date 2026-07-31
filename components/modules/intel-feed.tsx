@@ -300,7 +300,7 @@ export default function IntelFeed({
               <Chip key={c.id} active={category === c.id} onClick={() => setCategory(c.id)}>
                 {c.label}
                 {count > 0 ? (
-                  <span className="ml-1 font-mono text-micro opacity-60">{count}</span>
+                  <span className="ml-1 font-mono text-2xs opacity-60">{count}</span>
                 ) : null}
               </Chip>
             );
@@ -330,7 +330,7 @@ export default function IntelFeed({
               disabled={count === 0}
             >
               {PLATFORM_LABELS[p]}
-              <span className="ml-1 font-mono text-micro opacity-60">{count}</span>
+              <span className="ml-1 font-mono text-2xs opacity-60">{count}</span>
             </Chip>
           );
         })}

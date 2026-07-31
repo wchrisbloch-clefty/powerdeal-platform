@@ -341,7 +341,7 @@ export default function FeedItemCard({
           </span>
         </div>
 
-        <h3 className="mt-2 font-display text-card leading-snug text-text">
+        <h3 className="mt-2 font-display text-base leading-snug text-text">
           {item.url ? (
             <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
               {item.title}
@@ -354,7 +354,7 @@ export default function FeedItemCard({
 
         <div className="my-2.5 flex items-center gap-2">
           <ConfidenceRule confidence={item.confidence} className="flex-1" />
-          <span className="shrink-0 font-mono text-tiny text-text-faint">
+          <span className="shrink-0 font-mono text-2xs text-text-faint">
             {Math.round(item.confidence * 100)}%
           </span>
         </div>

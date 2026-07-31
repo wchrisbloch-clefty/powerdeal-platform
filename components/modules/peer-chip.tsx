@@ -69,7 +69,7 @@ export default function PeerChip({ peer }: { peer: PeerLike }) {
     >
       {added ? <Check size={11} aria-hidden /> : <Plus size={11} aria-hidden />}
       {peer.name}
-      <span className="font-mono text-micro opacity-60">{peer.mentions}</span>
+      <span className="font-mono text-2xs opacity-60">{peer.mentions}</span>
     </button>
   );
 }

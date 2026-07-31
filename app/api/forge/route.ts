@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          'PDF export requires a headless Chromium, which is not bundled. Export DOCX and print to PDF, or add Playwright and wire it up here.',
+          'PDF export is not wired up yet. Feasibility IS confirmed: @sparticuz/chromium + puppeteer-core trace to 70.1 MB against Vercel\'s 250 MB limit (measured 2026-07-31), and next.config.ts already force-includes the binary the tracer would otherwise miss. What remains is the HTML template, the two page sizes, and Supabase Storage. Export DOCX in the meantime.',
       },
       { status: 501 },
     );

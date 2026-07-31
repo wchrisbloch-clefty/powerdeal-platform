@@ -147,7 +147,7 @@ export default async function EntityPage({
                 <DealCard deal={deal} />
                 {/* The basis travels with the card: a state-level match is real
                     but weak, and a rep should know which one they are citing. */}
-                <p className="mt-1 pl-1 text-tiny text-text-faint">
+                <p className="mt-1 pl-1 text-2xs text-text-faint">
                   {BASIS_LABELS[basis]}
                 </p>
               </div>

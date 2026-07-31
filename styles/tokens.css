@@ -52,7 +52,7 @@
   --color-accent-border: rgba(60, 173, 58, 0.22);
 
   /* Semantic */
-  --color-danger: #c0392b;
+  --color-danger: #b53527;
   --color-danger-bg: rgba(192, 57, 43, 0.08);
   --color-warning: #836200;
   --color-success: #227538;
@@ -78,43 +78,89 @@
   --tabbar-height: 60px;
 
   /* ── Type scale ──────────────────────────────────────────────
-     Named by ROLE, not by size, so a component says what a piece
-     of text IS rather than how big it happens to be. These are
-     the sizes below Tailwind's `text-sm`, which is where the
-     interface does most of its work: counts, provenance chips,
-     metadata lines. Scattering `text-[11px]` through components
-     is how a type scale quietly becomes fourteen sizes. */
-  --text-micro: 0.625rem;  /* 10px — mono counts, badge text */
-  --text-tiny: 0.6875rem;  /* 11px — metadata, secondary lines */
-  --text-note: 0.8125rem;  /* 13px — dense annotation */
-  --text-card: 0.9375rem;  /* 15px — card headline */
-  --text-lede: 1.0625rem;  /* 17px — panel lede */
+     Named on Tailwind's own scale rather than invented names, on
+     purpose: `text-sm` and `text-lg` are already in tailwind-merge's
+     default theme, so redefining their VALUES here avoids the custom
+     class-group collision documented at the top of this file. Only
+     `2xs` is new, and it is declared in cn().
 
-  /* ── Touch ───────────────────────────────────────────────────
-     44px is the floor below 1280px. The feed's action rail is the
-     most-tapped thing in the product and sits seven items wide. */
+     Sizes run one step tighter than Tailwind's defaults throughout —
+     this is an instrument read before meetings, not a consumer
+     dashboard, and density is the point. */
+  --text-2xs: 0.6875rem;   /* 11px — micro labels, timestamps */
+  --text-xs: 0.75rem;      /* 12px — metadata, chips, table meta */
+  --text-sm: 0.8125rem;    /* 13px — dense table cells, secondary */
+  --text-base: 0.9375rem;  /* 15px — body */
+  --text-lg: 1.0625rem;    /* 17px — card titles */
+  --text-xl: 1.375rem;     /* 22px — section headings */
+  --text-2xl: 1.75rem;     /* 28px — page titles */
+  --text-3xl: 2.25rem;     /* 36px — metric numbers */
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.55;
+
+  /* Uppercase + letterspacing is for micro-labels only — VERTICAL, GEO
+     TIER, AI ACTIONS. Never body, never headings. */
+  --tracking-label: 0.06em;
+
+  /* ── Spacing — 4px base grid ─────────────────────────────────
+     Tailwind's default scale is already 4px-based, so these exist to
+     name the grid and to be the single place it changes. */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.25rem;
+  --sp-6: 1.5rem;
+  --sp-8: 2rem;
+  --sp-10: 2.5rem;
+  --sp-12: 3rem;
+
+  /* ── Radius + elevation ──────────────────────────────────────
+     Borders over shadows. One shadow level, for true overlays only —
+     a UI that floats everything reads as decoration. */
+  --radius-sm: 4px;   /* chips, badges */
+  --radius-md: 8px;   /* cards, inputs */
+  --radius-lg: 12px;  /* panels, modals */
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.10);
+
+  /* ── Density ─────────────────────────────────────────────────── */
+  --row-h-compact: 32px;
+  --row-h-comfortable: 40px;
+  --row-h-spacious: 48px;
+  /* 44px floor below 1280px. The feed's action rail is the most-tapped
+     thing in the product and sits seven items wide. */
   --tap-target: 2.75rem;
   --tap-target-sm: 2.25rem;
+  --touch-target-min: 44px;
+
+  /* ── Motion ──────────────────────────────────────────────────
+     Functional only: hover/focus feedback and panel transitions.
+     No entrance animation on page load — content that slides in on
+     every navigation is decoration that costs time to read. */
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
 
   /* ── Pipeline table columns ──────────────────────────────────
      Tuned so the Spine fits without wrapping at 1440. They live
      here rather than inline because they are a set that has to
      stay in proportion — changing one in a component and not the
      others is what makes a table drift out of alignment. */
-  --col-tiny: 3.5rem;    /* 56px */
-  --col-xs: 3.875rem;    /* 62px */
-  --col-sm: 4.125rem;    /* 66px */
-  --col-md: 4.5rem;      /* 72px */
-  --col-lg: 4.75rem;     /* 76px */
-  --col-xl: 5.25rem;     /* 84px */
-  --col-2xl: 6.5rem;     /* 104px */
-  --col-name-min: 6.875rem;  /* 110px */
-  --col-text-min: 7.5rem;    /* 120px */
-  --col-wide-min: 9.375rem;  /* 150px */
-  --col-widest-min: 11.25rem; /* 180px */
-  --col-clamp: 13.75rem;     /* 220px */
-  /* Rate-trend chart — tall enough for 12 months of bars without scroll. */
-  --panel-tall: 33.75rem;    /* 540px */
+  --col-tiny: 3.5rem;
+  --col-xs: 3.875rem;
+  --col-sm: 4.125rem;
+  --col-md: 4.5rem;
+  --col-lg: 4.75rem;
+  --col-xl: 5.25rem;
+  --col-2xl: 6.5rem;
+  --col-name-min: 6.875rem;
+  --col-text-min: 7.5rem;
+  --col-wide-min: 9.375rem;
+  --col-widest-min: 11.25rem;
+  --col-clamp: 13.75rem;
+  --panel-tall: 33.75rem;
 
   color-scheme: light;
 }
@@ -138,7 +184,7 @@
   --color-accent-fg: #0f1117;
   --color-accent-border: rgba(76, 194, 73, 0.26);
 
-  --color-danger: #e05a4a;
+  --color-danger: #e26758;
   --color-danger-bg: rgba(224, 90, 74, 0.12);
   --color-warning: #d6a419;
   --color-success: #3ea45c;

@@ -46,12 +46,50 @@ const config: Config = {
       },
       // Role-named, bound to styles/tokens.css. A component should never carry
       // a raw px value — the scale is the design system's to change.
+      // Redefines Tailwind's OWN scale rather than inventing names — those
+      // are already in tailwind-merge's default theme, so they cannot collide
+      // with colour utilities. `2xs` is the only new name and is declared in
+      // cn(). See the warning at the top of styles/tokens.css.
       fontSize: {
-        micro: 'var(--text-micro)',
-        tiny: 'var(--text-tiny)',
-        note: 'var(--text-note)',
-        card: 'var(--text-card)',
-        lede: 'var(--text-lede)',
+        '2xs': 'var(--text-2xs)',
+        xs: 'var(--text-xs)',
+        sm: 'var(--text-sm)',
+        base: 'var(--text-base)',
+        lg: 'var(--text-lg)',
+        xl: 'var(--text-xl)',
+        '2xl': 'var(--text-2xl)',
+        '3xl': 'var(--text-3xl)',
+      },
+      lineHeight: {
+        tight: 'var(--leading-tight)',
+        snug: 'var(--leading-snug)',
+        normal: 'var(--leading-normal)',
+      },
+      letterSpacing: {
+        label: 'var(--tracking-label)',
+      },
+      borderRadius: {
+        sm: 'var(--radius-sm)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        // Legacy alias — `rounded-card` predates the radius scale and is used
+        // across every surface; it now resolves to the same token as `md`.
+        card: 'var(--radius-md)',
+      },
+      boxShadow: {
+        overlay: 'var(--shadow-overlay)',
+      },
+      transitionTimingFunction: {
+        DEFAULT: 'var(--ease)',
+      },
+      transitionDuration: {
+        fast: 'var(--dur-fast)',
+        base: 'var(--dur-base)',
+      },
+      height: {
+        row: 'var(--row-h-comfortable)',
+        'row-compact': 'var(--row-h-compact)',
+        'row-spacious': 'var(--row-h-spacious)',
       },
       spacing: {
         sidebar: 'var(--sidebar-width)',
@@ -70,9 +108,6 @@ const config: Config = {
         'col-widest-min': 'var(--col-widest-min)',
         'col-clamp': 'var(--col-clamp)',
         'panel-tall': 'var(--panel-tall)',
-      },
-      borderRadius: {
-        card: '10px',
       },
     },
   },

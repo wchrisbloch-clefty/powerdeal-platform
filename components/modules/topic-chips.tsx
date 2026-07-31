@@ -46,7 +46,7 @@ export default function TopicChips({
           <button
             type="button"
             onClick={() => onFilter(null)}
-            className="ml-auto inline-flex items-center gap-1 rounded border border-rule px-1.5 py-0.5 text-tiny text-text-dim transition-colors hover:border-accent-border hover:text-text"
+            className="ml-auto inline-flex items-center gap-1 rounded border border-rule px-1.5 py-0.5 text-2xs text-text-dim transition-colors hover:border-accent-border hover:text-text"
           >
             <X size={11} aria-hidden />
             Clear filter
@@ -89,7 +89,7 @@ export default function TopicChips({
                   aria-hidden
                 />
                 {t.name}
-                <span className="font-mono text-micro text-text-faint">{t.count}</span>
+                <span className="font-mono text-2xs text-text-faint">{t.count}</span>
               </Link>
               <button
                 type="button"

@@ -34,7 +34,7 @@ export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={cn('inline-flex items-center gap-2 text-text', className)}>
       <BloomLogo size={20} />
-      <span className="font-display text-lede font-medium tracking-tight">
+      <span className="font-display text-lg font-medium tracking-tight">
         PowerDeal
       </span>
     </span>

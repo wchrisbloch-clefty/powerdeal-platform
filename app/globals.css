@@ -129,12 +129,20 @@
   }
 }
 
+/*
+ * Motion is functional only — hover/focus feedback and panel transitions.
+ * There are no entrance animations on page load anywhere in this app, which is
+ * deliberate: content that slides in on every navigation costs reading time on
+ * a surface people open to check one number before a meeting.
+ */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

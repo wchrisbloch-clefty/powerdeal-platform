@@ -234,7 +234,7 @@ export default function SourcesPanel({
         <section key={platform} className="rounded-card border border-rule bg-bg-raised p-4">
           <div className="mb-2.5 flex items-center gap-2">
             <span className="eyebrow">{PLATFORM_LABELS[platform]}</span>
-            <span className="font-mono text-micro text-text-faint">{entries.length}</span>
+            <span className="font-mono text-2xs text-text-faint">{entries.length}</span>
           </div>
 
           <div className="space-y-1">
@@ -271,7 +271,7 @@ export default function SourcesPanel({
                     </span>
                     {/* The reason a gap exists, where the gap is visible. */}
                     {source.blockedReason ? (
-                      <span className="mt-1 block text-tiny text-danger">
+                      <span className="mt-1 block text-2xs text-danger">
                         {source.blockedReason}
                       </span>
                     ) : null}

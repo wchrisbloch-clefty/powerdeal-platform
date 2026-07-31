@@ -111,7 +111,7 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
                   key={col.label}
                   scope="col"
                   className={cn(
-                    'whitespace-nowrap px-2.5 py-2 text-left font-mono text-micro',
+                    'whitespace-nowrap px-2.5 py-2 text-left font-mono text-2xs',
                     'uppercase tracking-wider text-text-faint',
                     col.numeric && 'text-right',
                     col.className,
@@ -141,7 +141,6 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
           <tbody>
             {sorted.map((deal) => {
               const flags = riskFlags(deal);
-              const topFlag = flags[0];
               const stalled = deal.days_in_stage > 30;
 
               return (
@@ -161,7 +160,7 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
                   <td className="px-2.5 py-2">
                     <HealthRing score={deal.health_score} size={28} />
                   </td>
-                  <td className="whitespace-nowrap px-2.5 py-2 font-mono text-tiny text-text-dim">
+                  <td className="whitespace-nowrap px-2.5 py-2 font-mono text-2xs text-text-dim">
                     {deal.deal_id}
                   </td>
                   <td className="px-2.5 py-2 font-medium text-text">{deal.company}</td>
@@ -221,18 +220,38 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
                     {deal.next_move ?? '—'}
                   </td>
 
-                  <td className="max-w-col-widest-min truncate px-2.5 py-2">
-                    {topFlag ? (
-                      <span
-                        className={cn(
-                          'text-xs',
-                          topFlag.severity === 'danger' ? 'text-danger' : 'text-warning',
-                        )}
-                      >
-                        {deal.key_risk ?? topFlag.label}
+                  {/* Two flags maximum, then a count. A row that renders every
+                      flag becomes a wall of red chips and stops being scannable
+                      — which is the opposite of what a warning is for. */}
+                  <td className="max-w-col-widest-min px-2.5 py-2">
+                    {flags.length > 0 ? (
+                      <span className="flex flex-wrap items-center gap-1">
+                        {flags.slice(0, 2).map((f) => (
+                          <span
+                            key={f.key}
+                            className={cn(
+                              'inline-flex items-center rounded-sm px-1.5 py-0.5 text-2xs uppercase tracking-label',
+                              f.severity === 'danger'
+                                ? 'bg-danger-bg text-danger'
+                                : 'bg-bg-overlay text-warning',
+                            )}
+                          >
+                            {f.label}
+                          </span>
+                        ))}
+                        {flags.length > 2 ? (
+                          <span
+                            className="text-2xs text-text-faint"
+                            title={flags.slice(2).map((f) => f.label).join(', ')}
+                          >
+                            +{flags.length - 2} more
+                          </span>
+                        ) : null}
                       </span>
                     ) : (
-                      <span className="text-xs text-text-faint">{deal.key_risk ?? '—'}</span>
+                      <span className="truncate text-xs text-text-faint">
+                        {deal.key_risk ?? '—'}
+                      </span>
                     )}
                   </td>
 
