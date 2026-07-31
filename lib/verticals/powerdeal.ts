@@ -288,6 +288,32 @@ export const powerdeal: VerticalConfig = {
         'Class VI injection permit filings, approvals and denials — the CCUS origination trigger. Aggregated.',
     },
     {
+      id: 'sabin-climate-law',
+      name: 'Columbia Sabin Center — Climate Law Blog',
+      platform: 'rss',
+      /**
+       * The only working feed out of five CCUS sources probed 2026-07-31.
+       * Arnold & Porter's Environmental Edge — the CCUS Tracker the Sabin
+       * Center co-maintains — serves its blog page at 200 but 404s on every
+       * feed path, so this is the upstream collaborator's own feed instead.
+       *
+       * Scope is honest: this is climate law broadly, not a Class VI tracker.
+       * The live sample was federal funding litigation and a regulatory agenda
+       * analysis, not permits. It earns a slot because CCUS economics turn on
+       * exactly this — 45Q, primacy fights, permitting reversals — but
+       * class-vi-permits carries the permit-level signal, not this.
+       *
+       * 'reported', not 'verified': academic legal analysis of primary
+       * sources is a step removed from the filings themselves.
+       */
+      url: 'https://blogs.law.columbia.edu/climatechange/feed/',
+      defaultTier: 'reported',
+      category: 'policy',
+      role: 'core',
+      rationale:
+        'Climate and energy law analysis — 45Q, Class VI primacy, permitting and regulatory shifts.',
+    },
+    {
       id: 'netl-news',
       name: 'DOE Energy News',
       platform: 'rss',

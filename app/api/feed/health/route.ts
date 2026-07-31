@@ -45,6 +45,69 @@ interface UrlHealth {
    * a source is on-topic is to read what it actually carries.
    */
   sampleTitles: string[];
+  /**
+   * Structure of the first HTML table on the page, when there is one.
+   *
+   * Only useful for scrape targets — EPA publishes the authoritative Class VI
+   * record as HTML tables with no feed. Writing a parser against a guessed
+   * column layout produces a scraper that silently returns garbage, which is
+   * the same failure class as a wrong feed URL returning 200. This reports
+   * the real headers and a real row so the parser can be written against
+   * what is actually served.
+   */
+  tableHeaders?: string[];
+  tableFirstRow?: string[];
+  tableCount?: number;
+}
+
+/** Collapse an HTML fragment to its visible text. */
+function cellText(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Read the shape of the first data table on an HTML page.
+ *
+ * Deliberately dumb regex rather than a DOM parser — this runs on scrape
+ * targets a handful of times while a parser is being written, not in the hot
+ * path, and pulling in a full HTML parser for that is not worth the weight.
+ */
+function inspectFirstTable(
+  body: string,
+): Pick<UrlHealth, 'tableHeaders' | 'tableFirstRow' | 'tableCount'> {
+  const tables = [...body.matchAll(/<table\b[\s\S]*?<\/table>/gi)].map((m) => m[0]);
+  if (tables.length === 0) return {};
+
+  // Prefer the first table that actually has header cells; navigation and
+  // layout tables usually do not.
+  const table = tables.find((t) => /<th\b/i.test(t)) ?? tables[0];
+
+  const headers = [...table.matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)]
+    .map((m) => cellText(m[1]))
+    .filter(Boolean);
+
+  const rows = [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map((m) => m[1]);
+  const dataRow = rows.find((r) => /<td\b/i.test(r));
+  const firstRow = dataRow
+    ? [...dataRow.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((m) =>
+        cellText(m[1]).slice(0, 120),
+      )
+    : [];
+
+  return {
+    tableCount: tables.length,
+    ...(headers.length > 0 ? { tableHeaders: headers } : {}),
+    ...(firstRow.length > 0 ? { tableFirstRow: firstRow } : {}),
+  };
 }
 
 async function probeUrl(url: string): Promise<UrlHealth> {
@@ -86,6 +149,7 @@ async function probeUrl(url: string): Promise<UrlHealth> {
 
     const feedTitle = titles[0] ?? null;
     const sampleTitles = titles.slice(1, 4);
+    const table = inspectFirstTable(body);
 
     if (itemCount === 0) {
       return {
@@ -94,6 +158,7 @@ async function probeUrl(url: string): Promise<UrlHealth> {
         itemCount: 0,
         feedTitle,
         sampleTitles,
+        ...table,
         message: 'Responded 200 but contains no items — likely an HTML page, not a feed.',
       };
     }
@@ -104,6 +169,7 @@ async function probeUrl(url: string): Promise<UrlHealth> {
       itemCount,
       feedTitle,
       sampleTitles,
+      ...table,
       message: null,
     };
   } catch (err) {
@@ -195,6 +261,9 @@ export async function GET(request: Request) {
               itemCount: c.itemCount,
               feedTitle: c.feedTitle,
               sampleTitles: c.sampleTitles,
+              ...(c.tableCount ? { tableCount: c.tableCount } : {}),
+              ...(c.tableHeaders ? { tableHeaders: c.tableHeaders } : {}),
+              ...(c.tableFirstRow ? { tableFirstRow: c.tableFirstRow } : {}),
             })),
         }
       : {}),
