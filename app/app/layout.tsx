@@ -1,6 +1,7 @@
 import { Sidebar, TabBar } from '@/components/chrome/nav';
 import TopBar from '@/components/chrome/top-bar';
 import { collectEnvWarnings } from '@/lib/env-check';
+import AgentAlertBanner from '@/components/chrome/agent-alert-banner';
 
 export default async function AppLayout({
   children,
@@ -44,7 +45,13 @@ export default async function AppLayout({
           className="scrollbar-thin px-4 pb-24 pt-5 md:px-7 md:pb-10"
           // Bottom padding clears the mobile tab bar.
         >
-          <div className="mx-auto w-full max-w-shell">{children}</div>
+          <div className="mx-auto w-full max-w-shell">
+            {/* Renders only when a scheduled job has failed twice running.
+                Sits in the shell so it reaches every screen — an alert on one
+                page is an alert the operator can walk past. */}
+            <AgentAlertBanner />
+            {children}
+          </div>
         </main>
       </div>
 

@@ -1,5 +1,6 @@
 import { isAuthorized, unauthorized, ok, serverError } from '../_shared/auth.ts';
 import { serviceClient, listUsers, listDeals, writeState, type DealRow } from '../_shared/appState.ts';
+import { recordAgentRun } from '../_shared/appState.ts';
 
 /**
  * Daily stall detection — 7am CT (12:00 UTC).
@@ -32,6 +33,7 @@ interface StallAlert {
 }
 
 Deno.serve(async (request: Request) => {
+  const startedAt = Date.now();
   if (!isAuthorized(request)) return unauthorized();
 
   try {
@@ -74,8 +76,24 @@ Deno.serve(async (request: Request) => {
       summary[user.user_id] = { checked: deals.length, stalled: alerts.length };
     }
 
+    await recordAgentRun(supabase, users[0]?.user_id ?? '', 'stall-alert', {
+      ok: true,
+      durationMs: Date.now() - startedAt,
+      itemsProcessed: Object.keys(summary).length,
+    });
     return ok({ ran_at: new Date().toISOString(), users: users.length, summary });
   } catch (err) {
+    // Recorded on the failure path as well — an unrecorded failure looks
+    // exactly like a job that was never deployed.
+    try {
+      const supabase = serviceClient();
+      const { data } = await supabase.from('user_settings').select('user_id').limit(1).maybeSingle();
+      await recordAgentRun(supabase, (data?.user_id as string) ?? '', 'stall-alert', {
+        ok: false,
+        durationMs: Date.now() - startedAt,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } catch { /* bookkeeping must never mask the original error */ }
     return serverError(err);
   }
 });

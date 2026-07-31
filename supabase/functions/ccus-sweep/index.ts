@@ -1,5 +1,6 @@
 import { isAuthorized, unauthorized, ok, serverError } from '../_shared/auth.ts';
 import { serviceClient, listUsers, listDeals, writeState } from '../_shared/appState.ts';
+import { recordAgentRun } from '../_shared/appState.ts';
 
 /**
  * Daily CCUS sweep — 6am CT (11:00 UTC).
@@ -45,6 +46,7 @@ const CCUS_PATTERN =
   /\b(carbon capture|ccus|\bccs\b|class vi|sequestration|co2 storage|carbon storage|45q|carbon dioxide (?:storage|injection))\b/i;
 
 Deno.serve(async (request: Request) => {
+  const startedAt = Date.now();
   if (!isAuthorized(request)) return unauthorized();
 
   try {
@@ -82,6 +84,9 @@ Deno.serve(async (request: Request) => {
 
     // ── 2. Per-user mapping and write ──
     const users = await listUsers(supabase);
+    // One record per job, not per user — the status page asks whether the
+    // job ran, not whether it ran for a particular row.
+    const ownerForRecord = users[0]?.user_id ?? '';
     const summary: Record<string, unknown> = {};
 
     for (const user of users) {
@@ -148,6 +153,12 @@ Deno.serve(async (request: Request) => {
       }
     }
 
+    await recordAgentRun(supabase, ownerForRecord, 'ccus-sweep', {
+      ok: true,
+      durationMs: Date.now() - startedAt,
+      itemsProcessed: 0,
+    });
+
     return ok({
       ran_at: new Date().toISOString(),
       fetched: entries.length,
@@ -158,6 +169,17 @@ Deno.serve(async (request: Request) => {
       note: 'EPA Class VI permit tracker is not scraped — see the comment at the top of this function.',
     });
   } catch (err) {
+    // Recorded on the failure path as well — an unrecorded failure looks
+    // exactly like a job that was never deployed.
+    try {
+      const client = serviceClient();
+      const { data } = await client.from('user_settings').select('user_id').limit(1).maybeSingle();
+      await recordAgentRun(client, (data?.user_id as string) ?? '', 'ccus-sweep', {
+        ok: false,
+        durationMs: Date.now() - startedAt,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } catch { /* bookkeeping must never mask the original error */ }
     return serverError(err);
   }
 });

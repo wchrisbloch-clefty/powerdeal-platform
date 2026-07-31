@@ -109,7 +109,7 @@ export const powerdeal: VerticalConfig = {
       category: 'policy',
       role: 'core',
       rationale:
-        'FERC orders, certificates and notices as filed — capacity markets, interconnection. Primary source → VERIFIED.',
+        'FERC orders, certificates and notices as filed — capacity markets, interconnection. Primary source → VERIFIED. SUBSTITUTION: ferc.gov 403s from Vercel IP ranges, so this reads the Federal Register API instead — the filings themselves rather than press releases about them, which is a stricter source, not a weaker one.',
     },
 
     // OIL & GAS
@@ -335,7 +335,25 @@ export const powerdeal: VerticalConfig = {
       rationale:
         'US Department of Energy announcements — funding, grid, carbon management. Primary source → VERIFIED.',
     },
+    {
+      id: 'thunder-said',
+      name: 'Thunder Said Energy',
+      platform: 'rss',
+      url: 'https://thundersaidenergy.com/feed/',
+      defaultTier: 'reported',
+      category: 'power-markets',
+      role: 'core',
+      status: 'blocked',
+      blockedReason:
+        "403 from Vercel's datacenter IP ranges (Cloudflare, IP-based — user-agent headers were tried and do not help). Deliberately NOT swapped for an aggregator: the candidate query for SOFC cost analysis returned market-report spam and a Substack post. Thunder Said earned its slot on analytical quality, and replacing it with SEO filler would degrade the feed while looking like a fix. Restore via a paid subscription feed token, or a relay off Vercel's ranges.",
+      rationale:
+        'First-principles energy economics — the SOFC cost-curve analysis nothing else covers. Currently unreachable; listed so the gap is visible rather than silently absent.',
+    },
     /**
+     * The entry above was previously deleted outright. It is kept now, marked
+     * blocked and never fetched, because a deleted source is an invisible gap:
+     * the Sources tab looked complete while this coverage was simply gone.
+     *
      * DROPPED 2026-07-31 — thunder-said (Thunder Said Energy).
      *
      * thundersaidenergy.com 403s from Vercel on every path (Cloudflare, IP

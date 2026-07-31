@@ -52,7 +52,12 @@ export function resolveSources(
   const muted = new Set(prefs?.muted ?? []);
   const enabled = new Set(prefs?.enabled ?? []);
 
-  const core = vertical.sources.filter((s) => !muted.has(s.id));
+  // `blocked` sources are listed in the Sources tab so the gap is legible, but
+  // never fetched — polling a known 403 every sweep just adds latency and log
+  // noise to a hole we already understand.
+  const core = vertical.sources.filter(
+    (s) => !muted.has(s.id) && s.status !== 'blocked',
+  );
   const discovery = vertical.discovery.filter(
     (s) => enabled.has(s.id) || s.enabledByDefault === true,
   );

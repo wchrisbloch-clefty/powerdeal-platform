@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import Button from '@/components/ui/button';
 import Badge from '@/components/ui/badge';
+import AgentHealth from './agent-health';
 
 const DEFAULTS: Required<Pick<UserSettings, 'watchlist'>> = {
   watchlist: { accounts: [], topics: [], verticals: [], utilities: [] },
@@ -152,6 +153,22 @@ export default function SettingsPanel({
               </div>
             ))}
           </div>
+        </CardBody>
+      </Card>
+
+      {/* ── Agent health ── */}
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Scheduled jobs</CardTitle>
+            <p className="mt-0.5 text-xs text-text-dim">
+              A cron that dies quietly is worse than no cron. This is the only
+              place that will tell you one stopped.
+            </p>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <AgentHealth />
         </CardBody>
       </Card>
 

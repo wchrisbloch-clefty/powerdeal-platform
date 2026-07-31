@@ -1,4 +1,23 @@
 /* ═══════════════════════════════════════════════════════════════
+   ⚠️  ADDING A TOKEN? READ THIS FIRST.
+
+   Every custom fontSize or colour token added here and mapped in
+   tailwind.config.ts MUST also be declared in the extendTailwindMerge
+   config beside cn() in lib/utils.ts.
+
+   tailwind-merge cannot tell a custom `text-note` (a font size) from a
+   custom `text-accent-fg` (a colour): both are `text-*`, and neither is
+   in its default theme, so it treats them as one conflicting group and
+   silently drops whichever came first. There is no error and no warning —
+   the class simply vanishes from the rendered output.
+
+   This already happened once. `text-accent-fg` was being stripped from
+   the primary button, so the label fell back to inheriting body colour
+   and rendered at 1.98:1 against Bloom green — unreadable, in both
+   themes, on every primary button in the product. It was invisible in
+   code review because the source looked correct.
+
+   ═══════════════════════════════════════════════════════════════
    PowerDeal Design System — Slate & Bloom
    ---------------------------------------------------------------
    This file is the SINGLE source of color truth. Tailwind maps its

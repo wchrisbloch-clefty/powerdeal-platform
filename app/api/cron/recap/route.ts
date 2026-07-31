@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { isCronAuthorized } from '@/lib/cron-auth';
 import { buildWeeklyRecap, storeRecap } from '@/lib/engine/recap';
+import { recordAgentRun } from '@/lib/agent-runs';
 import type { Deal, UserSettings } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
 
   // Cron covers every user, so this deliberately does not scope to the single
   // operator — it iterates user_settings itself.
+  const startedAt = Date.now();
   const { data: settingsRows } = await service.from('user_settings').select('*');
   const users = (settingsRows ?? []) as UserSettings[];
   const results: Record<string, string> = {};
@@ -62,6 +64,18 @@ export async function GET(request: NextRequest) {
       results[settings.user_id] = `failed: ${(err as Error).message}`;
     }
   }
+
+  const failed = Object.values(results).filter((r) => r.startsWith('failed:'));
+  const items = Object.values(results).reduce((n, r) => {
+    const m = r.match(/^(\d+) items/);
+    return n + (m ? Number(m[1]) : 0);
+  }, 0);
+  await recordAgentRun('weekly-recap', {
+    ok: failed.length === 0,
+    durationMs: Date.now() - startedAt,
+    itemsProcessed: items,
+    error: failed.length > 0 ? failed[0] : null,
+  });
 
   return NextResponse.json({ recapped_users: users.length, results });
 }

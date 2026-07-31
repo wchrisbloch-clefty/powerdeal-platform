@@ -1,5 +1,6 @@
 import { isAuthorized, unauthorized, ok, serverError } from '../_shared/auth.ts';
 import { serviceClient, listUsers, listDeals, writeState } from '../_shared/appState.ts';
+import { recordAgentRun } from '../_shared/appState.ts';
 import { callClaude, parseJsonArray, anthropicConfigured } from '../_shared/anthropic.ts';
 import { POWERDEAL_IDENTITY } from '../_shared/identity.ts';
 
@@ -13,6 +14,7 @@ import { POWERDEAL_IDENTITY } from '../_shared/identity.ts';
  * mean, ranked, with the accounts to call.
  */
 Deno.serve(async (request: Request) => {
+  const startedAt = Date.now();
   if (!isAuthorized(request)) return unauthorized();
 
   try {
@@ -38,6 +40,9 @@ Deno.serve(async (request: Request) => {
 
     // ── 2. Per-user weekly rollup ──
     const users = await listUsers(supabase);
+    // One record per job, not per user — the status page asks whether the
+    // job ran, not whether it ran for a particular row.
+    const ownerForRecord = users[0]?.user_id ?? '';
     const summaries: Record<string, unknown> = {};
     const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
 
@@ -126,6 +131,12 @@ ${feed}`,
       summaries[user.user_id] = { items: entries.length, accounts: accountsHit.size };
     }
 
+    await recordAgentRun(supabase, ownerForRecord, 'market-watch', {
+      ok: true,
+      durationMs: Date.now() - startedAt,
+      itemsProcessed: Object.keys(summaries).length,
+    });
+
     return ok({
       ran_at: new Date().toISOString(),
       sweep: sweepResult,
@@ -133,6 +144,17 @@ ${feed}`,
       summaries,
     });
   } catch (err) {
+    // Recorded on the failure path as well — an unrecorded failure looks
+    // exactly like a job that was never deployed.
+    try {
+      const client = serviceClient();
+      const { data } = await client.from('user_settings').select('user_id').limit(1).maybeSingle();
+      await recordAgentRun(client, (data?.user_id as string) ?? '', 'market-watch', {
+        ok: false,
+        durationMs: Date.now() - startedAt,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } catch { /* bookkeeping must never mask the original error */ }
     return serverError(err);
   }
 });

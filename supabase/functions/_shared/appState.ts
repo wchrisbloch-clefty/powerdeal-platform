@@ -103,3 +103,67 @@ export async function listDeals(
   if (error) throw new Error(`Could not list deals: ${error.message}`);
   return (data ?? []) as DealRow[];
 }
+
+/**
+ * AGENT RUN RECORDS — the edge-function half of the health surface.
+ *
+ * Mirrors lib/agent-runs.ts on the Next side, writing to the same
+ * `agents:runs` key so one status page covers both runtimes. It has to be a
+ * separate implementation because this is Deno with no access to the app's
+ * module graph; the SHAPE is what must stay in sync, and it is small enough to
+ * keep that way by hand.
+ *
+ * Records against the operator's own row rather than per-user: the status page
+ * asks "did the Friday sweep run", not "did it run for user 7".
+ */
+const AGENT_RUNS_KEY = 'agents:runs';
+const AGENT_ALERT_KEY = 'agents:alert';
+const FAILURE_ALERT_THRESHOLD = 2;
+
+interface AgentRun {
+  lastAttemptAt: string;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  durationMs: number | null;
+  itemsProcessed: number | null;
+  consecutiveFailures: number;
+}
+
+/** Never throws — a job must not fail because its own bookkeeping did. */
+export async function recordAgentRun(
+  supabase: SupabaseClient,
+  ownerId: string,
+  jobId: string,
+  result: { ok: boolean; durationMs?: number; itemsProcessed?: number; error?: string | null },
+): Promise<void> {
+  try {
+    const runs =
+      (await readState<Record<string, AgentRun>>(supabase, ownerId, AGENT_RUNS_KEY)) ?? {};
+    const prev = runs[jobId];
+    const now = new Date().toISOString();
+
+    runs[jobId] = {
+      lastAttemptAt: now,
+      lastSuccessAt: result.ok ? now : (prev?.lastSuccessAt ?? null),
+      lastError: result.ok ? null : (result.error ?? 'Unknown error'),
+      durationMs: result.durationMs ?? null,
+      itemsProcessed: result.itemsProcessed ?? null,
+      consecutiveFailures: result.ok ? 0 : (prev?.consecutiveFailures ?? 0) + 1,
+    };
+
+    await writeState(supabase, ownerId, AGENT_RUNS_KEY, runs);
+
+    const failing = Object.entries(runs)
+      .filter(([, r]) => r.consecutiveFailures >= FAILURE_ALERT_THRESHOLD)
+      .map(([id, r]) => ({ id, label: id, failures: r.consecutiveFailures, error: r.lastError }));
+
+    await writeState(
+      supabase,
+      ownerId,
+      AGENT_ALERT_KEY,
+      failing.length > 0 ? { jobs: failing, since: new Date().toISOString() } : null,
+    );
+  } catch (err) {
+    console.warn(`[agent-runs] could not record ${jobId}:`, (err as Error).message);
+  }
+}

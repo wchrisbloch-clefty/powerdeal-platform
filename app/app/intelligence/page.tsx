@@ -15,6 +15,7 @@ import { fetchTopicVideos, youtubeConfigured } from '@/lib/engine/youtube';
 import { fetchRatesWithTrend, eiaConfigured } from '@/lib/geo/eia-api';
 import { getFeedStates } from '@/lib/feed-state';
 import { getDismissals } from '@/lib/item-extras';
+import { getFeedHealth } from '@/lib/feed-health';
 import { getResearchRuns } from '@/lib/research';
 import { getFeedItemsByKeys } from '@/lib/data';
 import { buildBenchmarks } from '@/lib/pricing';
@@ -101,6 +102,7 @@ async function FeedTab() {
     getFeedStates(),
     getDismissals(),
   ]);
+  const health = await getFeedHealth().catch(() => null);
 
   const feed = await getLiveFeed(deals);
   const vertical = getActiveVertical();
@@ -136,6 +138,11 @@ async function FeedTab() {
       trends={computeTrends(feed.items, deals, 12)}
       initialStates={states}
       initialDismissed={dismissed}
+      feedHealth={
+        health
+          ? { ok: health.ok, checked: health.checked, broken: health.broken, checkedAt: health.checkedAt }
+          : null
+      }
     />
   );
 }

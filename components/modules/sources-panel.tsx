@@ -248,7 +248,8 @@ export default function SourcesPanel({
                 >
                   <input
                     type="checkbox"
-                    checked={on}
+                    checked={source.status === 'blocked' ? false : on}
+                    disabled={source.status === 'blocked'}
                     onChange={() => toggle(source, kind)}
                     className="mt-1.5 h-5 w-5 shrink-0 accent-[color:var(--color-accent)] xl:h-3.5 xl:w-3.5"
                   />
@@ -260,11 +261,20 @@ export default function SourcesPanel({
                       <ProvenanceChip tier={source.defaultTier} />
                       {kind === 'discovery' ? <Badge tone="neutral">Discovery</Badge> : null}
                       {kind === 'custom' ? <Badge tone="accent">Yours</Badge> : null}
-                      {h && h.status !== 'ok' ? <Badge tone="danger">No items</Badge> : null}
+                      {source.status === 'blocked' ? <Badge tone="danger">Blocked</Badge> : null}
+                      {h && h.status !== 'ok' && source.status !== 'blocked' ? (
+                        <Badge tone="danger">No items</Badge>
+                      ) : null}
                     </span>
                     <span className="mt-0.5 block text-xs text-text-dim">
                       {source.rationale}
                     </span>
+                    {/* The reason a gap exists, where the gap is visible. */}
+                    {source.blockedReason ? (
+                      <span className="mt-1 block text-tiny text-danger">
+                        {source.blockedReason}
+                      </span>
+                    ) : null}
                   </span>
                   {kind === 'custom' ? (
                     <button

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { RefreshCw, Zap, Rows3, LayoutGrid, Share2, Database } from 'lucide-react';
 import type { FeedItem, Deal } from '@/lib/types';
@@ -41,6 +42,7 @@ export default function IntelFeed({
   trends,
   initialStates,
   initialDismissed,
+  feedHealth,
 }: {
   items: FeedItem[];
   deals: Deal[];
@@ -57,6 +59,8 @@ export default function IntelFeed({
   initialStates: FeedStateMap;
   /** Read back on every load — a dismissal nothing consults is theater. */
   initialDismissed: Record<string, { reason: string | null; at: string }>;
+  /** Latest scheduled probe — null when one has never run. */
+  feedHealth: { ok: number; checked: number; broken: number; checkedAt: string } | null;
 }) {
   const router = useRouter();
   const vertical = getActiveVertical();
@@ -206,9 +210,27 @@ export default function IntelFeed({
         <div>
           <p className="eyebrow">Market Watch</p>
           <h1 className="mt-1 font-display text-2xl text-text">Intelligence</h1>
-          <p className="mt-1 text-xs text-text-faint">
-            {live ? 'Live from' : 'Seed content —'} {vertical.sources.length} configured sources ·
-            updated {relativeTime(fetchedAt)}
+          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-text-faint">
+            <span>
+              {live ? 'Live from' : 'Seed content —'} {vertical.sources.length} configured sources ·
+              updated {relativeTime(fetchedAt)}
+            </span>
+            {/* Feed health from the weekly probe. A dead publisher just makes
+                the stream quieter with no error, so the count belongs where
+                the stream is actually read. */}
+            {feedHealth ? (
+              <Link
+                href="/app/intelligence?tab=sources"
+                className={cn(
+                  'underline underline-offset-2',
+                  feedHealth.broken > 0 ? 'text-danger' : 'hover:text-text-dim',
+                )}
+              >
+                {feedHealth.broken > 0
+                  ? `${feedHealth.broken} feed${feedHealth.broken === 1 ? '' : 's'} down — view`
+                  : `${feedHealth.ok}/${feedHealth.checked} healthy`}
+              </Link>
+            ) : null}
           </p>
         </div>
         <div className="flex items-center gap-2">

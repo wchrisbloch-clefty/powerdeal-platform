@@ -48,6 +48,18 @@ export interface SourceConfig {
   enabledByDefault?: boolean;
   /** Why this source earns a slot — shown in Settings › Sources. */
   rationale: string;
+  /**
+   * Known-broken sources, marked rather than deleted.
+   *
+   * A source that 403s from Vercel's IP ranges is not a bad source — it is a
+   * source we currently cannot reach, and the distinction matters. Deleting it
+   * makes the gap invisible; leaving it unmarked makes the feed look healthier
+   * than it is. `blocked` says the coverage is missing AND why, so the Sources
+   * tab can show the hole instead of hiding it.
+   */
+  status?: 'active' | 'blocked';
+  /** Required when status is 'blocked' — what is actually wrong. */
+  blockedReason?: string;
 }
 
 export interface TickerEntry {

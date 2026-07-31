@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { runSweep } from '@/lib/engine/sweep';
 import { isCronAuthorized } from '@/lib/cron-auth';
+import { recordAgentRun } from '@/lib/agent-runs';
 import type { Deal, UserSettings } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,9 @@ export async function GET(request: NextRequest) {
  *   · The operator pressing "Sweep" — scoped to the single account.
  */
 export async function POST(request: NextRequest) {
+  // Per-request, not module scope — a module-level constant would measure time
+  // since the lambda booted, which is not the run's duration.
+  const startedAt = Date.now();
   // ── Cron path ──
   if (isCronAuthorized(request)) {
     // Cron sweeps every user, so this is the one place that deliberately does
@@ -65,6 +69,22 @@ export async function POST(request: NextRequest) {
         { sourcePrefs: settings.source_prefs },
       );
     }
+
+    // Recorded whether or not it worked — an unrecorded failure is
+    // indistinguishable from a job that never ran.
+    const failures = Object.values(results).filter(
+      (r) => (r as { errors?: string[] }).errors?.length,
+    ).length;
+    const items = Object.values(results).reduce<number>(
+      (n, r) => n + ((r as { new_items?: number }).new_items ?? 0),
+      0,
+    );
+    await recordAgentRun('feed-sweep', {
+      ok: failures === 0,
+      durationMs: Date.now() - startedAt,
+      itemsProcessed: items,
+      error: failures > 0 ? `${failures} of ${users.length} user sweeps reported errors.` : null,
+    });
 
     return NextResponse.json({ swept_users: users.length, results });
   }
