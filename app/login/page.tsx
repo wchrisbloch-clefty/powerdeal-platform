@@ -2,19 +2,21 @@
 
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Wordmark } from '@/components/ui/bloom-logo';
 import Button from '@/components/ui/button';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 
 function LoginForm() {
+  const router = useRouter();
   const params = useSearchParams();
   const next = params.get('next') ?? '/app';
   const urlError = params.get('error');
 
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [password, setPassword] = useState('');
+  const [status, setStatus] = useState<'idle' | 'signing-in' | 'error'>('idle');
   const [message, setMessage] = useState<string | null>(urlError);
 
   const configured = isSupabaseConfigured();
@@ -28,22 +30,55 @@ function LoginForm() {
       return;
     }
 
-    setStatus('sending');
+    setStatus('signing-in');
     setMessage(null);
 
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      },
+      password,
     });
 
     if (error) {
       setStatus('error');
-      setMessage(error.message);
+      /**
+       * Supabase returns the same generic message whether the address is
+       * unknown or the password is wrong — correctly, since distinguishing
+       * them leaks which accounts exist. But this deployment previously used
+       * magic links, and an account created that way has no password at all,
+       * which produces this exact error and no way to guess why. Naming that
+       * case is the difference between a one-click fix and a dead end.
+       */
+      setMessage(
+        error.message === 'Invalid login credentials'
+          ? 'Email or password is incorrect. If this account was created with a ' +
+              'magic link it has no password yet — set one in Supabase under ' +
+              'Authentication → Users, or use "Forgot password".'
+          : error.message,
+      );
       return;
     }
-    setStatus('sent');
+
+    /**
+     * First-login seed, previously done in the magic-link callback. Password
+     * sign-in never touches that route, so it happens here instead.
+     *
+     * Idempotent and best-effort by design: an empty pipeline is recoverable,
+     * a blocked sign-in is not. Same tradeoff the callback made.
+     */
+    try {
+      const { data } = await supabase.rpc('seed_new_user');
+      if (typeof data === 'number' && data > 0) {
+        router.replace(`${next}?welcome=${data}`);
+        router.refresh();
+        return;
+      }
+    } catch {
+      // Non-fatal — fall through to the normal redirect.
+    }
+
+    // refresh() so server components re-render against the new session cookie.
+    router.replace(next);
+    router.refresh();
   }
 
   return (
@@ -53,77 +88,70 @@ function LoginForm() {
       </Link>
 
       <div className="rounded-card border border-rule bg-bg-raised p-6">
-        {status === 'sent' ? (
-          <>
-            <div className="mb-3 h-0.5 w-10 rounded-full bg-accent" />
-            <h1 className="font-display text-xl text-text">Check your email</h1>
-            <p className="mt-2 text-sm text-text-dim">
-              We sent a sign-in link to <span className="text-text">{email}</span>. It
-              expires in an hour.
-            </p>
-            <button
-              type="button"
-              onClick={() => setStatus('idle')}
-              className="mt-4 text-sm text-accent-dim underline underline-offset-2"
-            >
-              Use a different email
-            </button>
-          </>
-        ) : (
-          <>
-            <h1 className="font-display text-xl text-text">Sign in to PowerDeal</h1>
-            <p className="mt-1.5 text-sm text-text-dim">
-              No password. We email you a one-time link.
-            </p>
+        <h1 className="font-display text-xl text-text">Sign in to PowerDeal</h1>
+        <p className="mt-1.5 text-sm text-text-dim">
+          Email and password.
+        </p>
 
-            <form onSubmit={onSubmit} className="mt-5 space-y-3">
-              <div>
-                <label htmlFor="email" className="eyebrow mb-1.5 block">
-                  Work email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  className={cn(
-                    'h-10 w-full rounded-md border border-rule bg-bg px-3 text-sm text-text',
-                    'placeholder:text-text-faint focus:border-accent-border focus:outline-none',
-                  )}
-                />
-              </div>
+        <form onSubmit={onSubmit} className="mt-5 space-y-3">
+          <div>
+            <label htmlFor="email" className="eyebrow mb-1.5 block">
+              Work email
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              className={inputClass}
+            />
+          </div>
 
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                className="w-full"
-                disabled={status === 'sending' || !configured}
-              >
-                {status === 'sending' ? 'Sending…' : 'Send magic link'}
-              </Button>
-            </form>
+          <div>
+            <label htmlFor="password" className="eyebrow mb-1.5 block">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className={inputClass}
+            />
+          </div>
 
-            {!configured && (
-              <p className="mt-3 rounded-md border border-rule bg-bg px-3 py-2 text-xs text-text-dim">
-                Supabase is not configured, so sign-in is unavailable. The app still runs
-                on template data —{' '}
-                <Link href="/app" className="text-accent-dim underline underline-offset-2">
-                  open it directly
-                </Link>
-                .
-              </p>
-            )}
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            className="w-full"
+            disabled={status === 'signing-in' || !configured}
+          >
+            {status === 'signing-in' ? 'Signing in…' : 'Sign in'}
+          </Button>
+        </form>
 
-            {message && (
-              <p className="mt-3 text-xs text-danger" role="alert">
-                {message}
-              </p>
-            )}
-          </>
+        {!configured && (
+          <p className="mt-3 rounded-md border border-rule bg-bg px-3 py-2 text-xs text-text-dim">
+            Supabase is not configured, so sign-in is unavailable. The app still runs
+            on template data —{' '}
+            <Link href="/app" className="text-accent-dim underline underline-offset-2">
+              open it directly
+            </Link>
+            .
+          </p>
+        )}
+
+        {message && (
+          <p className="mt-3 text-xs text-danger" role="alert">
+            {message}
+          </p>
         )}
       </div>
 
@@ -135,6 +163,11 @@ function LoginForm() {
     </div>
   );
 }
+
+const inputClass = cn(
+  'h-10 w-full rounded-md border border-rule bg-bg px-3 text-sm text-text',
+  'placeholder:text-text-faint focus:border-accent-border focus:outline-none',
+);
 
 export default function LoginPage() {
   return (

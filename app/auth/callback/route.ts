@@ -2,11 +2,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
- * Supabase magic-link callback.
+ * Supabase code-exchange callback.
  *
- * Exchanges the one-time code for a session, then seeds the account on first
- * login. Seeding failure is non-fatal — an empty pipeline is recoverable, a
- * failed sign-in is not.
+ * Sign-in no longer comes through here — /login uses signInWithPassword and
+ * seeds the account itself. This is kept for PASSWORD RECOVERY, which still
+ * arrives as a one-time code in an emailed link and would otherwise have
+ * nowhere to land. Deleting it would leave a forgotten password unrecoverable
+ * without the Supabase dashboard.
+ *
+ * Seeding stays because recovery can be the first successful sign-in on an
+ * account. It is idempotent, and failure is non-fatal — an empty pipeline is
+ * recoverable, a blocked sign-in is not.
  */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;

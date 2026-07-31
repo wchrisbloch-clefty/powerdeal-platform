@@ -54,9 +54,30 @@ on `(user_id, deal_id)`).
 
 ---
 
+## Creating your login
+
+Sign-in is **email + password** (`signInWithPassword`). There is no magic
+link, so the account has to exist *with a password set* before you can get in.
+
+Supabase → **Authentication → Users → Add user**
+
+- Enter your email and a password
+- Tick **Auto Confirm User**, otherwise Supabase holds the account pending an
+  email confirmation and the password will not work
+
+If you already signed in with a magic link at any point, that account exists
+but has **no password**, and signing in will fail with *"Invalid login
+credentials"* — the same error as a wrong password, because Supabase
+deliberately does not reveal which accounts exist. Fix it in the same place:
+**Authentication → Users →** your row **→ Reset password**, or send yourself a
+recovery email, which still works via `/auth/callback`.
+
+---
+
 ## Step 4 — Load intelligence + market watch history (Supabase)
 
-**Sign in to the app at least once first.**
+**Sign in to the app at least once first** — see [Creating your login](#creating-your-login)
+below if you have not set a password yet.
 
 SQL Editor → New query → paste **`supabase/seed-intelligence.sql`** → Run.
 
