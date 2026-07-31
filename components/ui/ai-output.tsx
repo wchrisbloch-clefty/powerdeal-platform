@@ -81,7 +81,7 @@ export default function AiOutput({
             <span className="eyebrow">Output</span>
           )}
           {provider && !streaming ? (
-            <span className="font-mono text-[10px] text-text-faint">
+            <span className="font-mono text-micro text-text-faint">
               via {provider}
               {model ? ` · ${model}` : ''}
             </span>

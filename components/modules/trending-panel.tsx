@@ -45,14 +45,14 @@ export default function TrendingPanel({
                 href={entityHref(t)}
                 className="group flex w-full items-baseline gap-2.5 border-b border-rule py-2 text-left last:border-0"
               >
-                <span className="w-4 shrink-0 text-right font-mono text-[11px] text-text-faint">
+                <span className="w-4 shrink-0 text-right font-mono text-tiny text-text-faint">
                   {i + 1}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-text group-hover:text-accent-dim">
                     {t.name}
                   </span>
-                  <span className="mt-0.5 flex items-center gap-1.5 text-[11px]">
+                  <span className="mt-0.5 flex items-center gap-1.5 text-tiny">
                     <span
                       className="h-1.5 w-1.5 shrink-0 rounded-full"
                       style={{ backgroundColor: `var(--prov-${t.tier})` }}

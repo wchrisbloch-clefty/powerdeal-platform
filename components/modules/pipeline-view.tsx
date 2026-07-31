@@ -123,7 +123,7 @@ export default function PipelineView({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Filter…"
           aria-label="Filter deals"
-          className="h-8 min-w-[150px] flex-1 rounded-md border border-rule bg-bg-raised px-2.5 text-sm text-text placeholder:text-text-faint focus:border-accent-border focus:outline-none sm:max-w-[220px]"
+          className="h-tap xl:h-8 min-w-col-wide-min flex-1 rounded-md border border-rule bg-bg-raised px-2.5 text-sm text-text placeholder:text-text-faint focus:border-accent-border focus:outline-none sm:max-w-col-clamp"
         />
 
         <Select value={vertical} onChange={setVertical} label="Vertical">
@@ -222,7 +222,7 @@ function Select({
       aria-label={label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="h-8 rounded-md border border-rule bg-bg-raised px-2 text-sm text-text-dim focus:border-accent-border focus:outline-none"
+      className="h-tap xl:h-8 rounded-md border border-rule bg-bg-raised px-2 text-sm text-text-dim focus:border-accent-border focus:outline-none"
     >
       {children}
     </select>

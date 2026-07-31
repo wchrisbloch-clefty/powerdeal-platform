@@ -137,7 +137,7 @@ export default function ChatPanel({
           <select
             value={dealId}
             onChange={(e) => setDealId(e.target.value)}
-            className="h-8 w-full rounded-md border border-rule bg-bg-raised px-2 text-xs text-text-dim focus:border-accent-border focus:outline-none"
+            className="h-tap xl:h-8 w-full rounded-md border border-rule bg-bg-raised px-2 text-xs text-text-dim focus:border-accent-border focus:outline-none"
           >
             <option value="">No deal selected</option>
             {deals.map((d) => (
@@ -147,7 +147,7 @@ export default function ChatPanel({
             ))}
           </select>
           {selected ? (
-            <p className="mt-1.5 text-[11px] text-text-faint">
+            <p className="mt-1.5 text-tiny text-text-faint">
               The full deal record and its logged signals are injected on every
               message — you never have to re-explain the account.
             </p>
@@ -168,7 +168,7 @@ export default function ChatPanel({
               </p>
               <p className="truncate text-sm text-text">{askCtx.title}</p>
               {askCtx.source ? (
-                <p className="truncate text-[11px] text-text-dim">{askCtx.source}</p>
+                <p className="truncate text-tiny text-text-dim">{askCtx.source}</p>
               ) : null}
             </div>
             <button

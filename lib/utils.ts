@@ -1,5 +1,34 @@
 import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { extendTailwindMerge } from 'tailwind-merge';
+
+/**
+ * tailwind-merge, taught our custom scale names.
+ *
+ * Without this it cannot tell `text-note` (a font size) from `text-accent-fg`
+ * (a colour) — both are `text-*` and neither is in its default theme — so it
+ * treats them as one conflicting group and silently drops whichever came
+ * first. That is not theoretical: it was deleting `text-accent-fg` from the
+ * primary button, leaving the label to inherit body colour and render pale
+ * grey on Bloom green at 1.98:1.
+ *
+ * Any new custom fontSize or colour token added to tailwind.config.ts has to be
+ * declared here too, or it will start losing merges the same way.
+ */
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      'font-size': [{ text: ['micro', 'tiny', 'note', 'card', 'lede'] }],
+      'text-color': [
+        {
+          text: [
+            'accent-fg', 'accent-dim', 'text', 'text-dim', 'text-faint',
+            'health-high', 'health-mid', 'health-low',
+          ],
+        },
+      ],
+    },
+  },
+});
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));

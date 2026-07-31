@@ -123,7 +123,7 @@ export default async function EntityPage({
 
         <Link
           href={askHref}
-          className="mt-3.5 inline-flex h-9 items-center gap-1.5 rounded-md bg-accent px-3.5 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-dim"
+          className="mt-3.5 inline-flex h-tap xl:h-9 items-center gap-1.5 rounded-md bg-accent px-3.5 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-dim"
         >
           <MessagesSquare size={15} aria-hidden /> Ask about {entity.name}
         </Link>
@@ -147,7 +147,7 @@ export default async function EntityPage({
                 <DealCard deal={deal} />
                 {/* The basis travels with the card: a state-level match is real
                     but weak, and a rep should know which one they are citing. */}
-                <p className="mt-1 pl-1 text-[11px] text-text-faint">
+                <p className="mt-1 pl-1 text-tiny text-text-faint">
                   {BASIS_LABELS[basis]}
                 </p>
               </div>

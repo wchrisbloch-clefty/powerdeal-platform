@@ -17,19 +17,24 @@ export interface ButtonProps
  */
 const VARIANTS: Record<Variant, string> = {
   primary:
-    'bg-accent text-white border-accent hover:bg-accent-dim hover:border-accent-dim',
+    'bg-accent text-accent-fg border-accent hover:bg-accent-dim hover:border-accent-dim',
   secondary:
     'bg-bg-raised text-text border-rule hover:bg-bg-overlay',
   ghost:
     'bg-transparent text-text-dim border-transparent hover:bg-bg-raised hover:text-text',
   danger:
-    'bg-transparent text-danger border-rule hover:bg-[rgba(192,57,43,0.08)]',
+    'bg-transparent text-danger border-rule hover:bg-danger-bg',
 };
 
+/**
+ * Heights carry a 44px floor below `xl`, then relax to their designed size on
+ * desktop. A control that is comfortable with a mouse is a miss with a thumb,
+ * and this is the button every surface uses.
+ */
 const SIZES: Record<Size, string> = {
-  sm: 'h-8 px-2.5 text-[13px] gap-1.5',
-  md: 'h-9 px-3.5 text-sm gap-2',
-  lg: 'h-11 px-5 text-[15px] gap-2',
+  sm: 'min-h-tap xl:min-h-0 h-tap xl:h-8 px-2.5 text-note gap-1.5',
+  md: 'min-h-tap xl:min-h-0 h-tap xl:h-9 px-3.5 text-sm gap-2',
+  lg: 'h-11 px-5 text-card gap-2',
 };
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

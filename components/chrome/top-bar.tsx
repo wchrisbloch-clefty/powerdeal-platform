@@ -34,7 +34,7 @@ export default function TopBar() {
       )}
     >
       {/* Wordmark shows on mobile only — the sidebar carries it on desktop. */}
-      <Link href="/app" className="md:hidden">
+      <Link href="/app" className="flex min-h-tap items-center md:hidden">
         <Wordmark />
       </Link>
 
@@ -51,7 +51,7 @@ export default function TopBar() {
           placeholder="Search accounts…"
           aria-label="Search accounts"
           className={cn(
-            'h-9 w-full rounded-md border border-rule bg-bg-raised pl-8 pr-3 text-sm',
+            'h-tap xl:h-9 w-full rounded-md border border-rule bg-bg-raised pl-8 pr-3 text-sm',
             'text-text placeholder:text-text-faint',
             'focus:border-accent-border focus:outline-none',
           )}

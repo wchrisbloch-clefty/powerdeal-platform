@@ -58,7 +58,7 @@ export default function WeeklyRecapPanel({ className }: { className?: string }) 
 
   if (loading) {
     return (
-      <p className="flex items-center gap-2 text-sm text-text-dim">
+      <p className="flex min-h-tap items-center gap-2 text-sm xl:min-h-0 text-text-dim">
         <Loader2 size={14} className="animate-spin" aria-hidden /> Loading recap…
       </p>
     );
@@ -129,7 +129,7 @@ export default function WeeklyRecapPanel({ className }: { className?: string }) 
                         >
                           {a.company}
                         </Link>
-                        <span className="ml-1.5 font-mono text-[11px] text-text-faint">
+                        <span className="ml-1.5 font-mono text-tiny text-text-faint">
                           {a.hits} hit{a.hits === 1 ? '' : 's'}
                         </span>
                         {a.topHeadline ? (

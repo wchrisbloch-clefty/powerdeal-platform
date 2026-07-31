@@ -84,7 +84,7 @@ export default function MarketWatchPanel({
           {categories.map(([id, count]) => (
             <FilterChip key={id} active={category === id} onClick={() => setCategory(id)}>
               {id}
-              <span className="ml-1 font-mono text-[10px] opacity-60">{count}</span>
+              <span className="ml-1 font-mono text-micro opacity-60">{count}</span>
             </FilterChip>
           ))}
         </div>
@@ -94,7 +94,7 @@ export default function MarketWatchPanel({
             value={dealId}
             onChange={(e) => setDealId(e.target.value)}
             aria-label="Filter by account"
-            className="h-8 shrink-0 rounded-md border border-rule bg-bg-raised px-2 text-xs text-text-dim focus:border-accent-border focus:outline-none"
+            className="h-tap xl:h-8 shrink-0 rounded-md border border-rule bg-bg-raised px-2 text-xs text-text-dim focus:border-accent-border focus:outline-none"
           >
             <option value="all">All accounts</option>
             {dealsWithEntries.map((d) => (
@@ -146,7 +146,7 @@ function MarketWatchRow({ entry, deals }: { entry: MarketWatchEntry; deals: Deal
         </span>
       </div>
 
-      <h3 className="mt-2 font-display text-[15px] leading-snug text-text">
+      <h3 className="mt-2 font-display text-card leading-snug text-text">
         {entry.url ? (
           <a href={entry.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
             {entry.headline}
@@ -206,7 +206,7 @@ function ImpactMeter({ rank }: { rank: number }) {
           style={{ width: `${clamped * 10}%` }}
         />
       </span>
-      <span className="font-mono text-[10px] text-text-faint">{clamped}</span>
+      <span className="font-mono text-micro text-text-faint">{clamped}</span>
     </span>
   );
 }
@@ -226,7 +226,7 @@ function FilterChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors',
+        'inline-flex min-h-tap min-w-tap items-center justify-center whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors xl:min-h-0 xl:min-w-0',
         active
           ? 'border-accent-border bg-accent-bg text-accent-dim'
           : 'border-rule bg-bg-raised text-text-dim hover:text-text',

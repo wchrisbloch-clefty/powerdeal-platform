@@ -116,7 +116,7 @@ function VideoCard({ video }: { video: YouTubeItem }) {
         </span>
       </div>
 
-      <h3 className="mt-2 font-display text-[15px] leading-snug text-text">
+      <h3 className="mt-2 font-display text-card leading-snug text-text">
         <a
           href={video.url}
           target="_blank"

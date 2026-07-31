@@ -234,7 +234,7 @@ export default function SourcesPanel({
         <section key={platform} className="rounded-card border border-rule bg-bg-raised p-4">
           <div className="mb-2.5 flex items-center gap-2">
             <span className="eyebrow">{PLATFORM_LABELS[platform]}</span>
-            <span className="font-mono text-[10px] text-text-faint">{entries.length}</span>
+            <span className="font-mono text-micro text-text-faint">{entries.length}</span>
           </div>
 
           <div className="space-y-1">
@@ -244,13 +244,13 @@ export default function SourcesPanel({
               return (
                 <label
                   key={source.id}
-                  className="flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-1.5 hover:bg-bg-overlay"
+                  className="flex min-h-tap cursor-pointer items-start gap-2.5 rounded-md px-2 py-1.5 hover:bg-bg-overlay xl:min-h-0"
                 >
                   <input
                     type="checkbox"
                     checked={on}
                     onChange={() => toggle(source, kind)}
-                    className="mt-1 h-3.5 w-3.5 shrink-0 accent-[color:var(--color-accent)]"
+                    className="mt-1.5 h-5 w-5 shrink-0 accent-[color:var(--color-accent)] xl:h-3.5 xl:w-3.5"
                   />
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-1.5">
@@ -294,18 +294,18 @@ export default function SourcesPanel({
             value={newSource.name}
             onChange={(e) => setNewSource((s) => ({ ...s, name: e.target.value }))}
             placeholder="Publisher name"
-            className="h-8 min-w-[10rem] flex-1 rounded-md border border-rule bg-bg px-2 text-xs text-text focus:border-accent-border focus:outline-none"
+            className="h-tap xl:h-8 min-w-col-text-min flex-1 rounded-md border border-rule bg-bg px-2 text-xs text-text focus:border-accent-border focus:outline-none"
           />
           <input
             value={newSource.url}
             onChange={(e) => setNewSource((s) => ({ ...s, url: e.target.value }))}
             placeholder="https://example.com/feed.xml"
-            className="h-8 min-w-[14rem] flex-[2] rounded-md border border-rule bg-bg px-2 text-xs text-text focus:border-accent-border focus:outline-none"
+            className="h-tap xl:h-8 min-w-col-widest-min flex-[2] rounded-md border border-rule bg-bg px-2 text-xs text-text focus:border-accent-border focus:outline-none"
           />
           <select
             value={newSource.category}
             onChange={(e) => setNewSource((s) => ({ ...s, category: e.target.value }))}
-            className="h-8 rounded-md border border-rule bg-bg px-2 text-xs text-text-dim focus:border-accent-border focus:outline-none"
+            className="h-tap xl:h-8 rounded-md border border-rule bg-bg px-2 text-xs text-text-dim focus:border-accent-border focus:outline-none"
           >
             {vertical.categories.map((c) => (
               <option key={c.id} value={c.id}>

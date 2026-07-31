@@ -178,7 +178,7 @@ role="presentation"
 
           <div className="mt-3 flex items-center gap-2">
             <ConfidenceRule confidence={item.confidence} className="flex-1" />
-            <span className="shrink-0 font-mono text-[11px] text-text-faint">
+            <span className="shrink-0 font-mono text-tiny text-text-faint">
               {Math.round(item.confidence * 100)}%
             </span>
           </div>
@@ -202,7 +202,7 @@ role="presentation"
                 <button
                   type="button"
                   onClick={() => copy(keyFacts.facts.map((f) => `• ${f}`).join('\n'), 'all')}
-                  className="ml-auto inline-flex items-center gap-1 text-[11px] text-text-dim hover:text-text"
+                  className="ml-auto inline-flex items-center gap-1 text-tiny text-text-dim hover:text-text"
                 >
                   {copied === 'all' ? <Check size={11} /> : <Copy size={11} />}
                   {copied === 'all' ? 'Copied' : 'Copy all'}
@@ -211,7 +211,7 @@ role="presentation"
             </div>
 
             {loadingFacts ? (
-              <p className="flex items-center gap-2 text-sm text-text-dim">
+              <p className="flex min-h-tap items-center gap-2 text-sm xl:min-h-0 text-text-dim">
                 <Loader2 size={14} className="animate-spin" aria-hidden />
                 Reading the article…
               </p>
@@ -285,7 +285,7 @@ role="presentation"
               interesting part — that is a question to walk into a meeting with.
             </p>
             {loadingCoverage ? (
-              <p className="flex items-center gap-2 text-sm text-text-dim">
+              <p className="flex min-h-tap items-center gap-2 text-sm xl:min-h-0 text-text-dim">
                 <Loader2 size={14} className="animate-spin" aria-hidden /> Finding more coverage…
               </p>
             ) : coverage && coverage.length > 0 ? (

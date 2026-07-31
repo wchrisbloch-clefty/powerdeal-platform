@@ -102,7 +102,7 @@ export default function SignalsPanel({
               id="signal-deal"
               value={logDealId}
               onChange={(e) => setLogDealId(e.target.value)}
-              className="h-8 w-full max-w-sm rounded-md border border-rule bg-bg px-2 text-xs text-text-dim focus:border-accent-border focus:outline-none"
+              className="h-tap xl:h-8 w-full max-w-sm rounded-md border border-rule bg-bg px-2 text-xs text-text-dim focus:border-accent-border focus:outline-none"
             >
               <option value="">Select an account…</option>
               {deals.map((d) => (
@@ -139,7 +139,7 @@ export default function SignalsPanel({
               {SIGNAL_TYPES.filter((t) => typeCounts.has(t)).map((t) => (
                 <FilterChip key={t} active={type === t} onClick={() => setType(t)}>
                   {t}
-                  <span className="ml-1 font-mono text-[10px] opacity-60">
+                  <span className="ml-1 font-mono text-micro opacity-60">
                     {typeCounts.get(t)}
                   </span>
                 </FilterChip>
@@ -150,7 +150,7 @@ export default function SignalsPanel({
               value={range}
               onChange={(e) => setRange(e.target.value)}
               aria-label="Filter by date range"
-              className="h-8 shrink-0 rounded-md border border-rule bg-bg-raised px-2 text-xs text-text-dim focus:border-accent-border focus:outline-none"
+              className="h-tap xl:h-8 shrink-0 rounded-md border border-rule bg-bg-raised px-2 text-xs text-text-dim focus:border-accent-border focus:outline-none"
             >
               {RANGES.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -164,7 +164,7 @@ export default function SignalsPanel({
                 value={dealId}
                 onChange={(e) => setDealId(e.target.value)}
                 aria-label="Filter by deal"
-                className="h-8 shrink-0 rounded-md border border-rule bg-bg-raised px-2 text-xs text-text-dim focus:border-accent-border focus:outline-none"
+                className="h-tap xl:h-8 shrink-0 rounded-md border border-rule bg-bg-raised px-2 text-xs text-text-dim focus:border-accent-border focus:outline-none"
               >
                 <option value="all">All deals</option>
                 {dealsWithSignals.map((d) => (
@@ -238,7 +238,7 @@ function SignalRow({ signal, deals }: { signal: Signal; deals: Deal[] }) {
             <Link
               key={d.id}
               href={`/app/pipeline/${d.id}`}
-              className="inline-flex items-center rounded-full border border-rule bg-bg px-2 py-0.5 text-[11px] text-text-dim transition-colors hover:border-accent-border hover:text-text"
+              className="inline-flex items-center rounded-full border border-rule bg-bg px-2 py-0.5 text-tiny text-text-dim transition-colors hover:border-accent-border hover:text-text"
             >
               {d.company}
             </Link>
@@ -275,7 +275,7 @@ function FilterChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors',
+        'inline-flex min-h-tap min-w-tap items-center justify-center whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors xl:min-h-0 xl:min-w-0',
         active
           ? 'border-accent-border bg-accent-bg text-accent-dim'
           : 'border-rule bg-bg-raised text-text-dim hover:text-text',

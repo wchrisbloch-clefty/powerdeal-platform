@@ -25,7 +25,9 @@ const config: Config = {
         'accent-dim': 'var(--color-accent-dim)',
         'accent-bg': 'var(--color-accent-bg)',
         'accent-border': 'var(--color-accent-border)',
+        'accent-fg': 'var(--color-accent-fg)',
         danger: 'var(--color-danger)',
+        'danger-bg': 'var(--color-danger-bg)',
         warning: 'var(--color-warning)',
         success: 'var(--color-success)',
         rule: 'var(--color-rule)',
@@ -42,8 +44,32 @@ const config: Config = {
       maxWidth: {
         shell: 'var(--shell-max)',
       },
+      // Role-named, bound to styles/tokens.css. A component should never carry
+      // a raw px value — the scale is the design system's to change.
+      fontSize: {
+        micro: 'var(--text-micro)',
+        tiny: 'var(--text-tiny)',
+        note: 'var(--text-note)',
+        card: 'var(--text-card)',
+        lede: 'var(--text-lede)',
+      },
       spacing: {
         sidebar: 'var(--sidebar-width)',
+        tap: 'var(--tap-target)',
+        'tap-sm': 'var(--tap-target-sm)',
+        'col-tiny': 'var(--col-tiny)',
+        'col-xs': 'var(--col-xs)',
+        'col-sm': 'var(--col-sm)',
+        'col-md': 'var(--col-md)',
+        'col-lg': 'var(--col-lg)',
+        'col-xl': 'var(--col-xl)',
+        'col-2xl': 'var(--col-2xl)',
+        'col-name-min': 'var(--col-name-min)',
+        'col-text-min': 'var(--col-text-min)',
+        'col-wide-min': 'var(--col-wide-min)',
+        'col-widest-min': 'var(--col-widest-min)',
+        'col-clamp': 'var(--col-clamp)',
+        'panel-tall': 'var(--panel-tall)',
       },
       borderRadius: {
         card: '10px',

@@ -137,3 +137,19 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/*
+ * Leaflet renders its own attribution control, so the only way to reach it is
+ * a global rule. Its default link blue fails AA against the control's pale
+ * background (3.26:1) — the attribution is a legal requirement, so it has to
+ * be readable.
+ */
+.leaflet-control-attribution {
+  background: var(--color-bg-raised) !important;
+  color: var(--color-text-dim) !important;
+}
+.leaflet-control-attribution a {
+  color: var(--color-accent-dim) !important;
+  text-decoration: underline;
+}

@@ -85,7 +85,7 @@ export default function PromoteToSignal({
           value={signalType}
           onChange={(e) => setSignalType(e.target.value)}
           aria-label="Signal type"
-          className="h-9 min-w-[9rem] flex-1 rounded-md border border-rule bg-bg-raised px-2 text-xs text-text focus:border-accent-border focus:outline-none"
+          className="h-tap xl:h-9 min-w-col-name-min flex-1 rounded-md border border-rule bg-bg-raised px-2 text-xs text-text focus:border-accent-border focus:outline-none"
         >
           {SIGNAL_TYPES.map((t) => (
             <option key={t} value={t}>{t}</option>
@@ -95,7 +95,7 @@ export default function PromoteToSignal({
           value={dealId}
           onChange={(e) => setDealId(e.target.value)}
           aria-label="Account"
-          className="h-9 min-w-[10rem] flex-1 rounded-md border border-rule bg-bg-raised px-2 text-xs text-text focus:border-accent-border focus:outline-none"
+          className="h-tap xl:h-9 min-w-col-text-min flex-1 rounded-md border border-rule bg-bg-raised px-2 text-xs text-text focus:border-accent-border focus:outline-none"
         >
           <option value="">No account</option>
           {(mapped.length > 0 ? mapped : deals).map((d) => (

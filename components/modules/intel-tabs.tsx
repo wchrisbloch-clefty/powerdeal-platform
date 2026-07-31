@@ -47,7 +47,7 @@ export default function IntelTabs({ active }: { active: IntelTab }) {
             href={tab.id === DEFAULT_TAB ? '/app/intelligence' : `/app/intelligence?tab=${tab.id}`}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'relative whitespace-nowrap px-3 py-2 text-sm transition-colors',
+              'relative inline-flex min-h-tap items-center whitespace-nowrap px-3 py-2 text-sm transition-colors xl:min-h-0',
               isActive
                 ? 'font-medium text-text'
                 : 'text-text-dim hover:text-text',

@@ -64,7 +64,7 @@ export function Sidebar() {
       aria-label="Main"
     >
       <div className="flex h-[var(--topbar-height)] shrink-0 items-center border-b border-rule px-4">
-        <Link href="/app" className="rounded">
+        <Link href="/app" className="flex min-h-tap items-center rounded xl:min-h-0">
           <Wordmark />
         </Link>
       </div>
@@ -79,7 +79,7 @@ export function Sidebar() {
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'mb-0.5 flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors',
+                  'mb-0.5 flex min-h-tap items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors xl:min-h-0',
                   active
                     ? 'bg-bg-raised font-medium text-text'
                     : 'text-text-dim hover:bg-bg-raised hover:text-text',
@@ -106,7 +106,7 @@ export function Sidebar() {
           href={SETTINGS_ITEM.href}
           aria-current={isActive(SETTINGS_ITEM.href) ? 'page' : undefined}
           className={cn(
-            'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors',
+            'flex min-h-tap items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors xl:min-h-0',
             isActive(SETTINGS_ITEM.href)
               ? 'bg-bg-raised font-medium text-text'
               : 'text-text-faint hover:bg-bg-raised hover:text-text-dim',
@@ -125,7 +125,7 @@ export function Sidebar() {
       </div>
 
       <div className="shrink-0 border-t border-rule px-4 py-3">
-        <p className="font-mono text-[10px] uppercase tracking-wider text-text-faint">
+        <p className="font-mono text-micro uppercase tracking-wider text-text-faint">
           Brain v{POWERDEAL_VERSION}
         </p>
       </div>
@@ -155,7 +155,7 @@ export function TabBar() {
             href={item.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px]',
+              'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-micro',
               active ? 'text-accent' : 'text-text-dim',
             )}
           >

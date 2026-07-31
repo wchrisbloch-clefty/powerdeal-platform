@@ -90,7 +90,7 @@ export default function DealQuickAdd({
             <h2 id="quick-add-title" className="font-display text-lg text-text">
               Add deal
             </h2>
-            <p className="mt-0.5 font-mono text-[11px] text-text-faint">
+            <p className="mt-0.5 font-mono text-tiny text-text-faint">
               Will be created as {previewId}
             </p>
           </div>
@@ -208,7 +208,7 @@ export default function DealQuickAdd({
 }
 
 const inputClass =
-  'h-9 w-full rounded-md border border-rule bg-bg-raised px-2.5 text-sm text-text placeholder:text-text-faint focus:border-accent-border focus:outline-none';
+  'h-tap xl:h-9 w-full rounded-md border border-rule bg-bg-raised px-2.5 text-sm text-text placeholder:text-text-faint focus:border-accent-border focus:outline-none';
 
 function Field({
   label,

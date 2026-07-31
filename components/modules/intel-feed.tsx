@@ -278,7 +278,7 @@ export default function IntelFeed({
               <Chip key={c.id} active={category === c.id} onClick={() => setCategory(c.id)}>
                 {c.label}
                 {count > 0 ? (
-                  <span className="ml-1 font-mono text-[10px] opacity-60">{count}</span>
+                  <span className="ml-1 font-mono text-micro opacity-60">{count}</span>
                 ) : null}
               </Chip>
             );
@@ -308,7 +308,7 @@ export default function IntelFeed({
               disabled={count === 0}
             >
               {PLATFORM_LABELS[p]}
-              <span className="ml-1 font-mono text-[10px] opacity-60">{count}</span>
+              <span className="ml-1 font-mono text-micro opacity-60">{count}</span>
             </Chip>
           );
         })}
@@ -401,7 +401,7 @@ function Chip({
       disabled={disabled}
       aria-pressed={active}
       className={cn(
-        'whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors',
+        'inline-flex min-h-tap min-w-tap items-center justify-center whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors xl:min-h-0 xl:min-w-0',
         active
           ? 'border-accent-border bg-accent-bg text-accent-dim'
           : 'border-rule bg-bg-raised text-text-dim hover:text-text',
@@ -432,7 +432,7 @@ function ViewButton({
       aria-label={`${label} view`}
       title={`${label} view`}
       className={cn(
-        'inline-flex h-7 w-7 items-center justify-center rounded transition-colors',
+        'inline-flex h-tap w-tap items-center justify-center rounded transition-colors xl:h-7 xl:w-7',
         active ? 'bg-bg-overlay text-text' : 'text-text-dim hover:text-text',
       )}
     >

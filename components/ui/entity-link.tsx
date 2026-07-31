@@ -60,7 +60,7 @@ export function EntityChip({
       title={`${entity.name} — ${TYPE_LABELS[entity.type]}`}
       className={cn(
         'inline-flex items-center rounded-full border border-rule bg-bg px-2 py-0.5',
-        'text-[11px] text-text-dim transition-colors hover:border-accent-border hover:text-text',
+        'text-tiny text-text-dim transition-colors hover:border-accent-border hover:text-text',
         className,
       )}
     >

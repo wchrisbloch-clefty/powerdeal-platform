@@ -341,7 +341,7 @@ export default function FeedItemCard({
           </span>
         </div>
 
-        <h3 className="mt-2 font-display text-[15px] leading-snug text-text">
+        <h3 className="mt-2 font-display text-card leading-snug text-text">
           {item.url ? (
             <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
               {item.title}
@@ -354,7 +354,7 @@ export default function FeedItemCard({
 
         <div className="my-2.5 flex items-center gap-2">
           <ConfidenceRule confidence={item.confidence} className="flex-1" />
-          <span className="shrink-0 font-mono text-[11px] text-text-faint">
+          <span className="shrink-0 font-mono text-tiny text-text-faint">
             {Math.round(item.confidence * 100)}%
           </span>
         </div>
@@ -415,7 +415,7 @@ export default function FeedItemCard({
                     key={d.id}
                     type="button"
                     onClick={() => saveToDeal(d)}
-                    className="inline-flex min-h-[2.25rem] items-center gap-1.5 rounded border border-rule px-2 py-1 text-xs text-text-dim transition-colors hover:border-accent-border hover:text-text"
+                    className="inline-flex min-h-tap-sm items-center gap-1.5 rounded border border-rule px-2 py-1 text-xs text-text-dim transition-colors hover:border-accent-border hover:text-text"
                   >
                     <Check size={11} aria-hidden />
                     {d.company}
@@ -502,7 +502,7 @@ function RailButton({
       className={cn(
         // 44px min touch target below desktop — the rail is seven items wide
         // and is the most-tapped thing in the product.
-        'inline-flex min-h-[2.75rem] items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors',
+        'inline-flex min-h-tap items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors',
         'hover:bg-bg-overlay disabled:opacity-40 xl:min-h-0 xl:py-1',
         accent ? 'text-text' : 'text-text-dim hover:text-text',
       )}

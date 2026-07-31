@@ -34,7 +34,7 @@ export default function ConsensusPanel({ entity }: { entity: string }) {
 
   if (loading) {
     return (
-      <p className="flex items-center gap-2 text-sm text-text-dim">
+      <p className="flex min-h-tap items-center gap-2 text-sm xl:min-h-0 text-text-dim">
         <Loader2 size={14} className="animate-spin" aria-hidden />
         Comparing how sources cover this…
       </p>
@@ -93,7 +93,7 @@ export default function ConsensusPanel({ entity }: { entity: string }) {
             </p>
           ) : null}
           {c.sources.length > 0 ? (
-            <p className="mt-2 text-[11px] text-text-faint">{c.sources.join(' · ')}</p>
+            <p className="mt-2 text-tiny text-text-faint">{c.sources.join(' · ')}</p>
           ) : null}
         </div>
       ))}

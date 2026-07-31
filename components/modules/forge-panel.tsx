@@ -170,7 +170,7 @@ export default function ForgePanel({
             <select
               value={dealId}
               onChange={(e) => setDealId(e.target.value)}
-              className="h-9 w-full rounded-md border border-rule bg-bg px-2.5 text-sm text-text focus:border-accent-border focus:outline-none"
+              className="h-tap xl:h-9 w-full rounded-md border border-rule bg-bg px-2.5 text-sm text-text focus:border-accent-border focus:outline-none"
             >
               {deals.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -183,14 +183,14 @@ export default function ForgePanel({
             <select
               value={persona}
               onChange={(e) => setPersona(e.target.value)}
-              className="h-9 w-full rounded-md border border-rule bg-bg px-2.5 text-sm text-text focus:border-accent-border focus:outline-none"
+              className="h-tap xl:h-9 w-full rounded-md border border-rule bg-bg px-2.5 text-sm text-text focus:border-accent-border focus:outline-none"
             >
               <option value="">Not calibrated</option>
               {AUDIENCE_PERSONAS.map((p) => (
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
-            <p className="mt-1.5 text-[11px] text-text-faint">
+            <p className="mt-1.5 text-tiny text-text-faint">
               Reorders the argument for the reader. Never changes the facts.
             </p>
           </div>
@@ -216,14 +216,14 @@ export default function ForgePanel({
                       : 'border-rule bg-bg-raised hover:bg-bg-overlay',
                   )}
                 >
-                  <span className="flex items-center gap-2 text-sm font-medium text-text">
+                  <span className="flex min-h-tap items-center gap-2 text-sm xl:min-h-0 font-medium text-text">
                     <Icon size={14} strokeWidth={1.75} />
                     {a.label}
                   </span>
                   <span className="mt-0.5 block text-xs text-text-dim">
                     {a.description}
                   </span>
-                  <span className="mt-1 block font-mono text-[10px] uppercase tracking-wider text-text-faint">
+                  <span className="mt-1 block font-mono text-micro uppercase tracking-wider text-text-faint">
                     {a.formats.join(' · ')}
                   </span>
                 </button>

@@ -163,4 +163,4 @@ export default function SignalCapture({
 }
 
 const inputClass =
-  'h-9 w-full rounded-md border border-rule bg-bg-raised px-2.5 text-sm text-text placeholder:text-text-faint focus:border-accent-border focus:outline-none';
+  'h-tap xl:h-9 w-full rounded-md border border-rule bg-bg-raised px-2.5 text-sm text-text placeholder:text-text-faint focus:border-accent-border focus:outline-none';

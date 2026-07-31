@@ -149,7 +149,7 @@ export default function MapsPanel({
                       swatch={layer.color}
                     />
                     {layerErrors[layer.id] ? (
-                      <p className="ml-6 mt-0.5 text-[11px] text-danger">
+                      <p className="ml-6 mt-0.5 text-tiny text-danger">
                         Failed to load: {layerErrors[layer.id]}
                       </p>
                     ) : null}
@@ -165,7 +165,7 @@ export default function MapsPanel({
               <select
                 value={vertical}
                 onChange={(e) => setVertical(e.target.value)}
-                className="h-8 w-full rounded-md border border-rule bg-bg-raised px-2 text-xs text-text-dim"
+                className="h-tap xl:h-8 w-full rounded-md border border-rule bg-bg-raised px-2 text-xs text-text-dim"
               >
                 <option value="all">All verticals</option>
                 {VERTICALS.map((v) => (
@@ -186,7 +186,7 @@ export default function MapsPanel({
               />
             </label>
 
-            <p className="mt-2 text-[11px] text-text-faint">
+            <p className="mt-2 text-tiny text-text-faint">
               {filtered.length} of {deals.length} accounts shown
             </p>
           </Section>
@@ -195,7 +195,7 @@ export default function MapsPanel({
             <Section title="Rate legend">
               <ul className="space-y-1">
                 {RATE_LEGEND.map((l) => (
-                  <li key={l.label} className="flex items-center gap-2 text-[11px] text-text-dim">
+                  <li key={l.label} className="flex items-center gap-2 text-tiny text-text-dim">
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-sm"
                       style={{ background: l.color }}
@@ -204,7 +204,7 @@ export default function MapsPanel({
                   </li>
                 ))}
               </ul>
-              <p className="mt-1.5 text-[11px] text-text-faint">
+              <p className="mt-1.5 text-tiny text-text-faint">
                 Darker = more expensive = stronger grid-fighter case.
               </p>
             </Section>
@@ -270,7 +270,7 @@ function Toggle({
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[color:var(--color-accent)]"
+        className="mt-0.5 h-5 w-5 shrink-0 accent-[color:var(--color-accent)] xl:h-3.5 xl:w-3.5"
       />
       {swatch ? (
         <span

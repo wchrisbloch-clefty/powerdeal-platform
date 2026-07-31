@@ -30,23 +30,23 @@ interface Column {
 }
 
 const COLUMNS: Column[] = [
-  { key: 'health_score', label: 'Health', className: 'w-[62px]' },
-  { key: 'deal_id', label: 'Deal ID', className: 'w-[84px]' },
-  { key: 'company', label: 'Company', className: 'min-w-[160px]' },
-  { key: 'vertical', label: 'Vertical', className: 'min-w-[120px]' },
-  { key: null, label: 'Rel.', className: 'w-[70px]' },
-  { key: 'state', label: 'State', className: 'w-[56px]' },
-  { key: 'utility', label: 'Utility', className: 'min-w-[110px]' },
-  { key: null, label: 'Beachhead', className: 'min-w-[120px]' },
-  { key: 'stage', label: 'Stage', className: 'min-w-[130px]' },
-  { key: 'size_mw', label: 'MW', className: 'w-[74px]', numeric: true },
-  { key: 'meddpicc_score', label: 'MEDD', className: 'w-[66px]', numeric: true },
-  { key: null, label: 'Thread', className: 'w-[72px]' },
-  { key: null, label: 'Decision', className: 'w-[76px]' },
-  { key: 'days_in_stage', label: 'Days', className: 'w-[62px]', numeric: true },
-  { key: null, label: 'Next move', className: 'min-w-[180px]' },
-  { key: null, label: 'Risk', className: 'min-w-[140px]' },
-  { key: 'updated_at', label: 'Updated', className: 'w-[104px]' },
+  { key: 'health_score', label: 'Health', className: 'w-col-xs' },
+  { key: 'deal_id', label: 'Deal ID', className: 'w-col-xl' },
+  { key: 'company', label: 'Company', className: 'min-w-col-wide-min' },
+  { key: 'vertical', label: 'Vertical', className: 'min-w-col-text-min' },
+  { key: null, label: 'Rel.', className: 'w-col-sm' },
+  { key: 'state', label: 'State', className: 'w-col-tiny' },
+  { key: 'utility', label: 'Utility', className: 'min-w-col-name-min' },
+  { key: null, label: 'Beachhead', className: 'min-w-col-text-min' },
+  { key: 'stage', label: 'Stage', className: 'min-w-col-text-min' },
+  { key: 'size_mw', label: 'MW', className: 'w-col-md', numeric: true },
+  { key: 'meddpicc_score', label: 'MEDD', className: 'w-col-sm', numeric: true },
+  { key: null, label: 'Thread', className: 'w-col-md' },
+  { key: null, label: 'Decision', className: 'w-col-lg' },
+  { key: 'days_in_stage', label: 'Days', className: 'w-col-xs', numeric: true },
+  { key: null, label: 'Next move', className: 'min-w-col-widest-min' },
+  { key: null, label: 'Risk', className: 'min-w-col-wide-min' },
+  { key: 'updated_at', label: 'Updated', className: 'w-col-2xl' },
 ];
 
 export default function PipelineTable({ deals }: { deals: Deal[] }) {
@@ -111,7 +111,7 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
                   key={col.label}
                   scope="col"
                   className={cn(
-                    'whitespace-nowrap px-2.5 py-2 text-left font-mono text-[10px]',
+                    'whitespace-nowrap px-2.5 py-2 text-left font-mono text-micro',
                     'uppercase tracking-wider text-text-faint',
                     col.numeric && 'text-right',
                     col.className,
@@ -161,7 +161,7 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
                   <td className="px-2.5 py-2">
                     <HealthRing score={deal.health_score} size={28} />
                   </td>
-                  <td className="whitespace-nowrap px-2.5 py-2 font-mono text-[11px] text-text-dim">
+                  <td className="whitespace-nowrap px-2.5 py-2 font-mono text-tiny text-text-dim">
                     {deal.deal_id}
                   </td>
                   <td className="px-2.5 py-2 font-medium text-text">{deal.company}</td>
@@ -169,7 +169,7 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
                   <td className="px-2.5 py-2 text-text-dim">{deal.relationship_type}</td>
                   <td className="px-2.5 py-2 text-text-dim">{deal.state ?? '—'}</td>
                   <td className="px-2.5 py-2 text-text-dim">{deal.utility ?? '—'}</td>
-                  <td className="max-w-[160px] truncate px-2.5 py-2 text-text-dim">
+                  <td className="max-w-col-wide-min truncate px-2.5 py-2 text-text-dim">
                     {deal.beachhead_site ?? '—'}
                   </td>
                   <td className="px-2.5 py-2">
@@ -217,11 +217,11 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
                     {deal.days_in_stage}
                   </td>
 
-                  <td className="max-w-[220px] truncate px-2.5 py-2 text-text-dim">
+                  <td className="max-w-col-clamp truncate px-2.5 py-2 text-text-dim">
                     {deal.next_move ?? '—'}
                   </td>
 
-                  <td className="max-w-[180px] truncate px-2.5 py-2">
+                  <td className="max-w-col-widest-min truncate px-2.5 py-2">
                     {topFlag ? (
                       <span
                         className={cn(

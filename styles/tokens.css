@@ -19,18 +19,24 @@
   /* Text */
   --color-text: #1a1a24;
   --color-text-dim: #5a5d6b;
-  --color-text-faint: #9a9daa;
+  /* Darkened from #9a9daa: it carries timestamps, counts and source
+     names — content, not decoration — and failed AA at 2.7:1 on white. */
+  --color-text-faint: #686b7b;
 
   /* Bloom green — secondary/tertiary accent ONLY */
   --color-accent: #3cad3a;
-  --color-accent-dim: #2d8a2b;
+  --color-accent-dim: #2a8028;
   --color-accent-bg: rgba(60, 173, 58, 0.08);
+  /* Text ON solid accent. White fails AA against Bloom green in BOTH themes
+     (2.5:1 light, 2.0:1 dark) — ink passes at 6.5:1 and 8.2:1. */
+  --color-accent-fg: #0f1117;
   --color-accent-border: rgba(60, 173, 58, 0.22);
 
   /* Semantic */
   --color-danger: #c0392b;
-  --color-warning: #bf8f00;
-  --color-success: #27853f;
+  --color-danger-bg: rgba(192, 57, 43, 0.08);
+  --color-warning: #836200;
+  --color-success: #227538;
 
   /* Deal health colors */
   --health-high: #3cad3a; /* 8-10 */
@@ -52,6 +58,45 @@
   --topbar-height: 56px;
   --tabbar-height: 60px;
 
+  /* ── Type scale ──────────────────────────────────────────────
+     Named by ROLE, not by size, so a component says what a piece
+     of text IS rather than how big it happens to be. These are
+     the sizes below Tailwind's `text-sm`, which is where the
+     interface does most of its work: counts, provenance chips,
+     metadata lines. Scattering `text-[11px]` through components
+     is how a type scale quietly becomes fourteen sizes. */
+  --text-micro: 0.625rem;  /* 10px — mono counts, badge text */
+  --text-tiny: 0.6875rem;  /* 11px — metadata, secondary lines */
+  --text-note: 0.8125rem;  /* 13px — dense annotation */
+  --text-card: 0.9375rem;  /* 15px — card headline */
+  --text-lede: 1.0625rem;  /* 17px — panel lede */
+
+  /* ── Touch ───────────────────────────────────────────────────
+     44px is the floor below 1280px. The feed's action rail is the
+     most-tapped thing in the product and sits seven items wide. */
+  --tap-target: 2.75rem;
+  --tap-target-sm: 2.25rem;
+
+  /* ── Pipeline table columns ──────────────────────────────────
+     Tuned so the Spine fits without wrapping at 1440. They live
+     here rather than inline because they are a set that has to
+     stay in proportion — changing one in a component and not the
+     others is what makes a table drift out of alignment. */
+  --col-tiny: 3.5rem;    /* 56px */
+  --col-xs: 3.875rem;    /* 62px */
+  --col-sm: 4.125rem;    /* 66px */
+  --col-md: 4.5rem;      /* 72px */
+  --col-lg: 4.75rem;     /* 76px */
+  --col-xl: 5.25rem;     /* 84px */
+  --col-2xl: 6.5rem;     /* 104px */
+  --col-name-min: 6.875rem;  /* 110px */
+  --col-text-min: 7.5rem;    /* 120px */
+  --col-wide-min: 9.375rem;  /* 150px */
+  --col-widest-min: 11.25rem; /* 180px */
+  --col-clamp: 13.75rem;     /* 220px */
+  /* Rate-trend chart — tall enough for 12 months of bars without scroll. */
+  --panel-tall: 33.75rem;    /* 540px */
+
   color-scheme: light;
 }
 
@@ -62,7 +107,7 @@
 
   --color-text: #edeef1;
   --color-text-dim: #9a9daa;
-  --color-text-faint: #5a5d6b;
+  --color-text-faint: #8a8d9c;
 
   --color-rule: #2a2d3a;
   --color-rule-faint: #1e2130;
@@ -71,9 +116,11 @@
   --color-accent: #4cc249;
   --color-accent-dim: #3cad3a;
   --color-accent-bg: rgba(76, 194, 73, 0.1);
+  --color-accent-fg: #0f1117;
   --color-accent-border: rgba(76, 194, 73, 0.26);
 
   --color-danger: #e05a4a;
+  --color-danger-bg: rgba(224, 90, 74, 0.12);
   --color-warning: #d6a419;
   --color-success: #3ea45c;
 
@@ -90,10 +137,21 @@
    INFERRED  — discovery net, social, model inference
    ───────────────────────────────────────────────────────────── */
 :root {
-  --prov-verified: var(--color-accent);
+  /* Text colours, not brand colours. Each is the darkest form of its hue that
+     clears 4.5:1 against its OWN tinted chip background — the base accent and
+     warning both failed there, which is how a provenance grade ends up
+     unreadable at the exact moment it matters most. */
+  --prov-verified: #2a7929;
   --prov-verified-bg: var(--color-accent-bg);
-  --prov-reported: var(--color-warning);
+  --prov-reported: #876500;
   --prov-reported-bg: rgba(191, 143, 0, 0.09);
-  --prov-inferred: var(--color-text-faint);
+  --prov-inferred: #656979;
   --prov-inferred-bg: rgba(154, 157, 170, 0.12);
+}
+
+[data-theme='dark'] {
+  --prov-verified: #4cc249;
+  --prov-reported: #d6a419;
+  --prov-inferred: #979aa8;
+  --prov-inferred-bg: rgba(154, 157, 170, 0.16);
 }
