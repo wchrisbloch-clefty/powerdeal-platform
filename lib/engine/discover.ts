@@ -169,6 +169,38 @@ export function findCoverageGaps(
  * `enabledDiscoveryIds` lets a reader opt specific nets in; when empty we run
  * the full discovery list, since the results never touch the main feed.
  */
+/**
+ * Fetched discovery items, cached per net-set.
+ *
+ * The Intelligence page is force-dynamic now that the feed fetches live, which
+ * removed the revalidate window that used to throttle this. Without a cache the
+ * net would refetch every source on every page load — eleven feeds per render.
+ * The window matches the old revalidate=900.
+ */
+const DISCOVERY_TTL_MS = 15 * 60_000;
+let discoveryCache: { key: string; at: number; items: RawItem[] } | null = null;
+let discoveryInFlight: Promise<RawItem[]> | null = null;
+
+async function fetchDiscovery(nets: SourceConfig[], windowHours: number): Promise<RawItem[]> {
+  const key = nets.map((n) => n.id).sort().join(',');
+  if (discoveryCache && discoveryCache.key === key && Date.now() - discoveryCache.at < DISCOVERY_TTL_MS) {
+    return discoveryCache.items;
+  }
+  if (discoveryInFlight) return discoveryInFlight;
+
+  discoveryInFlight = fetchSources(nets, 5)
+    .then((raw) => {
+      const items = withinHours(raw, windowHours);
+      discoveryCache = { key, at: Date.now(), items };
+      return items;
+    })
+    .finally(() => {
+      discoveryInFlight = null;
+    });
+
+  return discoveryInFlight;
+}
+
 export async function runDiscovery(
   vertical: VerticalConfig,
   coreItems: CoreHeadline[],
@@ -182,7 +214,7 @@ export async function runDiscovery(
 
   if (nets.length === 0) return [];
 
-  const discovered = withinHours(await fetchSources(nets, 3), windowHours);
+  const discovered = await fetchDiscovery(nets, windowHours);
   const cutoff = Date.now() - windowHours * 3600_000;
   const recentCore = coreItems.filter(
     (i) => !i.publishedAt || Date.parse(i.publishedAt) >= cutoff,

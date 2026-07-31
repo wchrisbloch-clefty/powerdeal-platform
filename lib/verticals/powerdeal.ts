@@ -403,6 +403,103 @@ export const powerdeal: VerticalConfig = {
       rationale:
         'Discovery only — Class VI permit movement often breaks in local press first.',
     },
+    /**
+     * BREADTH, added 2026-07-31.
+     *
+     * The net was three queries — rate increases, SOFC, Class VI — against a
+     * seven-category vertical, so four categories had no discovery coverage at
+     * all and the gap block was usually empty. A gap needs two distinct outlets
+     * on the same story before it counts, and two outlets only overlap when
+     * enough queries are pulling on the same event from different angles.
+     *
+     * These are deliberately phrased as EVENTS a BD rep would act on rather
+     * than as topics. "data center power agreement" finds a deal; "data
+     * centers" finds a genre.
+     */
+    {
+      id: 'google-news-datacenter-power',
+      name: 'Google News — Data Center Power',
+      platform: 'rss',
+      url: 'https://news.google.com/rss/search?q=data+center+power+agreement+OR+%22onsite+generation%22&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
+      category: 'data-center',
+      role: 'discovery',
+      enabledByDefault: false,
+      rationale:
+        'Discovery only — hyperscaler power deals break in regional and tech press before trade press.',
+    },
+    {
+      id: 'google-news-interconnection',
+      name: 'Google News — Interconnection & Queue',
+      platform: 'rss',
+      url: 'https://news.google.com/rss/search?q=interconnection+queue+OR+%22grid+connection%22+delay+industrial&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
+      category: 'power-markets',
+      role: 'discovery',
+      enabledByDefault: false,
+      rationale:
+        'Discovery only — queue delay is the single most common trigger for behind-the-meter interest.',
+    },
+    {
+      id: 'google-news-reliability',
+      name: 'Google News — Grid Reliability & Capacity',
+      platform: 'rss',
+      url: 'https://news.google.com/rss/search?q=grid+reliability+warning+OR+%22capacity+auction%22+OR+%22resource+adequacy%22&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
+      category: 'power-markets',
+      role: 'discovery',
+      enabledByDefault: false,
+      rationale:
+        'Discovery only — ISO reliability warnings and capacity price moves reprice every deal in that market.',
+    },
+    {
+      id: 'google-news-industrial-power',
+      name: 'Google News — Industrial Power & Electrification',
+      platform: 'rss',
+      url: 'https://news.google.com/rss/search?q=%22industrial+plant%22+power+OR+electrification+OR+%22combined+heat+and+power%22&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
+      category: 'industrial',
+      role: 'discovery',
+      enabledByDefault: false,
+      rationale:
+        'Discovery only — industrial load decisions are covered locally, almost never by national trade press.',
+    },
+    {
+      id: 'google-news-og-downstream',
+      name: 'Google News — Refining & Petrochemical',
+      platform: 'rss',
+      url: 'https://news.google.com/rss/search?q=refinery+OR+petrochemical+expansion+OR+turnaround+power&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
+      category: 'og',
+      role: 'discovery',
+      enabledByDefault: false,
+      rationale:
+        'Discovery only — downstream expansions and turnarounds are load events with a known calendar.',
+    },
+    {
+      id: 'google-news-air-permits',
+      name: 'Google News — Air Permits & Non-attainment',
+      platform: 'rss',
+      url: 'https://news.google.com/rss/search?q=%22non-attainment%22+OR+%22air+permit%22+ozone+industrial+EPA&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
+      category: 'policy',
+      role: 'discovery',
+      enabledByDefault: false,
+      rationale:
+        'Discovery only — a non-attainment redesignation is the combustion-fighter trigger and moves slowly through local press.',
+    },
+    {
+      id: 'google-news-defense-energy',
+      name: 'Google News — Defense Installation Energy',
+      platform: 'rss',
+      url: 'https://news.google.com/rss/search?q=military+base+OR+defense+installation+microgrid+OR+%22energy+resilience%22&hl=en-US&gl=US&ceid=US:en',
+      defaultTier: 'inferred',
+      category: 'defense',
+      role: 'discovery',
+      enabledByDefault: false,
+      rationale:
+        'Discovery only — the defense category had no discovery coverage; resilience mandates are public and rarely in trade press.',
+    },
     {
       id: 'reddit-energy',
       name: 'Reddit r/energy',

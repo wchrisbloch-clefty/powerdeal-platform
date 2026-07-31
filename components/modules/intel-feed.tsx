@@ -14,6 +14,7 @@ import FeedItemCard from './feed-item';
 import CoverageGapBlock from './coverage-gap';
 import TrendingPanel from './trending-panel';
 import TopicChips from './topic-chips';
+import WeeklyRecapPanel from './weekly-recap';
 import Ticker, { type TickerData } from './ticker';
 import Button from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/card';
@@ -258,7 +259,14 @@ export default function IntelFeed({
           )}
         </div>
 
-        <TrendingPanel trends={trends} className="min-w-0" />
+        {/* Sidebar order is "this week" above "right now" on purpose: the recap
+            is the thing you read once and act on, trending is the thing you
+            scan. Placement is provisional pending the IA restructure — the
+            panel fetches its own data and can move as a unit. */}
+        <div className="min-w-0 space-y-4">
+          <WeeklyRecapPanel />
+          <TrendingPanel trends={trends} />
+        </div>
       </div>
     </div>
   );
