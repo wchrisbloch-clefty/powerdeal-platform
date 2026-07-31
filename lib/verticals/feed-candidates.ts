@@ -92,56 +92,29 @@ export interface CandidateSet {
 export const FEED_CANDIDATES: CandidateSet[] = [
   {
     /**
-     * Structure probe, not a feed hunt. Round 1 proved epa.gov HTML is
-     * reachable from Vercel (200 with the real page titles) — only the feed
-     * endpoints were dead. So the scraper is viable and this reads the actual
-     * table headers and first row to write the parser against.
+     * Round 2 returned NO tableCount for either EPA page — zero <table>
+     * elements. So the Class VI record is not tabular markup, and the sample
+     * titles that came back ("Lock", "Primary navigation") were SVG icon
+     * titles from the page chrome, confirming we only saw the shell.
      *
-     * Guessing the column layout would produce a scraper that returns
-     * plausible garbage, which is the same failure class as a wrong feed URL
-     * returning 200.
+     * This round reports iframes, body size and permit-ish links instead. An
+     * ArcGIS or Power BI iframe would be the good outcome: those are backed
+     * by a documented REST API returning JSON, which is both easier to
+     * consume and far more stable than markup EPA can restyle at will. A list
+     * of PDF links is the workable-but-worse outcome. A small bodyChars with
+     * neither means the data is rendered client-side and needs a headless
+     * browser, which is a different conversation.
      *
-     * /uic/class-vi-permitting-process 404s — dropped, wrong slug.
+     * Also probing EPA's GeoPlatform, which is where their public map layers
+     * live, in case the Class VI layer is queryable directly.
      */
     sourceId: 'ccus-epa-dashboard',
-    failure: 'reading table structure ahead of writing the parser',
+    failure: 'no tables found; determining how the record is actually served',
     urls: [
       'https://www.epa.gov/uic/current-class-vi-projects-under-review-epa',
       'https://www.epa.gov/uic/class-vi-wells-permitted-epa',
-    ],
-  },
-  {
-    /**
-     * climatestacks.com is titled "CCS Permit & Class VI Permit Tracker
-     * (CCUS)" and is reachable, but has no feed at /feed, /rss or /feed.xml.
-     * It is almost certainly a JS app over an API. Trying the usual API and
-     * sitemap shapes before falling back to scraping — a JSON endpoint would
-     * be far more stable than parsing a rendered SPA.
-     */
-    sourceId: 'ccus-climate-stacks',
-    failure: 'no RSS; looking for the API behind the tracker',
-    urls: [
-      'https://climatestacks.com/api/permits',
-      'https://climatestacks.com/api/projects',
-      'https://climatestacks.com/api/v1/permits',
-      'https://climatestacks.com/sitemap.xml',
-      'https://climatestacks.com/updates',
-    ],
-  },
-  {
-    /**
-     * Round 1 only tried Hunton feed paths, all 404, and
-     * huntonnickelreport.com failed DNS outright — that domain is gone.
-     * Checking whether the tracker page itself is reachable and tabular, so
-     * "no feed" does not get mistaken for "no source". If it is a table, it
-     * can be scraped the same way as EPA.
-     */
-    sourceId: 'ccus-hunton',
-    failure: 'no feed; testing the tracker page for reachability and structure',
-    urls: [
-      'https://www.huntonak.com/insights/legal-update/epa-class-vi-permit-tracker',
-      'https://www.huntonak.com/hunton-nickel-report',
-      'https://www.huntonak.com/insights',
+      'https://www.epa.gov/uic/underground-injection-control-well-inventory',
+      'https://geopub.epa.gov/arcgis/rest/services?f=json',
     ],
   },
 ];

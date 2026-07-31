@@ -58,6 +58,18 @@ interface UrlHealth {
   tableHeaders?: string[];
   tableFirstRow?: string[];
   tableCount?: number;
+  /**
+   * Shape of an HTML page that is a scrape target but has no data table.
+   *
+   * The EPA Class VI pages came back with zero tables, so the record is held
+   * some other way — link lists, or a dashboard widget rendered client-side.
+   * An iframe pointing at ArcGIS would be the good outcome: those are backed
+   * by a documented REST API returning JSON, which beats parsing HTML that
+   * EPA can restyle at any time.
+   */
+  bodyChars?: number;
+  iframes?: string[];
+  linkSample?: string[];
 }
 
 /** Collapse an HTML fragment to its visible text. */
@@ -110,6 +122,39 @@ function inspectFirstTable(
   };
 }
 
+/**
+ * Describe a table-less HTML page well enough to decide how to scrape it.
+ *
+ * Runs only when the page has no data table, which is the case that needs
+ * investigating. Reports iframes first — an embedded ArcGIS or Power BI
+ * dashboard means there is a JSON API behind it, and consuming that is both
+ * easier and far more stable than parsing markup.
+ */
+function inspectPageShape(
+  body: string,
+): Pick<UrlHealth, 'bodyChars' | 'iframes' | 'linkSample'> {
+  const iframes = [...body.matchAll(/<iframe\b[^>]*\bsrc=["']([^"']+)["']/gi)]
+    .map((m) => m[1])
+    .slice(0, 10);
+
+  // Links that plausibly point at the actual records.
+  const links = [...body.matchAll(/<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
+    .map((m) => ({ href: m[1], text: cellText(m[2]) }))
+    .filter(
+      (l) =>
+        /class[-\s]?vi|permit|sequestration|\.pdf$|\.xlsx?$|\.csv$/i.test(l.href) ||
+        /class\s?vi|permit/i.test(l.text),
+    )
+    .slice(0, 12)
+    .map((l) => `${l.text || '(no text)'} → ${l.href}`);
+
+  return {
+    bodyChars: body.length,
+    ...(iframes.length > 0 ? { iframes } : {}),
+    ...(links.length > 0 ? { linkSample: links } : {}),
+  };
+}
+
 async function probeUrl(url: string): Promise<UrlHealth> {
   try {
     const res = await fetchWithTimeout(
@@ -150,6 +195,8 @@ async function probeUrl(url: string): Promise<UrlHealth> {
     const feedTitle = titles[0] ?? null;
     const sampleTitles = titles.slice(1, 4);
     const table = inspectFirstTable(body);
+    // Only worth describing the page shape when there is no table to read.
+    const shape = table.tableCount ? {} : inspectPageShape(body);
 
     if (itemCount === 0) {
       return {
@@ -159,6 +206,7 @@ async function probeUrl(url: string): Promise<UrlHealth> {
         feedTitle,
         sampleTitles,
         ...table,
+        ...shape,
         message: 'Responded 200 but contains no items — likely an HTML page, not a feed.',
       };
     }
@@ -170,6 +218,7 @@ async function probeUrl(url: string): Promise<UrlHealth> {
       feedTitle,
       sampleTitles,
       ...table,
+      ...shape,
       message: null,
     };
   } catch (err) {
@@ -264,6 +313,9 @@ export async function GET(request: Request) {
               ...(c.tableCount ? { tableCount: c.tableCount } : {}),
               ...(c.tableHeaders ? { tableHeaders: c.tableHeaders } : {}),
               ...(c.tableFirstRow ? { tableFirstRow: c.tableFirstRow } : {}),
+              ...(c.bodyChars ? { bodyChars: c.bodyChars } : {}),
+              ...(c.iframes ? { iframes: c.iframes } : {}),
+              ...(c.linkSample ? { linkSample: c.linkSample } : {}),
             })),
         }
       : {}),
