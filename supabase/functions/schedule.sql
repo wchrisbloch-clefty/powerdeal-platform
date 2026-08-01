@@ -1,8 +1,12 @@
 -- ═══════════════════════════════════════════════════════
 -- PowerDeal — pg_cron schedules
 --
--- BEFORE RUNNING: replace {CRON_SECRET} throughout this file (5 places) with
--- the real value. The project ref is already filled in.
+-- BEFORE RUNNING: replace {CRON_SECRET} throughout this file with the real
+-- value. The project ref is already filled in. A blind replace-all is correct
+-- and safe: the string appears 6 times, but only 3 are live — one inside each
+-- cron.schedule body below. The other 3 are in this comment block and in the
+-- fire-by-hand example at the bottom, where replacing them is harmless (this
+-- buffer is scratch; nothing here is committed with a secret in it).
 --
 -- {CRON_SECRET} is deliberately NOT committed. It is the only thing standing
 -- between the public internet and three functions that write to every user's
