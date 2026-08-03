@@ -171,6 +171,23 @@ export interface AgentAlert {
 }
 
 /**
+ * What actually sits in app_state.value.
+ *
+ * The cleared state is an empty `jobs` array, NOT a null row. app_state.value
+ * is `jsonb NOT NULL`, so writing null raises a constraint violation — and it
+ * did: stall-alert ran, succeeded, and then died on this write, because a
+ * successful run is exactly the case that clears the alert. The healthy path
+ * was the only one that could fail.
+ *
+ * Same shape as setFeedState clearing an entry: mutate the value, never write
+ * an absent one.
+ */
+interface StoredAgentAlert {
+  jobs: AgentAlert['jobs'];
+  since: string | null;
+}
+
+/**
  * Raise or clear the consecutive-failure alert.
  *
  * Written to app_state rather than emailed or logged: the operator has to see
@@ -190,8 +207,10 @@ async function syncAlert(runs: AgentRunMap): Promise<void> {
     error: runs[j.id]!.lastError,
   }));
 
-  const value: AgentAlert | null =
-    failing.length > 0 ? { jobs: failing, since: new Date().toISOString() } : null;
+  const value: StoredAgentAlert = {
+    jobs: failing,
+    since: failing.length > 0 ? new Date().toISOString() : null,
+  };
 
   await client
     .from('app_state')
@@ -201,8 +220,15 @@ async function syncAlert(runs: AgentRunMap): Promise<void> {
     );
 }
 
+/**
+ * Null means "nothing is failing" to every caller. Rows written before the fix
+ * above are literally null and are normalised here rather than migrated — the
+ * next run of any job overwrites them with the current shape anyway.
+ */
 export async function getAgentAlert(): Promise<AgentAlert | null> {
-  return await getAppState<AgentAlert>(AGENT_ALERT_KEY);
+  const stored = await getAppState<StoredAgentAlert>(AGENT_ALERT_KEY);
+  if (!stored?.jobs?.length || !stored.since) return null;
+  return { jobs: stored.jobs, since: stored.since };
 }
 
 /**

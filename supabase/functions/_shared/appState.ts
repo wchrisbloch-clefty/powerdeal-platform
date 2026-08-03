@@ -38,6 +38,18 @@ export async function writeState(
   key: string,
   value: unknown,
 ): Promise<void> {
+  // app_state.value is jsonb NOT NULL. Caught here rather than at the database
+  // so the message names the key — the constraint violation alone says only
+  // "column value", which means reading every write site to find the caller.
+  // "Clearing" a key means writing its empty form (`{}`, `[]`, `{jobs: []}`),
+  // not writing its absence.
+  if (value === null || value === undefined) {
+    throw new Error(
+      `app_state write failed: refusing to write null to '${key}'. ` +
+        `value is jsonb NOT NULL — write the empty form instead.`,
+    );
+  }
+
   const { error } = await supabase
     .from('app_state')
     .upsert(
@@ -157,12 +169,16 @@ export async function recordAgentRun(
       .filter(([, r]) => r.consecutiveFailures >= FAILURE_ALERT_THRESHOLD)
       .map(([id, r]) => ({ id, label: id, failures: r.consecutiveFailures, error: r.lastError }));
 
-    await writeState(
-      supabase,
-      ownerId,
-      AGENT_ALERT_KEY,
-      failing.length > 0 ? { jobs: failing, since: new Date().toISOString() } : null,
-    );
+    // Cleared state is an empty array, NOT a null row — app_state.value is
+    // jsonb NOT NULL. Writing null killed stall-alert on its final write: a
+    // successful run is precisely the case that clears the alert, so the
+    // healthy path was the only one that could fail. Mirrors the same fix in
+    // lib/agent-runs.ts; the two must keep the same stored shape because one
+    // status page reads whichever runtime wrote last.
+    await writeState(supabase, ownerId, AGENT_ALERT_KEY, {
+      jobs: failing,
+      since: failing.length > 0 ? new Date().toISOString() : null,
+    });
   } catch (err) {
     console.warn(`[agent-runs] could not record ${jobId}:`, (err as Error).message);
   }
