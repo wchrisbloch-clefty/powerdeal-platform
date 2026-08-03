@@ -8,10 +8,56 @@
 -- Run in the Supabase SQL Editor, then run seed.sql.
 -- ═══════════════════════════════════════════════════════
 
--- Extensions
+-- ── Extensions ──────────────────────────────────────────
 create extension if not exists "uuid-ossp";
-create extension if not exists pg_cron;
-create extension if not exists pg_net;
+
+-- pg_cron and pg_net drive every scheduled job. These two lines were already
+-- here and still left a project with neither extension installed: depending on
+-- plan, role and search_path, `create extension` from the SQL editor can fail
+-- on privileges, and `if not exists` makes a silent no-op look exactly like
+-- success. The result was three cron jobs registered with active = t that had
+-- no possible way to fire, and a verification query that showed all three.
+--
+-- So: attempt, then ASSERT. The attempt is wrapped because a hard failure here
+-- would abort the whole file; the assertion below is not, deliberately — if
+-- the extensions are missing you get nothing rather than a schema whose
+-- scheduled half is quietly inert.
+do $$
+begin
+  begin
+    create extension if not exists pg_cron;
+  exception when others then
+    raise notice 'create extension pg_cron failed: %', sqlerrm;
+  end;
+
+  begin
+    create extension if not exists pg_net with schema extensions;
+  exception when others then
+    begin
+      create extension if not exists pg_net;
+    exception when others then
+      raise notice 'create extension pg_net failed: %', sqlerrm;
+    end;
+  end;
+end $$;
+
+do $$
+declare
+  missing text;
+begin
+  select string_agg(e, ', ')
+    into missing
+    from unnest(array['pg_cron', 'pg_net']) as e
+   where not exists (select 1 from pg_extension where extname = e);
+
+  if missing is not null then
+    raise exception
+      'Required extension(s) not installed: %. Enable them in the Supabase '
+      'dashboard (Database -> Extensions), then re-run this file. Without '
+      'them supabase/functions/schedule.sql will register cron jobs that '
+      'report active = t and can never fire.', missing;
+  end if;
+end $$;
 
 -- ── DEALS (the Pipeline Spine) ──────────────────────────
 create table if not exists deals (

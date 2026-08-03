@@ -26,7 +26,12 @@
 -- alternative is to re-run this file at each DST change; for a 6-8am
 -- background sweep the hour of drift does not matter.
 --
--- Requires: pg_cron + pg_net (both created in schema.sql).
+-- Requires: pg_cron + pg_net. schema.sql attempts to create them and now
+-- asserts they exist, because a `create extension if not exists` that silently
+-- no-ops leaves you here scheduling jobs that report active = t and can never
+-- fire. Confirm before trusting anything below:
+--   select extname, extversion from pg_extension
+--    where extname in ('pg_cron', 'pg_net');
 -- ═══════════════════════════════════════════════════════
 
 -- Idempotent: unschedule before scheduling so this file can be re-run.
