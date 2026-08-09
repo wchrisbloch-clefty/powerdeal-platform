@@ -131,7 +131,12 @@ export function computeLcoe(
   }
 
   const capexComponent = perKwYearToCents(effCapex * factor, cf);
-  const omComponent = perKwYearToCents(om!, cf);
+  // Fixed O&M is per unit of CAPACITY and so divides by run hours; variable
+  // O&M is already per unit of ENERGY and converts directly ($/MWh ÷ 10).
+  // Dividing the variable term by capacity factor as well would double-count
+  // utilisation and inflate O&M at low CF — where the peaking comparison lives.
+  const omComponent =
+    perKwYearToCents(om!, cf) + (v(tech.variableOmPerMwh) ?? 0) / 10;
   const fuelComponent = fuelCents(hr, fuelPrice) ?? 0;
 
   return {

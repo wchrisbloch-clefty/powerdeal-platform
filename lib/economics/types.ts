@@ -31,6 +31,16 @@ export interface Sourced {
   /** ISO date. Null when user-entered. */
   retrievedAt: string | null;
   /**
+   * The published band, when the source gives a range rather than a point.
+   *
+   * `value` is then the midpoint — and the UI says so. A midpoint presented as
+   * a fact is the same failure as an invented default: it looks like a figure
+   * someone measured. Carrying the band means the reader can see the number is
+   * the middle of 1,150–1,450, not a measurement of 1,300.
+   */
+  low?: number | null;
+  high?: number | null;
+  /**
    * Reserved (spec 1.9). Some competitive inputs may originate from internal
    * material. The flag is carried on the SOURCE so a later export filter can
    * act on it. Nothing enforces it today, by design — tag the source, don't
@@ -47,6 +57,40 @@ export function userValue(value: number | null, unit: string): Sourced {
 /** A field we could not source. Renders as "needs input". */
 export function needsInput(unit: string): Sourced {
   return { value: null, unit, tier: null, source: null, retrievedAt: null };
+}
+
+/** A sourced point value. */
+export function sourced(
+  value: number,
+  unit: string,
+  tier: SourceTier,
+  source: string,
+  retrievedAt: string,
+): Sourced {
+  return { value, unit, tier, source, retrievedAt };
+}
+
+/**
+ * A sourced range. `value` becomes the midpoint and the band travels with it.
+ *
+ * Ranges are the normal case for published cost data — a single capex figure
+ * for "new-build combined cycle" would be the fiction, not the band.
+ */
+export function sourcedRange(
+  low: number,
+  high: number,
+  unit: string,
+  tier: SourceTier,
+  source: string,
+  retrievedAt: string,
+): Sourced {
+  return { value: (low + high) / 2, low, high, unit, tier, source, retrievedAt };
+}
+
+export function hasRange(s: Sourced | undefined): boolean {
+  return Boolean(
+    s && s.low !== null && s.low !== undefined && s.high !== null && s.high !== undefined,
+  );
 }
 
 export function isNeeded(s: Sourced | undefined): boolean {
@@ -76,7 +120,17 @@ export type TechKey = (typeof TECH_KEYS)[number];
 export interface TechInputs {
   efficiencyPct: Sourced;
   capexPerKw: Sourced;
+  /** Fixed O&M. */
   omPerKwYr: Sourced;
+  /**
+   * Variable O&M, billed per unit of output rather than per unit of capacity.
+   *
+   * Separate from fixed O&M because the units are genuinely different and
+   * folding $/MWh into a $/kW-yr field is a unit error that produces a
+   * confident wrong answer. Converts straight to ¢/kWh (÷10) with no capacity
+   * factor involved — it is already per-MWh-generated.
+   */
+  variableOmPerMwh: Sourced;
   /** Overbuild required to serve firm load. Multiplies capex. */
   redundancyPct: Sourced;
   serviceIntervalHrs: Sourced;
@@ -84,6 +138,12 @@ export interface TechInputs {
   /** Constraint notes, not cost inputs — they never enter the LCOE. */
   minUnitMw: Sourced;
   leadTimeMonths: Sourced;
+  /**
+   * Asset life. Deliberately NOT wired to the financing term: a 30-year asset
+   * financed over 20 years is an ordinary structure, and silently driving CRF
+   * from asset life would change the answer without the user asking.
+   */
+  assetLifeYears: Sourced;
 }
 
 /** Shared financial assumptions. Always user-owned — never preset-sourced. */

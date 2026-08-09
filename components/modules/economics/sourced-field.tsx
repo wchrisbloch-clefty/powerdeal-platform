@@ -2,6 +2,7 @@
 
 import { useId } from 'react';
 import TierChip from './tier-chip';
+import { hasRange } from '@/lib/economics/types';
 import type { Sourced } from '@/lib/economics/types';
 
 /**
@@ -27,6 +28,7 @@ export default function SourcedField({
   onChange,
   derived,
   hint,
+  warning,
   disabled,
 }: {
   label: string;
@@ -37,6 +39,8 @@ export default function SourcedField({
   onChange: (value: number | null) => void;
   derived?: React.ReactNode;
   hint?: string;
+  /** Rendered with a rule bar — for conditions the reader must not skim past. */
+  warning?: string;
   disabled?: boolean;
 }) {
   const id = useId();
@@ -89,10 +93,31 @@ export default function SourcedField({
         style={empty ? { opacity: 0.4 } : undefined}
       />
 
+      {/* The published band, when the source gives one. Shown because the value
+          above is its MIDPOINT — presenting 1,300 without saying it came from
+          1,150–1,450 makes a derived figure look like a measured one. */}
+      {hasRange(sourced) && sourced.tier ? (
+        <p className="mt-1 font-mono text-2xs text-text-faint tabular-nums">
+          Published range {fmt(sourced.low!)}–{fmt(sourced.high!)} {sourced.unit} · showing
+          midpoint
+        </p>
+      ) : null}
+
       {derived ? (
         <p className="mt-1 font-mono text-2xs text-text-dim tabular-nums">{derived}</p>
       ) : null}
       {hint ? <p className="mt-1 text-2xs text-text-faint">{hint}</p> : null}
+      {warning ? (
+        <p className="mt-1.5 border-l-2 border-warning pl-2 text-2xs leading-snug text-text-dim">
+          {warning}
+        </p>
+      ) : null}
     </div>
   );
+}
+
+function fmt(n: number): string {
+  if (Math.abs(n) >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (Math.abs(n) >= 10) return n.toFixed(n % 1 === 0 ? 0 : 2);
+  return n.toFixed(2);
 }

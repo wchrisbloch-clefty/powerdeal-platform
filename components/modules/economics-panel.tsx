@@ -66,6 +66,7 @@ export default function EconomicsPanel({
   );
   const [pinned, setPinned] = useState<Scenario[]>(initialScenarios);
   const [compareId, setCompareId] = useState<string | null>(null);
+  const [capexCase, setCapexCase] = useState<string>('base');
   const [tab, setTab] = useState<'model' | 'sensitivity'>('model');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -106,9 +107,23 @@ export default function EconomicsPanel({
     setGrid((prev) => ({ ...prev, [key]: userValue(value, prev[key].unit) }));
 
   function loadPreset(key: TechKey) {
+    const preset = presetFor(key);
     setTech(key);
-    setInputs(presetFor(key).inputs);
+    setInputs(preset.inputs);
     setIncentives(defaultSelections(key));
+    setCapexCase(preset.capexCases?.[0]?.id ?? 'base');
+  }
+
+  /**
+   * Switch between published capex cases. Both are Lazard figures; neither is
+   * a default we chose, which is why this is a visible control rather than a
+   * silent pick.
+   */
+  function loadCapexCase(id: string) {
+    const found = presetFor(tech).capexCases?.find((c) => c.id === id);
+    if (!found) return;
+    setCapexCase(id);
+    setInputs((prev) => ({ ...prev, capexPerKw: found.capex }));
   }
 
   function currentScenario(name: string): Scenario {
@@ -271,8 +286,41 @@ export default function EconomicsPanel({
                       ? `Heat rate ${Math.round(result.lcoe.heatRateBtuPerKwh).toLocaleString()} Btu/kWh`
                       : 'Heat rate — set efficiency'
                   }
-                  hint="Drives fuel cost through heat rate. 3,412 ÷ efficiency."
+                  hint={
+                    presetFor(tech).heatRateNote ??
+                    'Drives fuel cost through heat rate. 3,412 ÷ efficiency.'
+                  }
                 />
+
+                {presetFor(tech).capexCases ? (
+                  <div className="border-b border-rule-faint py-3">
+                    <p className="text-sm font-medium text-text">Capex case</p>
+                    <p className="mt-0.5 text-2xs text-text-faint">
+                      The source publishes more than one. Neither is a default we picked.
+                    </p>
+                    <div className="mt-2 space-y-1.5">
+                      {presetFor(tech).capexCases!.map((c) => (
+                        <label key={c.id} className="flex gap-2 text-xs text-text">
+                          <input
+                            type="radio"
+                            name="capex-case"
+                            checked={capexCase === c.id}
+                            onChange={() => loadCapexCase(c.id)}
+                            className="mt-0.5 accent-accent"
+                          />
+                          <span>
+                            {c.label}
+                            {c.condition ? (
+                              <span className="block text-2xs leading-snug text-text-faint">
+                                {c.condition}
+                              </span>
+                            ) : null}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 <SourcedField
                   label="Capex"
@@ -305,6 +353,26 @@ export default function EconomicsPanel({
                   max={400}
                   step={1}
                   onChange={setTechField('omPerKwYr')}
+                />
+
+                <SourcedField
+                  label="Variable O&M"
+                  sourced={inputs.variableOmPerMwh}
+                  min={0}
+                  max={40}
+                  step={0.25}
+                  onChange={setTechField('variableOmPerMwh')}
+                  hint="Per unit of output, so it converts straight to ¢/kWh — no capacity factor involved."
+                />
+
+                <SourcedField
+                  label="Asset life"
+                  sourced={inputs.assetLifeYears}
+                  min={0}
+                  max={50}
+                  step={1}
+                  onChange={setTechField('assetLifeYears')}
+                  hint="Constraint note. Not wired to the financing term below — a 30-year asset financed over 20 is an ordinary structure."
                 />
 
                 <SourcedField
@@ -368,6 +436,7 @@ export default function EconomicsPanel({
                 max={1}
                 step={0.01}
                 onChange={setFinanceField('capacityFactor')}
+                warning={presetFor(tech).capacityFactorWarning}
               />
               <SourcedField
                 label="Cost of capital"
