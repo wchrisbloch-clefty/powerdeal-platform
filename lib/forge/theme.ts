@@ -65,11 +65,16 @@ export const FONT_FALLBACK = 'Calibri';
  * argument in the table renderer.
  */
 export const PALETTE = {
-  /** Headings, wordmark, table header text. */
+  /**
+   * The ONE dark value. Headings, body copy, wordmark, table text.
+   *
+   * The first pass at this replaced 000000 with 1A1A24 for body and added
+   * 5A5D6B for meta, which left three dark values against a standard naming one
+   * charcoal — palette drift introduced by the fix for palette drift, and it
+   * went into docDefaults itself where the suite was least likely to look.
+   */
   charcoal: '3E3E3E',
-  /** Body copy. Matches --color-text. */
-  body: '1A1A24',
-  /** Meta lines, subtitles, footers. Matches --color-text-dim. */
+  /** The ONE grey. Meta lines, subtitles, footers. */
   muted: '5A5D6B',
   /** Bloom green. Mark only — never a fill. */
   bloom: '3CAD3A',
@@ -170,7 +175,7 @@ export function brandHeader(): Header {
  */
 export const DOC_DEFAULTS = {
   document: {
-    run: { font: FONT, size: 21, color: PALETTE.body },
+    run: { font: FONT, size: 21, color: PALETTE.charcoal },
     paragraph: { spacing: { after: 110 } },
   },
 };
@@ -260,3 +265,56 @@ export const TABLE_CELL_MARGINS = { top: 60, bottom: 60, left: 80, right: 80 };
 export const TITLE_RULE = {
   bottom: { color: PALETTE.bloom, size: 12, style: BorderStyle.SINGLE, space: 6 },
 };
+
+
+// ── styles.xml, supplied wholesale ──────────────────────────────────
+
+/**
+ * The complete styles.xml, replacing the library's default set.
+ *
+ * The library ships stock Heading1..6 and Hyperlink carrying Word blue. Seven
+ * occurrences survived the theme work because they are part of its fixed
+ * default styles — unreferenced, but present, and by the same reasoning that
+ * made the latent blue worth fixing at all, an unreferenced landmine is the
+ * worse defect class precisely because nothing reveals it. One stray
+ * `heading: HeadingLevel.HEADING_1` brings it back.
+ *
+ * docx exposes `externalStyles`, but it APPENDS to the default set rather than
+ * replacing it — supplying this string that way produced the library's blue
+ * headings AND ours, plus two <w:docDefaults> blocks, which is worse than the
+ * problem. So generateDocx packs the document and then replaces the
+ * word/styles.xml part outright. One styles.xml, ours, no blue in the file at
+ * all — not overridden, absent.
+ *
+ * Generated from the constants above rather than hand-written, so there is
+ * still one source of truth and the assertions test what the renderer emits.
+ */
+export function buildStylesXml(): string {
+  const heading = (id: string, name: string, size: number, outline: number, before: number, after: number) =>
+    `<w:style w:type="paragraph" w:styleId="${id}">` +
+    `<w:name w:val="${name}"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>` +
+    `<w:pPr><w:keepNext/><w:outlineLvl w:val="${outline}"/>` +
+    `<w:spacing w:before="${before}" w:after="${after}"/></w:pPr>` +
+    `<w:rPr><w:rFonts w:ascii="${FONT}" w:hAnsi="${FONT}" w:cs="${FONT}" w:eastAsia="${FONT}"/>` +
+    `<w:b/><w:bCs/><w:color w:val="${PALETTE.charcoal}"/>` +
+    `<w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr>` +
+    `</w:style>`;
+
+  return (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    '<w:docDefaults><w:rPrDefault><w:rPr>' +
+    `<w:rFonts w:ascii="${FONT}" w:hAnsi="${FONT}" w:cs="${FONT}" w:eastAsia="${FONT}"/>` +
+    `<w:color w:val="${PALETTE.charcoal}"/><w:sz w:val="21"/><w:szCs w:val="21"/>` +
+    '</w:rPr></w:rPrDefault>' +
+    '<w:pPrDefault><w:pPr><w:spacing w:after="110" w:line="259" w:lineRule="auto"/></w:pPr></w:pPrDefault>' +
+    '</w:docDefaults>' +
+    '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>' +
+    // Bullets reference ListParagraph; omitting it would leave them unstyled.
+    '<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:qFormat/></w:style>' +
+    heading('PDHeading1', 'PowerDeal Heading 1', 28, 0, 300, 120) +
+    heading('PDHeading2', 'PowerDeal Heading 2', 23, 1, 220, 90) +
+    heading('PDHeading3', 'PowerDeal Heading 3', 21, 2, 180, 80) +
+    '</w:styles>'
+  );
+}

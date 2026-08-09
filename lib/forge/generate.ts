@@ -3,11 +3,12 @@ import {
   Document, Packer, Paragraph, TextRun, AlignmentType,
   Table, TableRow, TableCell, WidthType,
 } from 'docx';
+import JSZip from 'jszip';
 import PptxGenJS from 'pptxgenjs';
 import ExcelJS from 'exceljs';
 import { BRAND, APP_NAME } from '@/lib/brand';
 import {
-  DOC_DEFAULTS, PARAGRAPH_STYLES, PALETTE, TABLE_BORDERS, TABLE_CELL_MARGINS,
+  PALETTE, TABLE_BORDERS, TABLE_CELL_MARGINS, buildStylesXml,
   TABLE_HEADER_SHADING, TITLE_RULE, brandHeader, PAGE_MARGIN_TWIPS,
   FONT as THEME_FONT,
 } from './theme';
@@ -228,7 +229,7 @@ export async function generateDocx(
                                 text: cell,
                                 size: 19,
                                 bold: rowIndex === 0,
-                                color: rowIndex === 0 ? PALETTE.charcoal : PALETTE.body,
+                                color: PALETTE.charcoal,
                                 font: FONT_STACK,
                               }),
                             ],
@@ -276,10 +277,7 @@ export async function generateDocx(
     // read `font: FONT_FALLBACK`, which set Calibri as the document default and
     // left Aptos to inline run overrides — so any run emitted without an
     // explicit rPr silently rendered in Calibri.
-    styles: {
-      default: DOC_DEFAULTS,
-      paragraphStyles: PARAGRAPH_STYLES,
-    },
+
     sections: [
       {
         properties: {
@@ -298,7 +296,24 @@ export async function generateDocx(
     ],
   });
 
-  return Packer.toBuffer(doc);
+  // The library emits a fixed default style set carrying Word's blue
+  // Heading1..6 and Hyperlink. `externalStyles` appends rather than replaces,
+  // so the only way to keep the blue OUT of the file — as opposed to
+  // overriding it inside the file — is to swap the part after packing.
+  return replaceStylesPart(await Packer.toBuffer(doc), buildStylesXml());
+}
+
+/**
+ * Swap word/styles.xml in a packed .docx.
+ *
+ * An unreferenced blue Heading1 is the defect class nothing reveals: it renders
+ * correctly today and wrongly the moment someone writes
+ * `heading: HeadingLevel.HEADING_1`. Removing it costs one repack.
+ */
+async function replaceStylesPart(buffer: Buffer, stylesXml: string): Promise<Buffer> {
+  const zip = await JSZip.loadAsync(buffer);
+  zip.file('word/styles.xml', stylesXml);
+  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
 // ── PPTX ────────────────────────────────────────────────────────

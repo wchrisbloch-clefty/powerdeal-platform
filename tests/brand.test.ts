@@ -118,10 +118,56 @@ describe.each([
   });
 
   // ── Palette ──
-  it('uses only declared colors', () => {
+  it('uses only declared colors — in the body, the styles AND the header', () => {
+    // All three parts. The palette drift that survived the first theme pass
+    // landed in docDefaults, inside styles.xml, which a document-only
+    // assertion could never have seen.
     const declared = new Set([...DECLARED_COLORS.map((c) => c.toUpperCase()), 'FFFFFF', 'AUTO']);
-    const undeclared = allColors(out.doc).filter((c) => !declared.has(c));
-    expect(undeclared).toEqual([]);
+    for (const [label, xml] of [
+      ['document', out.doc],
+      ['styles', out.styles],
+      ['header', out.header],
+    ] as const) {
+      const undeclared = allColors(xml).filter((c) => !declared.has(c));
+      expect(undeclared, `undeclared colors in ${label}.xml`).toEqual([]);
+    }
+  });
+
+  it('pins the whole palette — adding a color has to be deliberate', () => {
+    // The standard names one charcoal. The first theme pass introduced 1A1A24
+    // for body and 5A5D6B for meta on top of 3E3E3E — three dark values against
+    // a spec naming one, drift introduced by the fix for drift, and it landed
+    // in docDefaults where a document-only assertion could not see it.
+    //
+    // Pinned as an exact set rather than derived. A luminance heuristic was
+    // tried first and classified Bloom green as a dark neutral (relative
+    // luminance 126 against a 128 threshold) — clever, and wrong in a way that
+    // would have hidden a real palette addition behind a false pass.
+    expect(new Set(DECLARED_COLORS)).toEqual(
+      new Set(['3E3E3E', '5A5D6B', '3CAD3A', 'D9D9D9', 'EDEDED', 'F4F5F7']),
+    );
+  });
+
+  it('carries exactly one dark neutral and one grey, accent excluded', () => {
+    const neutrals = DECLARED_COLORS.filter((c) => c !== PALETTE.bloom);
+    const dark = neutrals.filter((c) => {
+      const n = parseInt(c, 16);
+      const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return 0.299 * r + 0.587 * g + 0.114 * b < 128;
+    });
+    expect(dark.sort()).toEqual([PALETTE.charcoal, PALETTE.muted].sort());
+  });
+
+  it('carries no Word stock color in styles.xml either — the latent blue is gone', () => {
+    // Not overridden: absent. The library's stock Heading1..6 never enter the
+    // file, so a stray HeadingLevel reference cannot resurrect them.
+    for (const c of WORD_DEFAULT_COLORS) {
+      expect(out.styles.toUpperCase()).not.toContain(c.toUpperCase());
+    }
+  });
+
+  it('emits no stock Heading style definitions at all', () => {
+    expect(out.styles).not.toMatch(/w:styleId="Heading\d"/);
   });
 
   it('never emits pure black', () => {
@@ -166,12 +212,18 @@ describe.each([
     expect(out.header.toUpperCase()).toContain(PALETTE.charcoal.toUpperCase());
   });
 
-  it('carries no partner trademark or image asset', () => {
+  it('carries no partner trademark in the brand zone and no image asset', () => {
     // Deliberate: a Bloom mark on customer-facing documents is a permission
     // question answered outside the codebase. The fixed box means adding one
     // later reflows nothing.
+    //
+    // SCOPED to the header zone and word/media ON PURPOSE. A global string
+    // check fails on the first real MAP, because "R. Okafor (Bloom)" is a
+    // legitimate milestone owner — a Bloom employee's name in a body cell is
+    // content, not branding, and will recur on every genuine plan. The rule is
+    // about the brand zone, so the test has to be too.
     expect(out.names.filter((n) => n.startsWith('word/media'))).toEqual([]);
-    expect(`${out.doc}${out.header}`).not.toMatch(/Bloom/i);
+    expect(out.header).not.toMatch(/Bloom/i);
   });
 });
 
