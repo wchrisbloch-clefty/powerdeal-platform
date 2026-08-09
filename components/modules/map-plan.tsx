@@ -9,9 +9,13 @@ import {
   championSignal,
   championSignalLabel,
   daysBetween,
+  energizeDate,
+  inDateOrder,
   overdue,
+  ownerOf,
   propagate,
   toIso,
+  validate,
 } from '@/lib/map/schedule';
 import { mapToMarkdown } from '@/lib/map/export';
 import type { MapPlan, Milestone, MilestoneStatus } from '@/lib/map/schedule';
@@ -44,12 +48,18 @@ export default function MapPlanPanel({
 
   const today = toIso(Date.now());
   const late = useMemo(() => overdue(plan, today), [plan, today]);
+  const issues = useMemo(() => validate(plan, today), [plan, today]);
+  // Derived, never stored — the header and the Energize row are the same
+  // number by construction. See energizeDate().
+  const energize = energizeDate(plan);
+  // Read order is chronological; the dependency graph stays in its own column.
+  const rows = useMemo(() => inDateOrder(plan.milestones), [plan.milestones]);
   const signal = championSignal(plan);
 
   // Previewed, not applied. The user sees the blast radius and then decides.
   const preview = useMemo(
-    () => (pending ? propagate(plan, pending.id, pending.date) : null),
-    [plan, pending],
+    () => (pending ? propagate(plan, pending.id, pending.date, today) : null),
+    [plan, pending, today],
   );
 
   function commit() {
@@ -138,7 +148,7 @@ export default function MapPlanPanel({
         <div>
           <p className="eyebrow">Target energize</p>
           <p className="font-mono text-xl text-text tabular-nums">
-            {plan.targetEnergizeDate ?? '—'}
+            {energize ?? '—'}
           </p>
         </div>
         <div className="text-right">
@@ -155,6 +165,19 @@ export default function MapPlanPanel({
             {late.map((m) => m.label).join(', ')}
           </span>
         </p>
+      ) : null}
+
+      {issues.length > 0 ? (
+        <ul className="rounded-card border border-warning bg-bg-raised px-3 py-2">
+          {issues.map((i) => (
+            <li key={i.milestoneId} className="flex items-start gap-2 text-xs text-text">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+              <span>
+                <span className="font-medium">{i.label}</span> — {i.message}
+              </span>
+            </li>
+          ))}
+        </ul>
       ) : null}
 
       {/* ── Slip preview ── */}
@@ -214,7 +237,7 @@ export default function MapPlanPanel({
 
       {/* ── Milestones ── */}
       <ul className="space-y-2">
-        {plan.milestones.map((m) => {
+        {rows.map((m) => {
           const slipDays = m.date ? daysBetween(today, m.date) : null;
           return (
             <li
@@ -234,7 +257,7 @@ export default function MapPlanPanel({
                 <input
                   type="text"
                   aria-label={`${m.label} owner`}
-                  placeholder="owner"
+                  placeholder={ownerOf(m)}
                   value={m.owner ?? ''}
                   onChange={(e) => patch(m.id, { owner: e.target.value || null })}
                   className="min-h-tap-sm w-28 rounded-sm border border-rule bg-bg px-1.5 text-xs text-text focus:border-accent focus:outline-none"

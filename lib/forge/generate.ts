@@ -185,6 +185,17 @@ export async function generateDocx(
       case 'table': {
         // A MAP walked through on a call is a table or it is nothing — loose
         // paragraphs of "milestone, owner, date" are unreadable at speed.
+        //
+        // KNOWN COSMETIC, not chased: every emitted gridCol is w:w="100", so
+        // the column widths are placeholder-equal. tblW is 100% and tblLayout
+        // is absent, so Word's autofit reflows them and nothing breaks —
+        // proportional widths would only read better. Fix by passing explicit
+        // `columnWidths` sized to the content when this becomes worth it.
+        //
+        // ALSO UNTESTED: header repeat across a real page break. The
+        // <w:tblHeader/> flag is emitted on row 0 only, with w:val="false" on
+        // every body row, which is the correct shape — but no export has yet
+        // been long enough to break a page and confirm the behaviour.
         const rows = block.rows ?? [];
         if (rows.length === 0) break;
         children.push(

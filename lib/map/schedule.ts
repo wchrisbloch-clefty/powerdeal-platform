@@ -31,8 +31,18 @@ export interface Milestone {
 
 export interface MapPlan {
   milestones: Milestone[];
-  /** The date the whole plan is pointed at. */
-  targetEnergizeDate: string | null;
+  /**
+   * DERIVED, never stored — see energizeDate().
+   *
+   * This used to be a field. It drifted immediately: the header carried a
+   * separately-stored value while the Energize row carried the milestone's own
+   * date, and one Williams export shipped with 2027-08-26 in the header and
+   * 2027-08-12 in the table. Two energize dates in one document is worse than
+   * a wrong one, because the reader cannot tell which is the commitment.
+   *
+   * Stored plans from before this change may still carry the key. It is
+   * ignored on read.
+   */
   updatedAt: string;
   /** Champion engagement — a read, never a rule. See championSignal(). */
   championViewedAt?: string | null;
@@ -65,6 +75,93 @@ export function daysBetween(a: string, b: string): number | null {
   const tb = parseDate(b);
   if (ta === null || tb === null) return null;
   return Math.round((tb - ta) / DAY_MS);
+}
+
+// ── Derived energize date ──────────────────────────────────────────
+
+/**
+ * Milestones nothing else depends on — the end of the chain.
+ *
+ * Falls back to the whole list when every milestone is depended upon, which
+ * only happens in a cycle; propagate() reports that separately rather than
+ * relying on this.
+ */
+export function terminalMilestones(milestones: Milestone[]): Milestone[] {
+  const depended = new Set(milestones.flatMap((m) => m.dependsOn));
+  const terminals = milestones.filter((m) => !depended.has(m.id));
+  return terminals.length > 0 ? terminals : milestones;
+}
+
+/**
+ * The date the plan is pointed at, computed from the final milestone.
+ *
+ * The terminal milestone's own date — not its date plus duration. The headline
+ * answers "when do we energize", and the row the reader checks it against is
+ * the Energize row, so the two have to be the same number by construction.
+ */
+export function energizeDate(plan: Pick<MapPlan, 'milestones'>): string | null {
+  const dates = terminalMilestones(plan.milestones)
+    .map((m) => m.date)
+    .filter((d): d is string => Boolean(d));
+  return dates.length > 0 ? dates.reduce((a, b) => (a > b ? a : b)) : null;
+}
+
+// ── Consistency ────────────────────────────────────────────────────
+
+export interface PlanIssue {
+  milestoneId: string;
+  label: string;
+  kind: 'done-in-future';
+  message: string;
+}
+
+/**
+ * A milestone can only be complete if its date has passed.
+ *
+ * This is not cosmetic. propagate() freezes completed milestones — their date
+ * is a fact, not a plan — so a milestone wrongly marked done pins a date that
+ * should still be sliding, and the slip it should have caused silently
+ * disappears. Checked in code rather than trusted from the record.
+ */
+export function isEffectivelyDone(m: Milestone, today: string): boolean {
+  return m.status === 'done' && m.date !== null && m.date <= today;
+}
+
+export function validate(
+  plan: Pick<MapPlan, 'milestones'>,
+  today = toIso(Date.now()),
+): PlanIssue[] {
+  return plan.milestones
+    .filter((m) => m.status === 'done' && m.date !== null && m.date > today)
+    .map((m) => ({
+      milestoneId: m.id,
+      label: m.label,
+      kind: 'done-in-future' as const,
+      message: `Marked done but dated ${m.date}, which is in the future. Its date is still moving with the schedule until the status or the date is corrected.`,
+    }));
+}
+
+/**
+ * Chronological order, undated last.
+ *
+ * The table is scanned at speed by someone looking for their own name and their
+ * own date. Dependency order is a graph property and belongs in its own column;
+ * it is not a reading order.
+ */
+export function inDateOrder(milestones: Milestone[]): Milestone[] {
+  return [...milestones].sort((a, b) => {
+    if (a.date === b.date) return 0;
+    if (a.date === null) return 1;
+    if (b.date === null) return -1;
+    return a.date < b.date ? -1 : 1;
+  });
+}
+
+/** Owner fallback — GRACEFUL NO-CONTACT. An em-dash reads as "none needed". */
+export const UNOWNED = 'not yet identified';
+
+export function ownerOf(m: Milestone): string {
+  return m.owner?.trim() ? m.owner : UNOWNED;
 }
 
 // ── Propagation ────────────────────────────────────────────────────
@@ -130,13 +227,14 @@ export function propagate(
   plan: MapPlan,
   changedId: string,
   newDate: string,
+  today = toIso(Date.now()),
 ): SlipImpact {
   const ordered = topoOrder(plan.milestones);
   if (!ordered) {
     return {
       shifted: [],
       energizeShiftDays: null,
-      newEnergizeDate: plan.targetEnergizeDate,
+      newEnergizeDate: energizeDate(plan),
       error: 'Dependencies form a cycle — no schedule can be computed until it is broken.',
     };
   }
@@ -149,7 +247,9 @@ export function propagate(
 
   for (const m of ordered) {
     if (m.id === changedId) continue;
-    if (m.status === 'done') continue;
+    // Only a GENUINELY completed milestone is frozen. One marked done with a
+    // future date is still a plan, and pinning it would swallow the slip.
+    if (isEffectivelyDone(m, today)) continue;
 
     let earliest: string | null = null;
     for (const depId of m.dependsOn) {
@@ -170,34 +270,22 @@ export function propagate(
     }
   }
 
-  // The energize date moves with the latest finish across the whole graph.
-  const finishes = plan.milestones
-    .map((m) => {
-      const d = dates.get(m.id);
-      return d ? addDays(d, m.durationDays) : null;
-    })
-    .filter((d): d is string => Boolean(d));
+  // Both dates are DERIVED from the same terminal-milestone rule — the one
+  // before the change and the one after — so the reported shift is always the
+  // difference between two numbers computed the same way. The old version
+  // compared a stored target against a latest-finish, which is how the header
+  // and the Energize row ended up disagreeing by fourteen days.
+  const before = energizeDate(plan);
+  const after = energizeDate({
+    milestones: plan.milestones.map((m) => ({ ...m, date: dates.get(m.id) ?? m.date })),
+  });
 
-  const latestFinish = finishes.length > 0 ? finishes.reduce((a, b) => (a > b ? a : b)) : null;
-
-  let energizeShiftDays: number | null = null;
-  let newEnergizeDate = plan.targetEnergizeDate;
-
-  if (latestFinish && plan.targetEnergizeDate) {
-    // Only a finish that runs PAST the target moves it. A plan finishing early
-    // does not pull the energize date forward — that date is usually fixed by
-    // something outside this schedule.
-    if (latestFinish > plan.targetEnergizeDate) {
-      energizeShiftDays = daysBetween(plan.targetEnergizeDate, latestFinish);
-      newEnergizeDate = latestFinish;
-    } else {
-      energizeShiftDays = 0;
-    }
-  } else if (latestFinish && !plan.targetEnergizeDate) {
-    newEnergizeDate = latestFinish;
-  }
-
-  return { shifted, energizeShiftDays, newEnergizeDate, error: null };
+  return {
+    shifted,
+    energizeShiftDays: before && after ? daysBetween(before, after) : null,
+    newEnergizeDate: after,
+    error: null,
+  };
 }
 
 /** Apply a propagation result, returning a new plan. */
@@ -216,7 +304,6 @@ export function applySlip(plan: MapPlan, changedId: string, newDate: string): Ma
           ? { ...m, date: shiftedById.get(m.id)! }
           : m,
     ),
-    targetEnergizeDate: impact.newEnergizeDate,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -294,7 +381,6 @@ export function starterPlan(): MapPlan {
 
   return {
     milestones,
-    targetEnergizeDate: at(354),
     updatedAt: new Date().toISOString(),
     championViewedAt: null,
     championEditedAt: null,
