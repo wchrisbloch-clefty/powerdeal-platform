@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Save } from 'lucide-react';
+import { AlertTriangle, Download, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   MILESTONE_STATUSES,
@@ -13,6 +13,7 @@ import {
   propagate,
   toIso,
 } from '@/lib/map/schedule';
+import { mapToMarkdown } from '@/lib/map/export';
 import type { MapPlan, Milestone, MilestoneStatus } from '@/lib/map/schedule';
 
 /**
@@ -25,10 +26,14 @@ import type { MapPlan, Milestone, MilestoneStatus } from '@/lib/map/schedule';
  */
 export default function MapPlanPanel({
   dealId,
+  company,
+  dealCode,
   initial,
   businessCaseExists,
 }: {
   dealId: string;
+  company: string;
+  dealCode: string;
   initial: MapPlan;
   businessCaseExists: boolean;
 }) {
@@ -73,6 +78,47 @@ export default function MapPlanPanel({
       setNotice(res.ok ? 'Saved.' : `Save failed: ${json.error ?? res.status}`);
     } catch (err) {
       setNotice(`Save failed: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Export mode. Renders the CURRENT on-screen plan, including unsaved edits —
+   * exporting the last saved version while the user is looking at a changed one
+   * would hand them a document that contradicts their screen.
+   */
+  async function exportDocx() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await fetch('/api/forge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dealId,
+          action: 'map',
+          format: 'docx',
+          title: `${company} — Mutual action plan`,
+          content: mapToMarkdown(plan, { company, dealId: dealCode, today }),
+        }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setNotice(json.error ?? `Export failed (${res.status}).`);
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${dealCode}-map.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setNotice(`Export failed: ${(err as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -239,7 +285,15 @@ export default function MapPlanPanel({
           className="inline-flex min-h-tap-sm items-center gap-1.5 rounded-sm border border-rule px-2.5 text-xs text-text hover:border-accent disabled:opacity-50"
         >
           <Save size={13} strokeWidth={1.75} aria-hidden />
-          {busy ? 'Saving…' : 'Save plan'}
+          {busy ? 'Working…' : 'Save plan'}
+        </button>
+        <button
+          onClick={exportDocx}
+          disabled={busy}
+          className="inline-flex min-h-tap-sm items-center gap-1.5 rounded-sm border border-rule px-2.5 text-xs text-text hover:border-accent disabled:opacity-50"
+        >
+          <Download size={13} strokeWidth={1.75} aria-hidden />
+          Export DOCX
         </button>
         {notice ? (
           <span role="status" className="text-xs text-text-dim">

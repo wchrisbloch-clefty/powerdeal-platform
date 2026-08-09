@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
+  Table, TableRow, TableCell, WidthType, BorderStyle,
 } from 'docx';
 import PptxGenJS from 'pptxgenjs';
 import ExcelJS from 'exceljs';
@@ -21,28 +22,70 @@ const FONT_STACK = 'Aptos';
 const FONT_FALLBACK = 'Calibri';
 
 interface Block {
-  type: 'h1' | 'h2' | 'h3' | 'bullet' | 'numbered' | 'para' | 'rule';
+  type: 'h1' | 'h2' | 'h3' | 'bullet' | 'numbered' | 'para' | 'rule' | 'table';
   text: string;
+  /** Populated for `table`: first row is the header. */
+  rows?: string[][];
+}
+
+/** A markdown table row: leading and trailing pipes optional. */
+function isTableRow(line: string): boolean {
+  return line.includes('|') && /^\|?.*\|.*$/.test(line);
+}
+
+/** The |---|---| separator under a table header. */
+function isTableDivider(line: string): boolean {
+  return /^\|?[\s:|-]+\|[\s:|-]*$/.test(line) && line.includes('-');
+}
+
+function splitRow(line: string): string[] {
+  return line
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((c) => clean(c.trim()));
 }
 
 /** Parse the AI's output into a flat block list. Tolerant of partial input. */
 export function parseBlocks(markdown: string): Block[] {
-  return markdown
-    .split('\n')
-    .map((line): Block | null => {
-      const t = line.trim();
-      if (!t) return null;
-      if (/^[-—]{3,}$/.test(t)) return { type: 'rule', text: '' };
-      if (t.startsWith('### ')) return { type: 'h3', text: clean(t.slice(4)) };
-      if (t.startsWith('## ')) return { type: 'h2', text: clean(t.slice(3)) };
-      if (t.startsWith('# ')) return { type: 'h1', text: clean(t.slice(2)) };
-      if (/^[-*•]\s+/.test(t)) return { type: 'bullet', text: clean(t.replace(/^[-*•]\s+/, '')) };
-      if (/^\d+[.)]\s+/.test(t)) {
-        return { type: 'numbered', text: clean(t.replace(/^\d+[.)]\s+/, '')) };
+  const lines = markdown.split('\n');
+  const blocks: Block[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (!t) continue;
+
+    // Tables are consumed as a unit: a header row, a |---| divider, then body
+    // rows until the run ends. Checked before the horizontal-rule case, since
+    // a divider row would otherwise read as one.
+    if (isTableRow(t) && i + 1 < lines.length && isTableDivider(lines[i + 1].trim())) {
+      const rows: string[][] = [splitRow(t)];
+      i += 2;
+      while (i < lines.length && isTableRow(lines[i].trim()) && lines[i].trim()) {
+        rows.push(splitRow(lines[i].trim()));
+        i++;
       }
-      return { type: 'para', text: clean(t) };
-    })
-    .filter((b): b is Block => b !== null);
+      i--;
+      blocks.push({ type: 'table', text: '', rows });
+      continue;
+    }
+
+    if (/^[-—]{3,}$/.test(t)) { blocks.push({ type: 'rule', text: '' }); continue; }
+    if (t.startsWith('### ')) { blocks.push({ type: 'h3', text: clean(t.slice(4)) }); continue; }
+    if (t.startsWith('## ')) { blocks.push({ type: 'h2', text: clean(t.slice(3)) }); continue; }
+    if (t.startsWith('# ')) { blocks.push({ type: 'h1', text: clean(t.slice(2)) }); continue; }
+    if (/^[-*•]\s+/.test(t)) {
+      blocks.push({ type: 'bullet', text: clean(t.replace(/^[-*•]\s+/, '')) });
+      continue;
+    }
+    if (/^\d+[.)]\s+/.test(t)) {
+      blocks.push({ type: 'numbered', text: clean(t.replace(/^\d+[.)]\s+/, '')) });
+      continue;
+    }
+    blocks.push({ type: 'para', text: clean(t) });
+  }
+
+  return blocks;
 }
 
 /** Strip markdown emphasis markers — the renderers apply real styling. */
@@ -59,7 +102,7 @@ export async function generateDocx(
 ): Promise<Buffer> {
   const blocks = parseBlocks(markdown);
 
-  const children: Paragraph[] = [
+  const children: (Paragraph | Table)[] = [
     new Paragraph({
       children: [
         new TextRun({ text: title, bold: true, size: 40, color: '3E3E3E', font: FONT_STACK }),
@@ -139,6 +182,52 @@ export async function generateDocx(
           }),
         );
         break;
+      case 'table': {
+        // A MAP walked through on a call is a table or it is nothing — loose
+        // paragraphs of "milestone, owner, date" are unreadable at speed.
+        const rows = block.rows ?? [];
+        if (rows.length === 0) break;
+        children.push(
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 2, color: 'D9D9D9' },
+              bottom: { style: BorderStyle.SINGLE, size: 2, color: 'D9D9D9' },
+              left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: 'EDEDED' },
+              insideVertical: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+            },
+            rows: rows.map(
+              (cells, rowIndex) =>
+                new TableRow({
+                  tableHeader: rowIndex === 0,
+                  children: cells.map(
+                    (cell) =>
+                      new TableCell({
+                        margins: { top: 60, bottom: 60, left: 80, right: 80 },
+                        children: [
+                          new Paragraph({
+                            children: [
+                              new TextRun({
+                                text: cell,
+                                size: 19,
+                                bold: rowIndex === 0,
+                                color: rowIndex === 0 ? '3E3E3E' : '000000',
+                                font: FONT_STACK,
+                              }),
+                            ],
+                          }),
+                        ],
+                      }),
+                  ),
+                }),
+            ),
+          }),
+        );
+        children.push(new Paragraph({ text: '', spacing: { after: 160 } }));
+        break;
+      }
       default:
         children.push(
           new Paragraph({

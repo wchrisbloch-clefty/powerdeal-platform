@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
-  ArrowLeft, BookOpen, Briefcase, Calculator, CheckCircle2, FileText,
-  HelpCircle, Map as MapIcon, MessagesSquare, Radio, Send, ShieldCheck,
-  AlertTriangle,
+  ArrowLeft, BookOpen, Briefcase, Calculator, CheckCircle2, Download,
+  FileText, HelpCircle, Map as MapIcon, MessagesSquare, Radio, Send,
+  ShieldCheck, AlertTriangle,
 } from 'lucide-react';
 import type {
   Deal, Signal, MarketWatchEntry, StageTransition,
@@ -62,6 +62,8 @@ export default function DealDetail({
   const [tab, setTab] = useState<Tab>('intel');
   const [activeTask, setActiveTask] = useState<TaskKind | null>(null);
   const [capturing, setCapturing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const ai = useAiStream();
 
   const flags = riskFlags(deal);
@@ -71,7 +73,54 @@ export default function DealDetail({
 
   async function runTask(task: TaskKind) {
     setActiveTask(task);
+    setExportError(null);
     await ai.run({ task, dealId: deal.id });
+  }
+
+  /**
+   * Render the finished output to DOCX.
+   *
+   * Posts the already-streamed text back to /api/forge rather than
+   * regenerating: a second generation would produce a DIFFERENT document from
+   * the one on screen, and the user would have no way to tell which they had
+   * downloaded.
+   */
+  async function exportDocx(action: string, label: string | undefined, content: string) {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const res = await fetch('/api/forge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dealId: deal.id,
+          action,
+          format: 'docx',
+          content,
+          title: `${deal.company} — ${label ?? action}`,
+        }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setExportError(json.error ?? `Export failed (${res.status}).`);
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download =
+        res.headers.get('Content-Disposition')?.match(/filename="(.+?)"/)?.[1] ??
+        `${deal.deal_id}-${action}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError((err as Error).message);
+    } finally {
+      setExporting(false);
+    }
   }
 
   /**
@@ -510,6 +559,8 @@ export default function DealDetail({
               {tab === 'map' && (
                 <MapPlanPanel
                   dealId={deal.id}
+                  company={deal.company}
+                  dealCode={deal.deal_id}
                   initial={mapPlan ?? starterPlan()}
                   businessCaseExists={Boolean(
                     deal.artifacts?.some((a) => a.type === 'business-case'),
@@ -561,6 +612,33 @@ export default function DealDetail({
                 model={ai.model}
                 onStop={ai.stop}
               />
+
+              {/* Offered only once streaming has finished. A download button
+                  over a half-streamed document produces a real file containing
+                  half a document, which is worse than no button. */}
+              {ai.text && !ai.streaming && !ai.error ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={exporting}
+                    onClick={() =>
+                      exportDocx(
+                        activeTask ?? 'output',
+                        AI_ACTIONS.find((a) => a.task === activeTask)?.label,
+                        ai.text,
+                      )
+                    }
+                  >
+                    <Download size={14} /> {exporting ? 'Rendering…' : 'Export DOCX'}
+                  </Button>
+                  {exportError ? (
+                    <span role="status" className="text-xs text-danger">
+                      {exportError}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           )}
         </div>
