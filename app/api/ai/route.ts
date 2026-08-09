@@ -5,8 +5,10 @@ import {
   type TaskKind,
 } from '@/lib/engine/model-routing';
 import { BRAIN_READY, BRAIN_ERROR, SYSTEM_PROMPT } from '@/lib/prompts/system';
+import { scenariosOn } from '@/lib/economics/scenarios';
 import { researchForDeal } from '@/lib/research';
 import {
+  buildBusinessCasePrompt, buildObjectionsPrompt,
   buildBriefPrompt, buildQualifyPrompt, buildPlanPrompt, buildMapPrompt,
   buildOutreachPrompt, buildCampaignPrompt, buildIntelPrompt,
   buildPortfolioIntelPrompt, buildPersuadePrompt,
@@ -23,7 +25,7 @@ export const maxDuration = 300;
 const TASKS = [
   'summarize', 'synthesize', 'ask', 'classify', 'market-watch', 'qualify',
   'brief', 'plan', 'map-gen', 'outreach', 'campaign', 'intel', 'persuade',
-  'forge-doc', 'recap',
+  'forge-doc', 'recap', 'business-case', 'objections',
 ] as const;
 
 const Body = z.object({
@@ -128,6 +130,7 @@ async function buildInput(
   // Tasks that operate on a single account load the full record + signals.
   const needsDeal = [
     'brief', 'qualify', 'plan', 'map-gen', 'outreach', 'intel',
+    'business-case', 'objections',
   ].includes(task);
 
   if (needsDeal) {
@@ -143,11 +146,16 @@ async function buildInput(
       researchForDeal(body.dealId).catch(() => []),
     ]);
 
+    // Absent economics is a normal state, not an error — economicsBlock renders
+    // an empty list as a named gap the document carries. Nothing gates on it.
+    const economics = scenariosOn(deal);
+
     const ctx = {
       deal,
       signals,
       marketWatch,
       research,
+      economics,
       audiencePersona: body.audiencePersona,
       extra: body.content,
     };
@@ -159,6 +167,8 @@ async function buildInput(
       case 'map-gen': return buildMapPrompt(ctx);
       case 'outreach': return buildOutreachPrompt(ctx);
       case 'intel': return buildIntelPrompt(ctx);
+      case 'business-case': return buildBusinessCasePrompt(ctx);
+      case 'objections': return buildObjectionsPrompt(ctx);
       default: break;
     }
   }

@@ -32,6 +32,8 @@ export type TaskKind =
   | 'outreach' // Outreach plan → Claude (domain)
   | 'campaign' // Campaign mode → Claude (domain)
   | 'intel' // Strategic read / intelligence → Claude (domain)
+  | 'business-case' // Champion-facing business case → Claude (domain)
+  | 'objections' // Champion objection scripts → Claude (domain)
   | 'persuade' // Persuasion enhancement → Claude (domain)
   | 'forge-doc' // Document generation (PPTX/DOCX) → Claude (domain)
   | 'recap'; // Weekly recap → Claude Haiku (structured)
@@ -47,6 +49,8 @@ export const DOMAIN_TASKS: readonly TaskKind[] = [
   'intel',
   'persuade',
   'forge-doc',
+  'business-case',
+  'objections',
 ];
 
 export function isDomainTask(task: TaskKind): boolean {
@@ -68,6 +72,8 @@ const ORDER: Record<TaskKind, Provider[]> = {
   outreach: ['claude'],
   campaign: ['claude'],
   intel: ['claude'],
+  'business-case': ['claude'],
+  objections: ['claude'],
   persuade: ['claude'],
   'forge-doc': ['claude'],
 };

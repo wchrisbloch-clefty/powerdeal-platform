@@ -1,4 +1,6 @@
 import type { Deal, Signal, MarketWatchEntry } from '@/lib/types';
+import type { Scenario } from '@/lib/economics/types';
+import { summaryText } from '@/lib/economics/format';
 
 /**
  * Shared context builders for the prompt modules.
@@ -10,6 +12,8 @@ import type { Deal, Signal, MarketWatchEntry } from '@/lib/types';
 
 export interface PromptContext {
   deal: Deal;
+  /** Economics scenarios saved against this deal. Absent is a normal state. */
+  economics?: Scenario[];
   signals?: Signal[];
   marketWatch?: MarketWatchEntry[];
   /** Ingested last30days items for this account, engagement-scored. */
@@ -146,4 +150,48 @@ export function getAudienceContext(persona?: string): string {
   const line = PERSONA_MAP[persona];
   if (!line) return '';
   return `\nAUDIENCE CALIBRATION — reader is ${persona}:\n${line}\n`;
+}
+
+
+/**
+ * Economics scenarios saved against the deal.
+ *
+ * NEVER blocks. A missing scenario is a named gap, not a refusal — the same
+ * treatment the Account Brief gives an unknown economic buyer. The returned
+ * text tells the model exactly what to write where the numbers would go, so
+ * the output carries a to-do the reader can act on instead of a placeholder
+ * figure nobody can defend.
+ */
+export function economicsBlock(scenarios: Scenario[] = []): string {
+  if (scenarios.length === 0) {
+    return [
+      'ECONOMICS: none modelled for this account yet.',
+      '',
+      'Do NOT invent, estimate or illustrate any cost, rate, payback or savings',
+      'figure to fill this. Where the economics belong, write exactly this and',
+      'nothing more:',
+      '',
+      '  "Economics not yet modelled — run the economics module for this deal to',
+      '   populate this section."',
+      '',
+      'Then continue with the rest of the document. A named gap is the correct',
+      'output here; a plausible number in a finance reader\'s hands is not.',
+    ].join('\n');
+  }
+
+  const blocks = scenarios
+    .slice(0, 3)
+    .map((s) => summaryText(s))
+    .join('\n\n---\n\n');
+
+  return [
+    `ECONOMICS SCENARIOS SAVED AGAINST THIS ACCOUNT (${scenarios.length}):`,
+    '',
+    blocks,
+    '',
+    'Every figure above is traceable to one of these scenarios. Cite the scenario',
+    'name when you use a number. Any condition attached to a line item — notably a',
+    'REC fuel pathway — travels with the number and must be reproduced wherever',
+    'that number appears. Do not state a figure that is not in the scenarios above.',
+  ].join('\n');
 }

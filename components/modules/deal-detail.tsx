@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
-  ArrowLeft, BookOpen, Calculator, CheckCircle2, FileText, HelpCircle,
-  Map as MapIcon, Radio, Send, ShieldCheck, AlertTriangle,
+  ArrowLeft, BookOpen, Briefcase, Calculator, CheckCircle2, FileText,
+  HelpCircle, Map as MapIcon, MessagesSquare, Radio, Send, ShieldCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import type {
   Deal, Signal, MarketWatchEntry, StageTransition,
@@ -24,11 +25,16 @@ import { entitiesIn } from '@/lib/engine/entities';
 import Button from '@/components/ui/button';
 import AiOutput from '@/components/ui/ai-output';
 import SignalCapture from './signal-capture';
+import MapPlanPanel from './map-plan';
+import { starterPlan } from '@/lib/map/schedule';
+import type { MapPlan } from '@/lib/map/schedule';
 
-type Tab = 'intel' | 'signals' | 'market' | 'history' | 'artifacts';
+type Tab = 'intel' | 'signals' | 'market' | 'map' | 'history' | 'artifacts';
 
 const AI_ACTIONS: { task: TaskKind; label: string; icon: typeof FileText }[] = [
   { task: 'brief', label: 'Generate Brief', icon: FileText },
+  { task: 'business-case', label: 'Business Case', icon: Briefcase },
+  { task: 'objections', label: 'Objection Scripts', icon: MessagesSquare },
   { task: 'plan', label: 'Generate Plan', icon: BookOpen },
   { task: 'map-gen', label: 'Build MAP', icon: MapIcon },
   { task: 'outreach', label: 'Outreach Plan', icon: Send },
@@ -42,12 +48,15 @@ export default function DealDetail({
   marketWatch,
   transitions,
   isSeed,
+  mapPlan,
 }: {
   deal: Deal;
   signals: Signal[];
   marketWatch: MarketWatchEntry[];
   transitions: StageTransition[];
   isSeed: boolean;
+  /** Saved MAP, or null — the panel falls back to the starter sequence. */
+  mapPlan?: MapPlan | null;
 }) {
   const params = useSearchParams();
   const [tab, setTab] = useState<Tab>('intel');
@@ -359,6 +368,7 @@ export default function DealDetail({
                   ['intel', 'Notes'],
                   ['signals', `Signals (${signals.length})`],
                   ['market', `Market watch (${marketWatch.length})`],
+                  ['map', 'MAP'],
                   ['history', `Stage history (${transitions.length})`],
                   ['artifacts', `Artifacts (${deal.artifacts?.length ?? 0})`],
                 ] as [Tab, string][]
@@ -496,6 +506,16 @@ export default function DealDetail({
                     ))}
                   </ul>
                 ))}
+
+              {tab === 'map' && (
+                <MapPlanPanel
+                  dealId={deal.id}
+                  initial={mapPlan ?? starterPlan()}
+                  businessCaseExists={Boolean(
+                    deal.artifacts?.some((a) => a.type === 'business-case'),
+                  )}
+                />
+              )}
 
               {tab === 'artifacts' &&
                 (!deal.artifacts || deal.artifacts.length === 0 ? (
