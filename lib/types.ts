@@ -157,11 +157,17 @@ export interface Deal {
 }
 
 export interface DealArtifact {
-  type: string; // brief | plan | map | outreach | deck | proforma
+  type: string; // brief | plan | map | outreach | deck | proforma | economics-scenario
   label?: string;
   url: string;
   format?: string;
   created_at: string;
+  /**
+   * Payload for artifacts whose content IS the artifact rather than a link to
+   * one — economics scenarios carry their full input set here so the deal
+   * record is self-contained. `artifacts` is jsonb, so this needs no migration.
+   */
+  data?: Record<string, unknown>;
 }
 
 /** The 8 MEDDPICC pillars, in scoring order. */

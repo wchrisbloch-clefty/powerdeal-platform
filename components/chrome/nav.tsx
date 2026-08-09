@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home, BarChart3, RadioTower, Map,
-  FileText, MessageSquare, SlidersHorizontal,
+  FileText, MessageSquare, SlidersHorizontal, Calculator,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Wordmark } from '@/components/ui/bloom-logo';
@@ -33,6 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/app/pipeline', label: 'Pipeline', icon: BarChart3, primary: true },
   { href: '/app/intelligence', label: 'Intelligence', icon: RadioTower, primary: true },
   { href: '/app/maps', label: 'Maps', icon: Map, primary: true },
+  { href: '/app/economics', label: 'Economics', icon: Calculator },
   { href: '/app/forge', label: 'Forge', icon: FileText },
   { href: '/app/chat', label: 'Chat', icon: MessageSquare, primary: true },
 ];

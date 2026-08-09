@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
-  ArrowLeft, BookOpen, CheckCircle2, FileText, HelpCircle, Map as MapIcon,
-  Radio, Send, ShieldCheck, AlertTriangle,
+  ArrowLeft, BookOpen, Calculator, CheckCircle2, FileText, HelpCircle,
+  Map as MapIcon, Radio, Send, ShieldCheck, AlertTriangle,
 } from 'lucide-react';
 import type {
   Deal, Signal, MarketWatchEntry, StageTransition,
@@ -560,6 +560,18 @@ export default function DealDetail({
               <Icon size={14} /> {label}
             </Button>
           ))}
+
+          {/* Model economics is a destination, not a generation task — it opens
+              the module with this deal's utility, state and MW already loaded,
+              and scenarios saved there come back onto this deal's artifacts. */}
+          <div className="pt-2">
+            <Link
+              href={`/app/economics?deal=${deal.id}`}
+              className="inline-flex h-tap w-full items-center justify-start gap-1.5 rounded-card border border-rule bg-bg-raised px-2.5 text-sm text-text transition-colors duration-fast hover:bg-bg-overlay xl:h-8 xl:min-h-0"
+            >
+              <Calculator size={14} /> Model economics
+            </Link>
+          </div>
 
           <div className="pt-2">
             <Button
