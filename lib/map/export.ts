@@ -4,11 +4,11 @@ import {
   championSignalLabel,
   energizeDate,
   inDateOrder,
-  overdue,
   ownerOf,
+  planAnnotations,
   toIso,
-  validate,
 } from './schedule';
+import { forAudience } from '@/lib/annotations';
 
 /**
  * MAP → markdown, for the DOCX renderer.
@@ -30,8 +30,11 @@ export function mapToMarkdown(
   opts: { company: string; dealId: string; today?: string },
 ): string {
   const today = opts.today ?? toIso(Date.now());
-  const late = overdue(plan, today);
-  const issues = validate(plan, today);
+  // Deny by default. This renderer produces a document that leaves the
+  // building, so it sees only annotations explicitly marked external — it does
+  // not know or care which flags exist. A new internal flag added upstream
+  // cannot reach this page by accident.
+  const notes = forAudience(planAnnotations(plan, today), 'external');
   // Single source. The header and the Energize row are now the same number by
   // construction rather than by coincidence.
   const energize = energizeDate(plan);
@@ -44,26 +47,8 @@ export function mapToMarkdown(
   );
   lines.push('');
 
-  if (late.length > 0) {
-    lines.push(
-      `**${late.length} milestone${late.length === 1 ? '' : 's'} past due:** ${late
-        .map((m) => m.label)
-        .join(', ')}.`,
-    );
-    lines.push('');
-  }
-
-  // Surfaced in the document, not swallowed. A reader who spots a milestone
-  // marked complete on a future date and finds no acknowledgement of it stops
-  // trusting every other date on the page.
-  if (issues.length > 0) {
-    lines.push(
-      `**${issues.length} milestone${issues.length === 1 ? '' : 's'} marked complete on a future date:** ${issues
-        .map((i) => i.label)
-        .join(
-          ', ',
-        )}. Those dates are still moving with the schedule until the status or the date is corrected.`,
-    );
+  for (const note of notes) {
+    lines.push(`**${note.title}:** ${note.detail}`);
     lines.push('');
   }
 

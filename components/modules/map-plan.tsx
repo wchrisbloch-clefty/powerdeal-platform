@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Download, Save } from 'lucide-react';
+import { AlertTriangle, Download, EyeOff, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   MILESTONE_STATUSES,
@@ -11,12 +11,12 @@ import {
   daysBetween,
   energizeDate,
   inDateOrder,
-  overdue,
   ownerOf,
+  planAnnotations,
   propagate,
   toIso,
-  validate,
 } from '@/lib/map/schedule';
+import { withheldFrom } from '@/lib/annotations';
 import { mapToMarkdown } from '@/lib/map/export';
 import type { MapPlan, Milestone, MilestoneStatus } from '@/lib/map/schedule';
 
@@ -47,8 +47,11 @@ export default function MapPlanPanel({
   const [notice, setNotice] = useState<string | null>(null);
 
   const today = toIso(Date.now());
-  const late = useMemo(() => overdue(plan, today), [plan, today]);
-  const issues = useMemo(() => validate(plan, today), [plan, today]);
+  // The app is the internal surface, so it sees everything.
+  const notes = useMemo(() => planAnnotations(plan, today), [plan, today]);
+  // ...and is told which of those the export will withhold, so the operator is
+  // never surprised by what the champion does or does not receive.
+  const withheld = useMemo(() => new Set(withheldFrom(notes, 'external').map((n) => n.id)), [notes]);
   // Derived, never stored — the header and the Energize row are the same
   // number by construction. See energizeDate().
   const energize = energizeDate(plan);
@@ -157,23 +160,30 @@ export default function MapPlanPanel({
         </div>
       </div>
 
-      {late.length > 0 ? (
-        <p className="flex items-start gap-2 rounded-card border border-danger bg-danger-bg px-3 py-2 text-xs text-text">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-danger" aria-hidden />
-          <span>
-            {late.length} milestone{late.length === 1 ? '' : 's'} past due:{' '}
-            {late.map((m) => m.label).join(', ')}
-          </span>
-        </p>
-      ) : null}
-
-      {issues.length > 0 ? (
-        <ul className="rounded-card border border-warning bg-bg-raised px-3 py-2">
-          {issues.map((i) => (
-            <li key={i.milestoneId} className="flex items-start gap-2 text-xs text-text">
-              <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+      {notes.length > 0 ? (
+        <ul className="space-y-1.5">
+          {notes.map((n) => (
+            <li
+              key={n.id}
+              className={cn(
+                'flex items-start gap-2 rounded-card border px-3 py-2 text-xs text-text',
+                n.severity === 'error'
+                  ? 'border-danger bg-danger-bg'
+                  : 'border-warning bg-bg-raised',
+              )}
+            >
+              {n.severity === 'error' ? (
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-danger" aria-hidden />
+              ) : (
+                <EyeOff size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+              )}
               <span>
-                <span className="font-medium">{i.label}</span> — {i.message}
+                <span className="font-medium">{n.title}</span> — {n.detail}
+                {withheld.has(n.id) ? (
+                  <span className="ml-1 font-mono text-2xs uppercase tracking-label text-text-faint">
+                    · not in the export
+                  </span>
+                ) : null}
               </span>
             </li>
           ))}

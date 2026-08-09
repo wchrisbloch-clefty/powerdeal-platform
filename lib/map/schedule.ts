@@ -11,6 +11,8 @@
  * implementations drift.
  */
 
+import { external, internal, type Annotation } from '@/lib/annotations';
+
 export const MILESTONE_STATUSES = ['pending', 'in-progress', 'done', 'blocked'] as const;
 export type MilestoneStatus = (typeof MILESTONE_STATUSES)[number];
 
@@ -139,6 +141,51 @@ export function validate(
       kind: 'done-in-future' as const,
       message: `Marked done but dated ${m.date}, which is in the future. Its date is still moving with the schedule until the status or the date is corrected.`,
     }));
+}
+
+/**
+ * Everything worth saying about this plan, each tagged with who may read it.
+ *
+ * One producer for both surfaces. The panel renders the whole list; the export
+ * runs it through forAudience(..., 'external'). Neither surface decides what is
+ * sensitive — that decision lives on the annotation, once.
+ */
+export function planAnnotations(
+  plan: Pick<MapPlan, 'milestones'>,
+  today = toIso(Date.now()),
+): Annotation[] {
+  const out: Annotation[] = [];
+
+  // EXTERNAL: a late milestone is a fact about THEIR project that the reader
+  // has to act on. Withholding it would make the document useless.
+  const late = overdue(plan, today);
+  if (late.length > 0) {
+    out.push(
+      external(
+        'overdue',
+        'error',
+        `${late.length} milestone${late.length === 1 ? '' : 's'} past due`,
+        `${late.map((m) => m.label).join(', ')}.`,
+      ),
+    );
+  }
+
+  // INTERNAL: this is a defect in OUR record, not a fact about their project.
+  // A champion reading "we marked this complete on a future date" in a document
+  // they are circulating learns only that we keep sloppy books — and the dates
+  // around it stop being believed.
+  for (const issue of validate(plan, today)) {
+    out.push(
+      internal(
+        `done-in-future:${issue.milestoneId}`,
+        'warn',
+        issue.label,
+        issue.message,
+      ),
+    );
+  }
+
+  return out;
 }
 
 /**
@@ -342,7 +389,10 @@ export function championSignalLabel(signal: ChampionSignal): string {
 }
 
 /** Milestones past their date and not done. */
-export function overdue(plan: MapPlan, today = toIso(Date.now())): Milestone[] {
+export function overdue(
+  plan: Pick<MapPlan, 'milestones'>,
+  today = toIso(Date.now()),
+): Milestone[] {
   return plan.milestones.filter(
     (m) => m.status !== 'done' && m.date !== null && m.date < today,
   );
