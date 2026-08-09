@@ -181,6 +181,10 @@ export function planAnnotations(
         'warn',
         issue.label,
         issue.message,
+        // The table ships status and date in adjacent columns, and the
+        // dependent's date sits before this one's completion. A reader who
+        // scans the rows sees the contradiction whether or not we describe it.
+        { legibleInExport: true },
       ),
     );
   }

@@ -16,7 +16,7 @@ import {
   propagate,
   toIso,
 } from '@/lib/map/schedule';
-import { withheldFrom } from '@/lib/annotations';
+import { exportWarnings, withheldFrom } from '@/lib/annotations';
 import { mapToMarkdown } from '@/lib/map/export';
 import type { MapPlan, Milestone, MilestoneStatus } from '@/lib/map/schedule';
 
@@ -52,6 +52,10 @@ export default function MapPlanPanel({
   // ...and is told which of those the export will withhold, so the operator is
   // never surprised by what the champion does or does not receive.
   const withheld = useMemo(() => new Set(withheldFrom(notes, 'external').map((n) => n.id)), [notes]);
+  // Withholding the MESSAGE does not hide the DATA. These are the defects a
+  // reader can still see in the exported table, so they get a notice at the
+  // point of export rather than only in the list above.
+  const preExport = useMemo(() => exportWarnings(notes), [notes]);
   // Derived, never stored — the header and the Energize row are the same
   // number by construction. See energizeDate().
   const energize = energizeDate(plan);
@@ -310,6 +314,22 @@ export default function MapPlanPanel({
           );
         })}
       </ul>
+
+      {preExport.length > 0 ? (
+        <div className="rounded-card border border-warning bg-bg-raised px-3 py-2">
+          <p className="flex items-start gap-2 text-xs text-text">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+            <span>
+              This plan carries a record defect that will be visible in the exported document
+              — correct it before sending.{' '}
+              <span className="text-text-dim">
+                The warning text is withheld from the export, but the rows it describes are
+                not: {preExport.map((n) => n.title).join(', ')}.
+              </span>
+            </span>
+          </p>
+        </div>
+      ) : null}
 
       <div className="flex items-center gap-2">
         <button

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { forAudience, withheldFrom, external, internal } from '@/lib/annotations';
+import {
+  exportWarnings,
+  external,
+  forAudience,
+  internal,
+  withheldFrom,
+} from '@/lib/annotations';
 import { planAnnotations, starterPlan } from '@/lib/map/schedule';
 import { mapToMarkdown } from '@/lib/map/export';
 import type { MapPlan } from '@/lib/map/schedule';
@@ -142,5 +148,45 @@ describe('a clean record produces no annotations at all', () => {
     const base = starterPlan();
     // Everything pending and future-dated: nothing overdue, nothing falsely done.
     expect(planAnnotations(base, TODAY)).toHaveLength(0);
+  });
+});
+
+describe('the limit of the split: withheld messages, legible data', () => {
+  const plan = mixedRecord();
+  const all = planAnnotations(plan, TODAY);
+  const md = mapToMarkdown(plan, { company: 'Williams', dealId: 'OG-019', today: TODAY });
+
+  it('flags the done-in-future defect as still legible in the export', () => {
+    const warn = exportWarnings(all);
+    expect(warn).toHaveLength(1);
+    expect(warn[0].id).toMatch(/^done-in-future/);
+  });
+
+  it('only surfaces internal annotations — external ones are already shown', () => {
+    expect(exportWarnings(all).every((a) => a.audience === 'internal')).toBe(true);
+  });
+
+  /**
+   * This is the assertion that justifies the notice existing. It deliberately
+   * asserts the LEAK: the contradictory row really is in the document. If a
+   * later change sanitizes the data too, this fails and the notice can go.
+   */
+  it('proves the anomaly survives into the document even with the message gone', () => {
+    expect(md).not.toContain('future'); // message withheld
+    expect(md).toContain('| Technical discovery complete | R. Okafor (Bloom) | 2026-08-23 | done |');
+  });
+
+  it('a clean record produces no pre-export notice', () => {
+    expect(exportWarnings(planAnnotations(starterPlan(), TODAY))).toHaveLength(0);
+  });
+
+  it('an external annotation never becomes a pre-export notice', () => {
+    const ext = [external('x', 'error', 'Late', 'Something is late.')];
+    expect(exportWarnings(ext)).toHaveLength(0);
+  });
+
+  it('an internal annotation not marked legible produces no notice', () => {
+    const quiet = [internal('q', 'warn', 'Quiet', 'Operator only, invisible in the export.')];
+    expect(exportWarnings(quiet)).toHaveLength(0);
   });
 });

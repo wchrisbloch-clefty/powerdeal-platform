@@ -41,6 +41,23 @@ export interface Annotation {
   title: string;
   /** The sentence explaining it, and where possible what to do about it. */
   detail: string;
+  /**
+   * Set on an INTERNAL annotation whose underlying anomaly is still legible in
+   * the exported artifact even though its message is withheld.
+   *
+   * Deny-by-default sanitizes MESSAGES, not the DATA those messages describe.
+   * A MAP row reading `done` on a future date, with a dependent scheduled
+   * before its predecessor completes, is visible to any reader who looks at the
+   * table — the filter removed our commentary on it, not the contradiction
+   * itself. Withholding the sentence and shipping the data is arguably worse
+   * than shipping both: the reader finds it unaided and we look like we did not
+   * notice.
+   *
+   * So these produce a notice at the point of export. Warn, never block, and
+   * never auto-correct: the code can detect that a date and a status disagree
+   * but cannot know which one is the typo. Resolution is the operator's.
+   */
+  legibleInExport?: boolean;
 }
 
 /** Operator-only. Never leaves the application. */
@@ -49,8 +66,9 @@ export function internal(
   severity: Severity,
   title: string,
   detail: string,
+  opts: { legibleInExport?: boolean } = {},
 ): Annotation {
-  return { id, audience: 'internal', severity, title, detail };
+  return { id, audience: 'internal', severity, title, detail, ...opts };
 }
 
 /**
@@ -83,4 +101,15 @@ export function forAudience(items: Annotation[], audience: Audience): Annotation
 /** Annotations withheld from a given audience — for the "not in the export" hint. */
 export function withheldFrom(items: Annotation[], audience: Audience): Annotation[] {
   return audience === 'internal' ? [] : items.filter((a) => a.audience !== 'external');
+}
+
+/**
+ * Internal annotations whose anomaly survives into the exported artifact.
+ *
+ * Rendered as a pre-export notice. Non-blocking by design — the operator may
+ * have a reason to send it anyway, and a hard gate on a document someone needs
+ * in ten minutes gets worked around rather than obeyed.
+ */
+export function exportWarnings(items: Annotation[]): Annotation[] {
+  return items.filter((a) => a.audience === 'internal' && a.legibleInExport === true);
 }
