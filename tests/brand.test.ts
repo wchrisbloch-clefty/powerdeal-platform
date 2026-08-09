@@ -57,6 +57,8 @@ interface Parsed {
   styles: string;
   header: string;
   names: string[];
+  /** Every word/*.xml part, for whole-package checks. */
+  parts: Record<string, string>;
 }
 
 async function render(markdown: string): Promise<Parsed> {
@@ -64,11 +66,19 @@ async function render(markdown: string): Promise<Parsed> {
   const zip = await JSZip.loadAsync(buf);
   const names = Object.keys(zip.files);
   const headerName = names.find((n) => /^word\/header\d*\.xml$/.test(n));
+  const parts: Record<string, string> = {};
+  for (const name of names) {
+    if (name.startsWith('word/') && name.endsWith('.xml')) {
+      parts[name] = await zip.file(name)!.async('string');
+    }
+  }
+
   return {
-    doc: await zip.file('word/document.xml')!.async('string'),
-    styles: await zip.file('word/styles.xml')!.async('string'),
-    header: headerName ? await zip.file(headerName)!.async('string') : '',
+    doc: parts['word/document.xml'],
+    styles: parts['word/styles.xml'],
+    header: headerName ? parts[headerName] : '',
     names,
+    parts,
   };
 }
 
@@ -251,5 +261,59 @@ describe('table treatment', () => {
   it('repeats only the header row across page breaks', () => {
     const flags = [...out.doc.matchAll(/<w:tblHeader([^/>]*)\/>/g)].map((m) => m[1]);
     expect(flags.filter((f) => !f.includes('false'))).toHaveLength(1);
+  });
+});
+
+describe('referential integrity of the packed styles part', () => {
+  /**
+   * Replacing word/styles.xml wholesale is the right fix for the latent blue
+   * and a standing hazard: it drops every definition the library shipped, while
+   * the library keeps emitting OTHER parts that reference them by name. The
+   * first cut dropped ten styles and left footnotes.xml and endnotes.xml
+   * pointing at rStyles that no longer existed.
+   *
+   * These check the CLASS — every style any part references must be defined —
+   * rather than the three instances that happened to be found. A future part
+   * referencing a style we forget is caught here, not in a customer's Word.
+   */
+  it.each([
+    ['with a table', WITH_TABLE],
+    ['without a table', WITHOUT_TABLE],
+  ])('every referenced style resolves to a definition — %s', async (_label, markdown) => {
+    const out = await render(markdown);
+    const defined = new Set([...out.styles.matchAll(/w:styleId="([^"]+)"/g)].map((m) => m[1]));
+
+    const dangling: { style: string; part: string }[] = [];
+    for (const [part, xml] of Object.entries(out.parts)) {
+      if (part === 'word/styles.xml') continue;
+      for (const m of xml.matchAll(/w:(?:pStyle|rStyle|tblStyle) w:val="([^"]+)"/g)) {
+        if (!defined.has(m[1])) dangling.push({ style: m[1], part });
+      }
+    }
+    expect(dangling).toEqual([]);
+  });
+
+  it('defines Hyperlink, so a source reference is visibly a reference', async () => {
+    // Load-bearing for source tagging on the no-decision and pricing-defense
+    // cards: without it a citation renders as plain body text and provenance
+    // fails silently, on the two documents where verifiability IS the product.
+    const out = await render(WITHOUT_TABLE);
+    const style = out.styles.match(/<w:style[^>]*w:styleId="Hyperlink"[\s\S]*?<\/w:style>/)?.[0];
+    expect(style).toBeDefined();
+    expect(style).toContain('<w:u w:val="single"/>');
+    expect(style).toContain(`w:color w:val="${PALETTE.charcoal}"`);
+  });
+
+  it('does not colour links green — accent-only, and 2.7:1 on white', async () => {
+    const out = await render(WITHOUT_TABLE);
+    const style = out.styles.match(/<w:style[^>]*w:styleId="Hyperlink"[\s\S]*?<\/w:style>/)![0];
+    expect(style.toUpperCase()).not.toContain(PALETTE.bloom.toUpperCase());
+  });
+
+  it('defines every style the library references from other parts', async () => {
+    const out = await render(WITHOUT_TABLE);
+    for (const id of ['FootnoteReference', 'EndnoteReference', 'ListParagraph', 'Normal']) {
+      expect(out.styles).toContain(`w:styleId="${id}"`);
+    }
   });
 });

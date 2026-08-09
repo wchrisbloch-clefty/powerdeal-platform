@@ -310,8 +310,39 @@ export function buildStylesXml(): string {
     '<w:pPrDefault><w:pPr><w:spacing w:after="110" w:line="259" w:lineRule="auto"/></w:pPr></w:pPrDefault>' +
     '</w:docDefaults>' +
     '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>' +
+    '<w:style w:type="character" w:default="1" w:styleId="DefaultParagraphFont"><w:name w:val="Default Paragraph Font"/></w:style>' +
     // Bullets reference ListParagraph; omitting it would leave them unstyled.
     '<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:qFormat/></w:style>' +
+    // ── Styles other PARTS reference ──────────────────────────────
+    //
+    // Replacing styles.xml wholesale dropped ten definitions the library
+    // shipped, and the library still emits footnotes.xml and endnotes.xml that
+    // reference two of them by name. Dangling rStyle references are harmless
+    // while nothing emits a footnote and are a latent defect the moment
+    // something does — the same shape as the blue this replacement removed.
+    //
+    // Hyperlink is the one that matters, and it matters NOW. Source tagging on
+    // the no-decision and pricing-defense cards is next in the queue, and those
+    // are the two documents whose credibility rests entirely on a reader being
+    // able to check a figure. Without this style a source reference renders as
+    // plain body text: no underline, no affordance, nothing to click or even
+    // notice. Provenance failing silently is the worst way for that feature to
+    // break, because the document still looks finished.
+    //
+    // Charcoal underlined, not a colour. Green would be the obvious "link"
+    // choice and is wrong twice over: it is accent-only in three defined
+    // places, and #3CAD3A on white measures ~2.7:1, which fails AA for text.
+    // The underline is the affordance, and it is the one that survives the
+    // photocopier these documents get put through.
+    `<w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/>` +
+    `<w:basedOn w:val="DefaultParagraphFont"/><w:uiPriority w:val="99"/><w:unhideWhenUsed/>` +
+    `<w:rPr><w:color w:val="${PALETTE.charcoal}"/><w:u w:val="single"/></w:rPr></w:style>` +
+    '<w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/>' +
+    '<w:basedOn w:val="DefaultParagraphFont"/><w:uiPriority w:val="99"/><w:semiHidden/><w:unhideWhenUsed/>' +
+    '<w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>' +
+    '<w:style w:type="character" w:styleId="EndnoteReference"><w:name w:val="endnote reference"/>' +
+    '<w:basedOn w:val="DefaultParagraphFont"/><w:uiPriority w:val="99"/><w:semiHidden/><w:unhideWhenUsed/>' +
+    '<w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>' +
     heading('PDHeading1', 'PowerDeal Heading 1', 28, 0, 300, 120) +
     heading('PDHeading2', 'PowerDeal Heading 2', 23, 1, 220, 90) +
     heading('PDHeading3', 'PowerDeal Heading 3', 21, 2, 180, 80) +
