@@ -1,25 +1,30 @@
 import 'server-only';
 import {
-  Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
-  Table, TableRow, TableCell, WidthType, BorderStyle,
+  Document, Packer, Paragraph, TextRun, AlignmentType,
+  Table, TableRow, TableCell, WidthType,
 } from 'docx';
 import PptxGenJS from 'pptxgenjs';
 import ExcelJS from 'exceljs';
 import { BRAND, APP_NAME } from '@/lib/brand';
+import {
+  DOC_DEFAULTS, PARAGRAPH_STYLES, PALETTE, TABLE_BORDERS, TABLE_CELL_MARGINS,
+  TABLE_HEADER_SHADING, TITLE_RULE, brandHeader, PAGE_MARGIN_TWIPS,
+  FONT as THEME_FONT,
+} from './theme';
 import type { Deal } from '@/lib/types';
 
 /**
  * Document generation.
  *
- * Takes the AI's markdown-ish output and renders it into a real file. Bloom
- * green + charcoal, Aptos with a Calibri/Arial fallback chain (Aptos is not
- * installed everywhere yet).
+ * Takes the AI's markdown-ish output and renders it into a real file. All brand
+ * decisions — type, palette, table treatment, header band — live in ./theme.
+ * This module decides STRUCTURE; it does not decide what things look like.
  */
 
 export type ForgeFormat = 'docx' | 'pptx' | 'xlsx' | 'md' | 'pdf';
 
-const FONT_STACK = 'Aptos';
-const FONT_FALLBACK = 'Calibri';
+/** One definition, in the theme. */
+const FONT_STACK = THEME_FONT;
 
 interface Block {
   type: 'h1' | 'h2' | 'h3' | 'bullet' | 'numbered' | 'para' | 'rule' | 'table';
@@ -105,15 +110,15 @@ export async function generateDocx(
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       children: [
-        new TextRun({ text: title, bold: true, size: 40, color: '3E3E3E', font: FONT_STACK }),
+        new TextRun({ text: title, bold: true, size: 40, color: PALETTE.charcoal, font: FONT_STACK }),
       ],
       spacing: { after: 80 },
     }),
     new Paragraph({
       children: [
-        new TextRun({ text: subtitle, size: 20, color: '767676', font: FONT_STACK }),
+        new TextRun({ text: subtitle, size: 20, color: PALETTE.muted, font: FONT_STACK }),
       ],
-      border: { bottom: { color: '3CAD3A', size: 12, style: 'single', space: 6 } },
+      border: TITLE_RULE,
       spacing: { after: 280 },
     }),
   ];
@@ -129,11 +134,11 @@ export async function generateDocx(
                 text: block.text,
                 bold: true,
                 size: 28,
-                color: '3E3E3E',
+                color: PALETTE.charcoal,
                 font: FONT_STACK,
               }),
             ],
-            heading: HeadingLevel.HEADING_1,
+            style: 'PDHeading1',
             spacing: { before: 300, after: 120 },
           }),
         );
@@ -146,11 +151,11 @@ export async function generateDocx(
                 text: block.text,
                 bold: true,
                 size: 23,
-                color: '3E3E3E',
+                color: PALETTE.charcoal,
                 font: FONT_STACK,
               }),
             ],
-            heading: HeadingLevel.HEADING_2,
+            style: 'PDHeading2',
             spacing: { before: 220, after: 90 },
           }),
         );
@@ -177,7 +182,7 @@ export async function generateDocx(
         children.push(
           new Paragraph({
             text: '',
-            border: { bottom: { color: 'D9D9D9', size: 6, style: 'single', space: 4 } },
+            border: { bottom: { color: PALETTE.rule, size: 6, style: 'single', space: 4 } },
             spacing: { before: 120, after: 120 },
           }),
         );
@@ -201,14 +206,8 @@ export async function generateDocx(
         children.push(
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
-            borders: {
-              top: { style: BorderStyle.SINGLE, size: 2, color: 'D9D9D9' },
-              bottom: { style: BorderStyle.SINGLE, size: 2, color: 'D9D9D9' },
-              left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-              right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-              insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: 'EDEDED' },
-              insideVertical: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-            },
+            // Green on the top and bottom edges only. Never a fill.
+            borders: TABLE_BORDERS,
             rows: rows.map(
               (cells, rowIndex) =>
                 new TableRow({
@@ -216,7 +215,12 @@ export async function generateDocx(
                   children: cells.map(
                     (cell) =>
                       new TableCell({
-                        margins: { top: 60, bottom: 60, left: 80, right: 80 },
+                        margins: TABLE_CELL_MARGINS,
+                        // Neutral light grey with charcoal bold text. A green
+                        // fill would be the background wash RULE 3 prohibits,
+                        // and light text on #3CAD3A measures ~2.6:1 — the same
+                        // failure class as the 1.98:1 button label.
+                        ...(rowIndex === 0 ? { shading: TABLE_HEADER_SHADING } : {}),
                         children: [
                           new Paragraph({
                             children: [
@@ -224,7 +228,7 @@ export async function generateDocx(
                                 text: cell,
                                 size: 19,
                                 bold: rowIndex === 0,
-                                color: rowIndex === 0 ? '3E3E3E' : '000000',
+                                color: rowIndex === 0 ? PALETTE.charcoal : PALETTE.body,
                                 font: FONT_STACK,
                               }),
                             ],
@@ -255,7 +259,7 @@ export async function generateDocx(
         new TextRun({
           text: `Generated by ${APP_NAME}. Verify every figure before external use.`,
           size: 16,
-          color: '9A9DAA',
+          color: PALETTE.muted,
           italics: true,
           font: FONT_STACK,
         }),
@@ -268,8 +272,30 @@ export async function generateDocx(
   const doc = new Document({
     creator: APP_NAME,
     title,
-    styles: { default: { document: { run: { font: FONT_FALLBACK } } } },
-    sections: [{ properties: {}, children }],
+    // docDefaults is the theme's font, NOT the fallback. This line previously
+    // read `font: FONT_FALLBACK`, which set Calibri as the document default and
+    // left Aptos to inline run overrides — so any run emitted without an
+    // explicit rPr silently rendered in Calibri.
+    styles: {
+      default: DOC_DEFAULTS,
+      paragraphStyles: PARAGRAPH_STYLES,
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              top: PAGE_MARGIN_TWIPS,
+              right: PAGE_MARGIN_TWIPS,
+              bottom: PAGE_MARGIN_TWIPS,
+              left: PAGE_MARGIN_TWIPS,
+            },
+          },
+        },
+        headers: { default: brandHeader() },
+        children,
+      },
+    ],
   });
 
   return Packer.toBuffer(doc);
