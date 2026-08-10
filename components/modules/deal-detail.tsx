@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, BookOpen, Briefcase, Calculator, CheckCircle2, Download,
-  FileText, HelpCircle, Map as MapIcon, MessagesSquare, Radio, Send,
+  FileText, HelpCircle, Map as MapIcon, MessagesSquare, Quote, Radio, Send,
   ShieldCheck, AlertTriangle,
 } from 'lucide-react';
 import type {
@@ -25,11 +25,15 @@ import { entitiesIn } from '@/lib/engine/entities';
 import Button from '@/components/ui/button';
 import AiOutput from '@/components/ui/ai-output';
 import SignalCapture from './signal-capture';
+import LogOutcome from './log-outcome';
+import WinLossList from './win-loss-list';
 import MapPlanPanel from './map-plan';
 import { starterPlan } from '@/lib/map/schedule';
 import type { MapPlan } from '@/lib/map/schedule';
+import { TERMINAL_STAGES } from '@/lib/types';
+import type { DealStage, WinLossEntry } from '@/lib/types';
 
-type Tab = 'intel' | 'signals' | 'market' | 'map' | 'history' | 'artifacts';
+type Tab = 'intel' | 'signals' | 'market' | 'map' | 'history' | 'outcome' | 'artifacts';
 
 const AI_ACTIONS: { task: TaskKind; label: string; icon: typeof FileText }[] = [
   { task: 'brief', label: 'Generate Brief', icon: FileText },
@@ -49,6 +53,7 @@ export default function DealDetail({
   transitions,
   isSeed,
   mapPlan,
+  winLoss = [],
 }: {
   deal: Deal;
   signals: Signal[];
@@ -57,11 +62,14 @@ export default function DealDetail({
   isSeed: boolean;
   /** Saved MAP, or null — the panel falls back to the starter sequence. */
   mapPlan?: MapPlan | null;
+  /** Outcomes logged against this deal. */
+  winLoss?: WinLossEntry[];
 }) {
   const params = useSearchParams();
   const [tab, setTab] = useState<Tab>('intel');
   const [activeTask, setActiveTask] = useState<TaskKind | null>(null);
   const [capturing, setCapturing] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const ai = useAiStream();
@@ -453,6 +461,7 @@ export default function DealDetail({
                   ['signals', `Signals (${signals.length})`],
                   ['market', `Market watch (${marketWatch.length})`],
                   ['map', 'MAP'],
+                  ['outcome', `Outcome (${winLoss.length})`],
                   ['history', `Stage history (${transitions.length})`],
                   ['artifacts', `Artifacts (${deal.artifacts?.length ?? 0})`],
                 ] as [Tab, string][]
@@ -605,6 +614,8 @@ export default function DealDetail({
                 />
               )}
 
+              {tab === 'outcome' && <WinLossList entries={winLoss} />}
+
               {tab === 'artifacts' &&
                 (!deal.artifacts || deal.artifacts.length === 0 ? (
                   <Empty
@@ -719,12 +730,35 @@ export default function DealDetail({
             </Button>
           </div>
 
+          {/* Closes the deal AND records the buyer's words in one write. Not
+              offered on a deal that is already terminal. */}
+          {!TERMINAL_STAGES.includes(deal.stage as DealStage) ? (
+            <div className="pt-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => setClosing(true)}
+              >
+                <Quote size={14} /> Log outcome
+              </Button>
+            </div>
+          ) : null}
+
           <p className="pt-2 text-xs text-text-faint">
             Briefs, plans, MAPs, and qualification run on the PowerDeal methodology —
             Claude only, never a cheaper model.
           </p>
         </aside>
       </div>
+
+      {closing && (
+        <LogOutcome
+          dealId={deal.id}
+          company={deal.company}
+          onClose={() => setClosing(false)}
+        />
+      )}
 
       {capturing && (
         <SignalCapture deal={deal} onClose={() => setCapturing(false)} />

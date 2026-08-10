@@ -4,6 +4,7 @@ import {
 } from '@/lib/data';
 import DealDetail from '@/components/modules/deal-detail';
 import { getMapPlan } from '@/lib/map/store';
+import { winLossForDeal } from '@/lib/win-loss';
 
 export async function generateMetadata({
   params,
@@ -24,13 +25,15 @@ export default async function DealPage({
   const { data: deal, isSeed } = await getDeal(id);
   if (!deal) notFound();
 
-  const [signals, marketWatch, transitions, mapPlan] = await Promise.all([
+  const [signals, marketWatch, transitions, mapPlan, winLoss] = await Promise.all([
     getSignalsForDeal(id),
     getMarketWatchForDeal(id),
     getStageTransitions(id),
     // Null is normal — the panel falls back to the starter sequence, which is
     // what makes solo mode useful on a deal nobody has planned yet.
     getMapPlan(id).catch(() => null),
+    // Empty is normal — the table has never been written to before this pass.
+    winLossForDeal(id).catch(() => []),
   ]);
 
   return (
@@ -41,6 +44,7 @@ export default async function DealPage({
       transitions={transitions}
       isSeed={isSeed}
       mapPlan={mapPlan}
+      winLoss={winLoss}
     />
   );
 }

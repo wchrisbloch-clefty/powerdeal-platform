@@ -174,10 +174,17 @@ create table if not exists win_loss_log (
   lesson          text,
   competitor_won  text,                          -- if Competitive, who/what won
   revisit_trigger text,
+  -- What the buyer ACTUALLY SAID, in their words. Not a paraphrase and not a
+  -- category — the value is that it is quotable. After a handful of closes this
+  -- is the most persuasive competitive asset in the system, because it is
+  -- buyers talking rather than a vendor claiming.
+  buyer_verbatim  text,
   closed_at       timestamptz default now(),
   user_id         uuid references auth.users(id) on delete cascade
 );
 create index if not exists win_loss_user_idx on win_loss_log(user_id);
+create index if not exists win_loss_deal_idx on win_loss_log(deal_id);
+create index if not exists win_loss_outcome_idx on win_loss_log(outcome_type);
 
 -- ── INTELLIGENCE LOG ─────────────────────────────────────
 create table if not exists intelligence_log (

@@ -231,6 +231,14 @@ export interface WinLossEntry {
   lesson: string | null;
   competitor_won: string | null;
   revisit_trigger: string | null;
+  /**
+   * What the buyer actually said, in their words.
+   *
+   * Never a paraphrase, never a category. The point is that it is quotable —
+   * a buyer's own sentence about why they did not buy carries weight no
+   * vendor-authored claim can, and it compounds across closes.
+   */
+  buyer_verbatim: string | null;
   closed_at: string;
   user_id: string | null;
 }
