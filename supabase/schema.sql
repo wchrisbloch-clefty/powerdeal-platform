@@ -186,6 +186,49 @@ create index if not exists win_loss_user_idx on win_loss_log(user_id);
 create index if not exists win_loss_deal_idx on win_loss_log(deal_id);
 create index if not exists win_loss_outcome_idx on win_loss_log(outcome_type);
 
+-- ── DEAL COMPETITORS (per-deal competitive state) ────────
+create table if not exists deal_competitors (
+  id              uuid primary key default uuid_generate_v4(),
+  deal_id         uuid not null references deals(id) on delete cascade,
+
+  -- Free text, not an enum. The named competitor in a given deal is a fact
+  -- about that deal ("Wartsila via Burns & McDonnell"), and an enum would
+  -- force it into a bucket and lose the part that matters.
+  competitor      text not null,
+
+  -- The doctrine's three-tier set, plus 'integrator'.
+  --
+  -- ⚠️ 'integrator' HAS NO DOCTRINE YET. The three tiers below are defined in
+  -- prompts/powerdeal-v3.1.8-system-prompt.md section 1A. The integrator
+  -- category was moved out of code and into the methodology and has not landed
+  -- there. Cards generated against this tier will have no framing to draw on
+  -- until it does. Recorded rather than invented here — a tier definition is
+  -- doctrine, and doctrine is not the code's to write.
+  tier            text not null check (tier in ('tier-1','tier-2','tier-3','integrator')),
+
+  -- What WE argue against this competitor in this deal.
+  posture         text,
+  -- What the competitor (or the buyer relaying them) actually said.
+  what_was_said   text,
+  -- Which of our arguments actually moved them. The compounding half.
+  what_landed     text,
+
+  status          text not null default 'active'
+                  check (status in ('active','eliminated','lost-to','won-against')),
+
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now(),
+  user_id         uuid references auth.users(id) on delete cascade,
+
+  -- One row per competitor per deal. Two rows for the same competitor would
+  -- let two postures against the same opponent diverge inside one deal.
+  constraint deal_competitors_unique unique (deal_id, competitor)
+);
+
+create index if not exists deal_competitors_deal_idx on deal_competitors(deal_id);
+create index if not exists deal_competitors_tier_idx on deal_competitors(tier);
+create index if not exists deal_competitors_user_idx on deal_competitors(user_id);
+
 -- ── INTELLIGENCE LOG ─────────────────────────────────────
 create table if not exists intelligence_log (
   id              uuid primary key default uuid_generate_v4(),

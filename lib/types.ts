@@ -107,6 +107,53 @@ export type CcusEventType = (typeof CCUS_EVENT_TYPES)[number];
 export const OUTCOME_TYPES = ['No-Decision', 'Competitive', 'Disqualified', 'Won'] as const;
 export type OutcomeType = (typeof OUTCOME_TYPES)[number];
 
+/**
+ * The competitive set, from section 1A of the system prompt.
+ *
+ * ⚠️ 'integrator' HAS NO DOCTRINE YET. The three tiers are defined in
+ * prompts/powerdeal-v3.1.8-system-prompt.md; the integrator category was moved
+ * out of code and into the methodology and has not landed there. Carried here
+ * because deals genuinely face packaged integrators, but a card generated
+ * against this tier has no framing to draw on until the prompt defines one.
+ */
+export const COMPETITOR_TIERS = ['tier-1', 'tier-2', 'tier-3', 'integrator'] as const;
+export type CompetitorTier = (typeof COMPETITOR_TIERS)[number];
+
+export const TIER_LABELS: Record<CompetitorTier, string> = {
+  'tier-1': 'Tier 1 — primary',
+  'tier-2': 'Tier 2 — situational',
+  'tier-3': 'Tier 3 — on request',
+  integrator: 'Integrator',
+};
+
+export const COMPETITOR_STATUSES = ['active', 'eliminated', 'lost-to', 'won-against'] as const;
+export type CompetitorStatus = (typeof COMPETITOR_STATUSES)[number];
+
+/**
+ * One competitor in one deal. A deal holds a SET of these.
+ *
+ * Per-deal rather than per-account, and Williams is why: it is simultaneously a
+ * midstream customer and an integrator competitor. A single account-level
+ * posture cannot hold both, and whichever half it held would be wrong for the
+ * other.
+ */
+export interface DealCompetitor {
+  id: string;
+  deal_id: string;
+  competitor: string;
+  tier: CompetitorTier;
+  /** What WE argue against this competitor in this deal. */
+  posture: string | null;
+  /** What the competitor, or the buyer relaying them, actually said. */
+  what_was_said: string | null;
+  /** Which of our arguments actually moved them. The compounding half. */
+  what_landed: string | null;
+  status: CompetitorStatus;
+  created_at: string;
+  updated_at: string;
+  user_id: string | null;
+}
+
 // ── Deal (the Pipeline Spine row) ───────────────────────────────
 
 export interface Deal {
