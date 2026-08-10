@@ -72,6 +72,14 @@ begin
   returning * into v_row;
 
   -- Same transaction. Either both land or neither does.
+  --
+  -- This UPDATE also fires deals_log_transition, so a close writes its
+  -- stage_transitions row (from_stage -> Archived/Closed-Won, days_in_prior
+  -- preserved) and resets days_in_stage. Measured, not assumed: closing a deal
+  -- sitting 42 days in Discovery produced
+  --   T-001 | Discovery | Archived | 42
+  -- in stage_transitions. Closes are therefore visible to any conversion read
+  -- built on that table, and no backfill from win_loss_log is required.
   update deals set stage = v_stage, updated_at = now() where id = p_deal_id;
 
   return v_row;
@@ -117,7 +125,19 @@ $$ language plpgsql;
 --
 -- ── Behavioural: prove the close is actually atomic ──
 -- Creates a throwaway deal, closes it, checks BOTH records agree, removes it.
--- Safe to run against live data: it touches only the row it creates.
+--
+-- SAFE TO RUN AGAINST LIVE DATA, and MEASURED rather than assumed. A DO block
+-- is a single statement, so a `raise exception` inside it rolls the whole block
+-- back — the throwaway deal never survives a failure. Verified by breaking
+-- log_win_loss() to insert-only and running this block: it raised
+--
+--   ERROR: FAIL: outcome logged but deal stage is Discovery, not Archived
+--
+-- and left orphan_deals 0, orphan_win_loss 0, orphan_transitions 0. The
+-- explicit deletes at the end are therefore only for the PASS path, where no
+-- rollback occurs. No exception handler is needed; adding one would be
+-- redundant, since a PL/pgSQL EXCEPTION block rolls back to its own savepoint
+-- and the deletes inside it would operate on already-undone rows.
 --
 -- do $$
 -- declare

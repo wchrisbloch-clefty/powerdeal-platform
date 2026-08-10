@@ -54,6 +54,18 @@ verbatim-capture task would turn one feature into three:
 - Is `Archived` reachable directly, or only through a close?
 - Does `Post-Sale` follow `Closed-Won` automatically or manually?
 
+### What is already handled
+
+`log_win_loss()` sets a terminal stage through a plain `update deals set
+stage`, which fires `deals_log_transition` — so **closes already write their
+`stage_transitions` row** and reset `days_in_stage`. Measured: closing a deal
+sitting 42 days in Discovery produced `T-001 | Discovery | Archived | 42`.
+
+No backfill from `win_loss_log` is needed. Any stage control added later should
+write through the same mechanism — a plain UPDATE on `deals.stage`, letting the
+trigger own the transition row — rather than inserting transitions directly,
+which would double-write.
+
 ### Suggested shape
 
 A stage control on the deal header, writing through the existing `PATCH` route.
@@ -62,7 +74,26 @@ the server side is done — this is a UI and a decision about backwards movement
 
 ---
 
-## 2. `generatePptx` does not consume the docx theme
+## 2. `Archived` collapses three different losses
+
+**Status:** accepted, noted
+**Severity:** low — nothing is lost, but the pipeline view cannot distinguish
+them without a join
+
+`terminalStageFor()` maps No-Decision, Competitive and Disqualified all to
+`Archived`. `outcome_type` on `win_loss_log` preserves the distinction, and the
+canonical `DEAL_STAGES` list has no lost stage to map them to, so the collapse
+is correct given the schema.
+
+Worth knowing because the doctrine is explicit that the three have different
+cures: a no-decision needs a forcing function, a competitive loss needs a
+different argument, a disqualification needs better qualification earlier. Any
+pipeline view that wants to separate them must join `win_loss_log` on
+`deal_id` — the stage alone will not tell them apart.
+
+---
+
+## 3. `generatePptx` does not consume the docx theme
 
 **Status:** queued, after Part 3
 **Severity:** the highest-visibility output is the one off-palette
@@ -77,7 +108,7 @@ being plain.
 
 ---
 
-## 3. PDF export
+## 4. PDF export
 
 **Status:** parked
 **Feasibility:** confirmed — `@sparticuz/chromium` + `puppeteer-core` trace to
@@ -91,7 +122,7 @@ broken download button.
 
 ---
 
-## 4. MAP share link
+## 5. MAP share link
 
 **Status:** parked, deliberately paired with the custom-domain decision
 
