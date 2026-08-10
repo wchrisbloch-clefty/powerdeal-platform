@@ -132,6 +132,17 @@ export interface Deal {
   next_move_date: string | null;
   key_risk: string | null;
 
+  /**
+   * The forcing function that makes doing nothing expensive.
+   *
+   * Absence caps health at 6. A deal with no critical event has no reason to
+   * close on any particular date, which is the shape most no-decision losses
+   * have in hindsight.
+   */
+  critical_event: string | null;
+  /** Null is allowed — the event without its date still beats nothing. */
+  critical_event_date: string | null;
+
   // MEDDPICC breakdown
   metrics_known: boolean;
   economic_buyer: string | null;

@@ -247,6 +247,41 @@ export default function DealDetail({
             </CardBody>
           </Card>
 
+          {/* ── Critical event ── */}
+          {/* Rendered in both states. An absent forcing function is the single
+              strongest predictor of a no-decision loss, so leaving the section
+              out when the field is empty would hide the finding — the deal
+              would simply look like it had fewer sections. */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Critical event</CardTitle>
+              {deal.critical_event_date ? (
+                <span className="font-mono text-xs text-text-dim tabular-nums">
+                  {formatDate(deal.critical_event_date)}
+                </span>
+              ) : null}
+            </CardHeader>
+            <CardBody>
+              {deal.critical_event?.trim() ? (
+                <>
+                  <p className="text-sm text-text">{deal.critical_event}</p>
+                  {!deal.critical_event_date ? (
+                    <p className="mt-1 text-xs text-text-dim">
+                      No date on record. The event alone still counts — a date sharpens it.
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-sm text-text-dim">
+                  <span className="text-text">None on record.</span> Nothing here makes doing
+                  nothing expensive, so nothing explains why this closes on any particular date.
+                  This caps health at 6 the same way single-threading does — no-decision is the
+                  dominant loss mode, and an absent forcing function is its leading indicator.
+                </p>
+              )}
+            </CardBody>
+          </Card>
+
           {/* ── 3. MEDDPICC scorecard ── */}
           <Card>
             <CardHeader>
@@ -561,6 +596,8 @@ export default function DealDetail({
                   dealId={deal.id}
                   company={deal.company}
                   dealCode={deal.deal_id}
+                  criticalEvent={deal.critical_event}
+                  criticalEventDate={deal.critical_event_date}
                   initial={mapPlan ?? starterPlan()}
                   businessCaseExists={Boolean(
                     deal.artifacts?.some((a) => a.type === 'business-case'),

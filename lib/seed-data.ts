@@ -211,6 +211,12 @@ function buildDeal(spec: SeedSpec, index: number): Deal {
     decision_mapped: false,
     days_in_stage: 0,
     next_move_date: null,
+    // Deliberately null across the whole seed. None of these accounts has a
+    // forcing function on record, and inventing one would make every seeded
+    // deal read as healthier than it is — the seed is a starting point, not a
+    // claim about the book.
+    critical_event: null,
+    critical_event_date: null,
     metrics_known: false,
     economic_buyer: null,
     decision_criteria: null,

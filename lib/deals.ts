@@ -7,9 +7,17 @@ import { TERMINAL_STAGES, MEDDPICC_FIELDS } from './types';
  * Mirrors compute_health_score() in supabase/schema.sql. Keep the two in step —
  * this one drives instant UI feedback, the trigger is the stored authority.
  *
- * The single-thread cap is the whole point: a deal with one contact is capped
- * at 6 no matter how complete everything else is, because a single-threaded
- * deal dies when that one person changes jobs.
+ * TWO caps, both at 6, both load-bearing:
+ *
+ *   · single-threaded — a deal with one contact dies when that person changes
+ *     jobs, no matter how complete everything else is.
+ *
+ *   · no critical event — a deal with no forcing function has no reason to
+ *     close on any particular date. No-decision is the dominant loss mode in
+ *     complex sales, and the absence of a forcing function is its leading
+ *     indicator, so it earns the same ceiling.
+ *
+ * A deal missing both is not penalised twice; the lower ceiling applies.
  */
 export function computeHealthScore(deal: Partial<Deal>): number {
   let score = 0;
@@ -35,8 +43,22 @@ export function computeHealthScore(deal: Partial<Deal>): number {
   if (deal.champion) score += 1;
 
   const raw = Math.min(10, score);
-  const capped = deal.multi_threaded ? raw : Math.min(6, raw);
+  const capped = Math.min(
+    raw,
+    deal.multi_threaded ? 10 : 6,
+    hasCriticalEvent(deal) ? 10 : 6,
+  );
   return Math.max(1, Math.round(capped * 10) / 10);
+}
+
+/**
+ * A critical event is present when it is named. The DATE is optional on
+ * purpose — knowing a budget cycle exists without knowing the exact day is
+ * still worth more than nothing, and requiring both would push people to
+ * invent a date to clear the cap.
+ */
+export function hasCriticalEvent(deal: Partial<Deal>): boolean {
+  return Boolean(deal.critical_event?.trim());
 }
 
 /** Derive the MEDDPICC score (0-8) from which pillars are actually populated. */
@@ -128,6 +150,17 @@ export function riskFlags(deal: Deal): RiskFlag[] {
 
   if (!deal.economic_buyer && !terminal) {
     flags.push({ key: 'no-eb', label: 'No economic buyer', severity: 'warn' });
+  }
+
+  // Same reasoning as single-thread: a deal with no forcing function that
+  // otherwise scores well is the dangerous case, because nothing about the
+  // record explains why it would close this quarter rather than never.
+  if (!hasCriticalEvent(deal) && !terminal) {
+    flags.push({
+      key: 'no-critical-event',
+      label: 'No critical event',
+      severity: deal.health_score > 5 ? 'danger' : 'warn',
+    });
   }
 
   return flags;

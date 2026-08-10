@@ -42,6 +42,7 @@ const COLUMNS: Column[] = [
   { key: 'size_mw', label: 'MW', className: 'w-col-md', numeric: true },
   { key: 'meddpicc_score', label: 'MEDD', className: 'w-col-sm', numeric: true },
   { key: null, label: 'Thread', className: 'w-col-md' },
+  { key: null, label: 'Event', className: 'w-col-md' },
   { key: null, label: 'Decision', className: 'w-col-lg' },
   { key: 'days_in_stage', label: 'Days', className: 'w-col-xs', numeric: true },
   { key: null, label: 'Next move', className: 'min-w-col-widest-min' },
@@ -195,6 +196,36 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
                       >
                         <AlertTriangle size={12} strokeWidth={2} />
                         Single
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Deliberately mirrors the Thread cell above — same shape,
+                      same cap, same "looks healthy but isn't" danger colour.
+                      Two independent 6-caps read as one idea when they read
+                      the same way. */}
+                  <td className="px-2.5 py-2">
+                    {deal.critical_event?.trim() ? (
+                      <span
+                        className="text-xs text-text-dim"
+                        title={
+                          deal.critical_event_date
+                            ? `${deal.critical_event} · ${deal.critical_event_date}`
+                            : `${deal.critical_event} · no date on record`
+                        }
+                      >
+                        Set
+                      </span>
+                    ) : (
+                      <span
+                        title="No critical event — health is capped at 6"
+                        className={cn(
+                          'inline-flex items-center gap-1 text-xs',
+                          deal.health_score > 5 ? 'text-danger' : 'text-warning',
+                        )}
+                      >
+                        <AlertTriangle size={12} strokeWidth={2} />
+                        None
                       </span>
                     )}
                   </td>

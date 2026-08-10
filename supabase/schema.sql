@@ -85,6 +85,14 @@ create table if not exists deals (
   next_move_date  date,
   key_risk        text,
 
+  -- The forcing function that makes doing nothing expensive: budget cycle,
+  -- program deadline, expiring contract, regulatory decision. Absence caps
+  -- health at 6, exactly the way single-threading does — no-decision is the
+  -- dominant loss mode in complex sales and the absence of a forcing function
+  -- is its leading indicator.
+  critical_event      text,
+  critical_event_date date,
+
   -- MEDDPICC breakdown
   metrics_known     boolean default false,
   economic_buyer    text,                        -- name when known, null when unknown
@@ -406,7 +414,15 @@ begin
   if d.champion is not null and d.champion <> '' then score := score + 1; end if;
 
   score := least(10, score);
+
+  -- Two independent caps, both at 6. A deal missing either cannot present as
+  -- healthy; a deal missing both is not penalised twice — the lower ceiling
+  -- simply applies.
   if not d.multi_threaded then score := least(6, score); end if;
+  if d.critical_event is null or d.critical_event = '' then
+    score := least(6, score);
+  end if;
+
   -- The column's CHECK floor is 1.
   return greatest(1, round(score, 1));
 end;

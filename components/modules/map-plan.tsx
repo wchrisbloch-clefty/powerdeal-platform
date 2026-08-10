@@ -34,12 +34,16 @@ export default function MapPlanPanel({
   dealCode,
   initial,
   businessCaseExists,
+  criticalEvent,
+  criticalEventDate,
 }: {
   dealId: string;
   company: string;
   dealCode: string;
   initial: MapPlan;
   businessCaseExists: boolean;
+  criticalEvent?: string | null;
+  criticalEventDate?: string | null;
 }) {
   const [plan, setPlan] = useState<MapPlan>(initial);
   const [pending, setPending] = useState<{ id: string; date: string } | null>(null);
@@ -117,7 +121,13 @@ export default function MapPlanPanel({
           action: 'map',
           format: 'docx',
           title: `${company} — Mutual action plan`,
-          content: mapToMarkdown(plan, { company, dealId: dealCode, today }),
+          content: mapToMarkdown(plan, {
+            company,
+            dealId: dealCode,
+            today,
+            criticalEvent,
+            criticalEventDate,
+          }),
         }),
       });
 
@@ -150,6 +160,30 @@ export default function MapPlanPanel({
           with one, because the &ldquo;why&rdquo; is what gets the dates taken seriously.
         </p>
       ) : null}
+
+      {/* Absence is stated, not omitted — a MAP with no forcing function is a
+          schedule, and the document says so rather than looking complete. */}
+      {criticalEvent?.trim() ? (
+        <div className="rounded-card border border-accent-border bg-accent-bg px-3.5 py-2.5">
+          <p className="eyebrow">Critical event</p>
+          <p className="mt-1 text-sm text-text">
+            {criticalEvent}
+            {criticalEventDate ? (
+              <span className="ml-1 font-mono text-xs text-text-dim">· {criticalEventDate}</span>
+            ) : (
+              <span className="ml-1 text-xs text-text-dim">· no date on record</span>
+            )}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-card border border-warning bg-bg-raised px-3.5 py-2.5">
+          <p className="eyebrow">Critical event</p>
+          <p className="mt-1 text-sm text-text">
+            None on record. These dates are a sequence, not a deadline — nothing here forces a
+            decision. This is also what caps the deal&rsquo;s health at 6.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>

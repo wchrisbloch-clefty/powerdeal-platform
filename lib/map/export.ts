@@ -27,7 +27,14 @@ import { forAudience } from '@/lib/annotations';
  */
 export function mapToMarkdown(
   plan: MapPlan,
-  opts: { company: string; dealId: string; today?: string },
+  opts: {
+    company: string;
+    dealId: string;
+    today?: string;
+    /** The forcing function. Absence is stated, never omitted — see below. */
+    criticalEvent?: string | null;
+    criticalEventDate?: string | null;
+  },
 ): string {
   const today = opts.today ?? toIso(Date.now());
   // Deny by default. This renderer produces a document that leaves the
@@ -51,6 +58,30 @@ export function mapToMarkdown(
     lines.push(`**${note.title}:** ${note.detail}`);
     lines.push('');
   }
+
+  // ── The forcing function ──
+  //
+  // Rendered whether or not it exists. A MAP with no critical event is a
+  // schedule, not a forcing function, and omitting the section would hide
+  // exactly that — the reader would see a tidy plan and no reason it has to
+  // happen on these dates rather than a year later.
+  //
+  // Same principle as "not yet identified" on an unowned milestone: the empty
+  // state is diagnostic information, and a missing section reads as "not
+  // applicable" when it means "nobody has established why this is urgent".
+  lines.push('### Why these dates');
+  lines.push('');
+  if (opts.criticalEvent?.trim()) {
+    const when = opts.criticalEventDate
+      ? ` Lands ${opts.criticalEventDate}`
+      : ' No date on record for it yet';
+    lines.push(`**${opts.criticalEvent.trim()}.**${when}, and the schedule below works back from it.`);
+  } else {
+    lines.push(
+      '**No critical event on record.** Nothing in this plan forces a decision by a particular date — the dates below are a sequence, not a deadline. Establishing what makes doing nothing expensive, and when, is the single highest-value thing that can be added to this plan.',
+    );
+  }
+  lines.push('');
 
   lines.push('| Milestone | Owner | Date | Status | Depends on |');
   lines.push('|---|---|---|---|---|');
