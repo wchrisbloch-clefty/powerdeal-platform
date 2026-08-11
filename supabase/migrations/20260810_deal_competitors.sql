@@ -23,15 +23,19 @@ create table if not exists deal_competitors (
   -- force it into a bucket and lose the part that matters.
   competitor      text not null,
 
-  -- The doctrine's three-tier set, plus 'integrator'.
+  -- The doctrine's four tiers, in doctrine order.
   --
-  -- ⚠️ 'integrator' HAS NO DOCTRINE YET. The three tiers below are defined in
-  -- prompts/powerdeal-v3.1.8-system-prompt.md section 1A. The integrator
-  -- category was moved out of code and into the methodology and has not landed
-  -- there. Cards generated against this tier will have no framing to draw on
-  -- until it does. Recorded rather than invented here — a tier definition is
-  -- doctrine, and doctrine is not the code's to write.
-  tier            text not null check (tier in ('tier-1','tier-2','tier-3','integrator')),
+  -- 'tier-1b' rather than 'integrator': one concept must not carry two names.
+  -- It also sorts correctly — 'integrator' sorted ahead of 'tier-1' in every
+  -- `order by tier`, which put the fourth tier first in every read.
+  --
+  -- ⚠️ TIER 1B EXISTS IN DOCTRINE (v3.1.9/v3.1.10) AND IS ABSENT FROM THE
+  -- REPO'S PROMPT FILE. prompts/powerdeal-v3.1.8-system-prompt.md contains the
+  -- word "integrator" zero times. Until the prompt is synced, a Tier 1B card
+  -- generates with no framing — and the prompt's standing instruction to lead
+  -- with what grid and combustion cannot do will steer it toward a heat-rate
+  -- argument, which is the answer doctrine forbids against an integrator.
+  tier            text not null check (tier in ('tier-1','tier-1b','tier-2','tier-3')),
 
   -- What WE argue against this competitor in this deal.
   posture         text,
@@ -64,6 +68,22 @@ create table if not exists deal_competitors (
   -- let two postures against the same opponent diverge inside one deal.
   constraint deal_competitors_unique unique (deal_id, competitor)
 );
+
+-- ── Rename repair: 'integrator' → 'tier-1b' ──
+--
+-- Same no-op hazard as the status constraint below, with data attached: on an
+-- existing table the inline CHECK above never runs, so stored 'integrator' rows
+-- would keep a name the code no longer knows and every card against them would
+-- fail to resolve a tier.
+--
+-- ORDER MATTERS. The constraint is dropped BEFORE the rows are rewritten —
+-- 'tier-1b' would violate the old constraint — and re-added afterwards. The
+-- trio is idempotent: on a second run the update matches zero rows.
+alter table deal_competitors drop constraint if exists deal_competitors_tier_check;
+update deal_competitors set tier = 'tier-1b' where tier = 'integrator';
+alter table deal_competitors add constraint deal_competitors_tier_check
+  check (tier in ('tier-1','tier-1b','tier-2','tier-3'));
+
 
 -- ── Constraint repair, for a table that predates 'not-present' ──
 --
@@ -122,6 +142,22 @@ create index if not exists deal_competitors_user_idx on deal_competitors(user_id
 --     and pg_get_constraintdef(oid) like '%not-present%'
 --
 --   union all
+--   select 'tier 1B carries the doctrine name, not the code one',
+--          count(*) = 1,
+--          coalesce(max(pg_get_constraintdef(oid)), 'STILL ''integrator'' — two names for one concept')
+--   from pg_constraint
+--   where conname = 'deal_competitors_tier_check'
+--     and pg_get_constraintdef(oid) like '%tier-1b%'
+--     and pg_get_constraintdef(oid) not like '%integrator%'
+--
+--   union all
+--   select 'no row was left behind under the old name',
+--          count(*) = 0,
+--          case when count(*) = 0 then 'zero rows on the retired tier name'
+--               else count(*)::text || ' row(s) still tiered ''integrator''' end
+--   from deal_competitors where tier = 'integrator'
+--
+--   union all
 --   select 'one row per competitor per deal',
 --          count(*) = 1,
 --          'unique constraints: ' || count(*)::text
@@ -162,7 +198,7 @@ create index if not exists deal_competitors_user_idx on deal_competitors(user_id
 --      'Rate escalation with no control and no exit', (select user_id from deals limit 1)),
 --     (v_deal, 'Wartsila recip', 'tier-1',
 --      'Emissions envelope and permit timeline', (select user_id from deals limit 1)),
---     (v_deal, 'Packaged integrator', 'integrator',
+--     (v_deal, 'Packaged integrator', 'tier-1b',
 --      'Bundled price hides financing cost and cannot be unbundled later',
 --      (select user_id from deals limit 1));
 --
@@ -178,7 +214,7 @@ create index if not exists deal_competitors_user_idx on deal_competitors(user_id
 --    where deal_id = v_deal and status = 'active';
 --
 --   raise notice 'ACTIVE competitors       : % (expect 3, the not-present row excluded)', v_count;
---   raise notice 'distinct tiers          : %', v_tiers;
+--   raise notice 'distinct tiers          : % (doctrine order: tier-1 before tier-1b)', v_tiers;
 --
 --   if v_count <> 3 then
 --     raise exception 'FAIL: a deal cannot hold three postures — got %', v_count;
@@ -201,6 +237,17 @@ create index if not exists deal_competitors_user_idx on deal_competitors(user_id
 --     raise exception 'FAIL: an undefined tier was accepted';
 --   exception when check_violation then
 --     raise notice 'undefined tier rejected       : correct';
+--   end;
+--
+--   -- The RETIRED name must be refused too. A constraint that still accepted
+--   -- 'integrator' would let the two names coexist, which is the thing the
+--   -- rename exists to prevent.
+--   begin
+--     insert into deal_competitors (deal_id, competitor, tier, user_id)
+--     values (v_deal, 'Old name', 'integrator', (select user_id from deals limit 1));
+--     raise exception 'FAIL: the retired tier name ''integrator'' was accepted';
+--   exception when check_violation then
+--     raise notice 'retired tier name rejected    : correct';
 --   end;
 --
 --   -- The status constraint was WIDENED to admit 'not-present'. Widening is

@@ -63,12 +63,20 @@ describe('the zero-click state is already right for the common deal', () => {
 
   it('shows combustion at the top level anyway — it is the other Tier 1 enemy', () => {
     const top = presenceGrid(WILLIAMS, []).filter((r) => r.topLevel).map((r) => r.key);
-    expect(top).toEqual(['no-decision', 'grid', 'turbines', 'recips']);
+    expect(top).toEqual(['no-decision', 'grid', 'turbines', 'recips', 'tier-1b']);
   });
 
-  it('collapses tier 2, tier 3 and integrator', () => {
+  it('collapses only the situational tiers', () => {
     const collapsed = CATALOG.filter((e) => !e.topLevel).map((e) => e.tier);
-    expect(new Set(collapsed)).toEqual(new Set(['tier-2', 'tier-3', 'integrator']));
+    expect(new Set(collapsed)).toEqual(new Set(['tier-2', 'tier-3']));
+  });
+
+  it('keeps Tier 1B at the top level — it dominates data-center deals', () => {
+    // Burying the most likely opponent in the fastest-growing segment behind
+    // a disclosure would make it the one competitor nobody switches on.
+    const row = presenceGrid(WILLIAMS, []).find((r) => r.key === 'tier-1b');
+    expect(row?.topLevel).toBe(true);
+    expect(row?.on).toBe(false);
   });
 
   it('has no Bloom row in any state — Bloom is aligned, not a competitor', () => {
@@ -259,11 +267,11 @@ describe('the grid is named from the record, and identity is not the name', () =
 describe('posture is a set — a Williams-shaped deal holds three at once', () => {
   const williams = [
     competitor({ id: 'c1', competitor: 'Reciprocating engines (Wärtsilä / INNIO / CAT)' }),
-    competitor({ id: 'c2', competitor: 'Packaged integrator', tier: 'integrator' }),
+    competitor({ id: 'c2', competitor: 'Packaged integrator', tier: 'tier-1b' }),
   ];
 
   it('carries grid, combustion and integrator simultaneously', () => {
-    expect(on(WILLIAMS, williams)).toEqual(['no-decision', 'grid', 'recips', 'integrator']);
+    expect(on(WILLIAMS, williams)).toEqual(['no-decision', 'grid', 'recips', 'tier-1b']);
   });
 
   it('spans more than one tier — a single-tier fixture would prove nothing', () => {
@@ -375,7 +383,7 @@ describe('the negative header reads the toggle set, not the stored rows', () => 
   it('updates when a competitor is switched on', () => {
     const others = otherPostureNames(
       WILLIAMS,
-      [competitor({ id: 'c2', competitor: 'Packaged integrator', tier: 'integrator' })],
+      [competitor({ id: 'c2', competitor: 'Packaged integrator', tier: 'tier-1b' })],
       'grid',
     );
     expect(others).toEqual(['Do nothing', 'Packaged integrator']);
@@ -430,21 +438,49 @@ describe('tiers track the doctrine', () => {
     expect(prompt).toContain('TIER 3 — TERTIARY');
   });
 
+  it('names the four tiers in doctrine order', () => {
+    // 'integrator' sorted ahead of 'tier-1' in every `order by tier`, which put
+    // the fourth tier first in every read of the table.
+    expect(COMPETITOR_TIERS).toEqual(['tier-1', 'tier-1b', 'tier-2', 'tier-3']);
+    expect([...COMPETITOR_TIERS].sort()).toEqual([...COMPETITOR_TIERS]);
+  });
+
+  it('carries no second name for Tier 1B anywhere in the code', async () => {
+    // One concept, one name. The rename is cheap while it is only a CHECK
+    // constraint and a handful of literals.
+    for (const f of ['lib/types.ts', 'lib/competitor-catalog.ts', 'supabase/schema.sql']) {
+      const src = await readFile(f, 'utf8');
+      const code = src.replace(/\/\*[\s\S]*?\*\/|--.*|\/\/.*/g, '');
+      expect(code, `${f} still carries the retired tier name`).not.toMatch(/'integrator'/);
+    }
+  });
+
   /**
    * Deliberately asserts a GAP, not a property.
    *
-   * The integrator category was moved out of code and into the methodology and
-   * has not landed there. A card generated against this tier has no framing to
-   * draw on. When the prompt gains the fourth category this test FAILS, which
-   * is the signal to delete it and the warning comments beside it.
+   * Tier 1B EXISTS in doctrine — v3.1.9 gave integrators full framing and
+   * v3.1.10 propagated it. The repo's prompt file is two versions behind and
+   * contains the word zero times, so a Tier 1B card generates with nothing to
+   * draw on. When the prompt is synced this test FAILS, which is the signal to
+   * delete it and the warning comments beside it.
    */
-  it('integrator has no doctrine yet — this failing is the good outcome', async () => {
+  it('the shipped prompt is BEHIND doctrine on Tier 1B — failing here is the fix landing', async () => {
     const prompt = await readFile('prompts/powerdeal-v3.1.8-system-prompt.md', 'utf8');
-    expect(prompt).not.toMatch(/TIER 1B|TIER 4|INTEGRATOR —/i);
+    expect(prompt).not.toMatch(/integrator/i);
   });
 
   it('says so on the toggle itself, where someone is about to switch it on', () => {
-    expect(CATALOG_BY_KEY.get('integrator')?.hint).toMatch(/no doctrine yet/i);
+    // The one line of doctrine that IS known: never answer an integrator with
+    // a heat-rate argument.
+    expect(CATALOG_BY_KEY.get('tier-1b')?.hint).toMatch(/heat-rate/i);
+  });
+
+  it('records the prompt-sync gap where the enum is declared', async () => {
+    const src = await readFile('lib/types.ts', 'utf8');
+    expect(src).toContain('ABSENT FROM THE');
+    expect(src).toContain('v3.1.10');
+    // It is a prompt sync, not a code change — global rule 6.
+    expect(src).toContain('never generated or inferred in code');
   });
 });
 
@@ -494,6 +530,26 @@ describe('the migration', () => {
     const idx = sql.match(/create index /g) ?? [];
     const guarded = sql.match(/create index if not exists /g) ?? [];
     expect(idx).toHaveLength(guarded.length);
+  });
+
+  it('renames integrator to tier-1b, rows and constraint together', async () => {
+    const sql = await readFile(MIGRATION, 'utf8');
+    expect(sql).toContain("update deal_competitors set tier = 'tier-1b' where tier = 'integrator'");
+    // Order matters: 'tier-1b' violates the OLD constraint, so the drop has to
+    // come first and the add afterwards.
+    const drop = sql.indexOf('drop constraint if exists deal_competitors_tier_check');
+    const upd = sql.indexOf("set tier = 'tier-1b'");
+    const add = sql.indexOf('add constraint deal_competitors_tier_check');
+    expect(drop).toBeGreaterThan(-1);
+    expect(drop).toBeLessThan(upd);
+    expect(upd).toBeLessThan(add);
+  });
+
+  it('verifies the rename rather than assuming it', async () => {
+    const sql = await readFile(MIGRATION, 'utf8');
+    expect(sql).toContain('two names for one concept');
+    expect(sql).toContain('zero rows on the retired tier name');
+    expect(sql).toContain("FAIL: the retired tier name ''integrator'' was accepted");
   });
 
   it('ships a behavioural verification that exercises every constraint', async () => {

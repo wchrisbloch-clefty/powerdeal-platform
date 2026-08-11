@@ -200,15 +200,15 @@ create table if not exists deal_competitors (
   -- force it into a bucket and lose the part that matters.
   competitor      text not null,
 
-  -- The doctrine's three-tier set, plus 'integrator'.
+  -- The doctrine's four tiers, in doctrine order.
   --
-  -- ⚠️ 'integrator' HAS NO DOCTRINE YET. The three tiers below are defined in
-  -- prompts/powerdeal-v3.1.8-system-prompt.md section 1A. The integrator
-  -- category was moved out of code and into the methodology and has not landed
-  -- there. Cards generated against this tier will have no framing to draw on
-  -- until it does. Recorded rather than invented here — a tier definition is
-  -- doctrine, and doctrine is not the code's to write.
-  tier            text not null check (tier in ('tier-1','tier-2','tier-3','integrator')),
+  -- 'tier-1b' rather than 'integrator': one concept must not carry two names,
+  -- and it sorts correctly — 'integrator' sorted ahead of 'tier-1' in every
+  -- `order by tier`, which put the fourth tier first in every read.
+  --
+  -- ⚠️ TIER 1B EXISTS IN DOCTRINE (v3.1.9/v3.1.10) AND IS ABSENT FROM THE
+  -- REPO'S PROMPT FILE. See lib/types.ts for the consequence and the fix.
+  tier            text not null check (tier in ('tier-1','tier-1b','tier-2','tier-3')),
 
   -- What WE argue against this competitor in this deal.
   posture         text,

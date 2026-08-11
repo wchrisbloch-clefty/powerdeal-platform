@@ -168,7 +168,7 @@ describe('do-nothing is always cardable', () => {
 
   it('leads the list when competitors exist', () => {
     const p = cardControls(deal, [
-      competitor({ id: 'c2', competitor: 'Packaged integrator', tier: 'integrator' }),
+      competitor({ id: 'c2', competitor: 'Packaged integrator', tier: 'tier-1b' }),
     ]);
     expect(p[0].label).toBe('Do nothing');
     expect(p).toHaveLength(3);

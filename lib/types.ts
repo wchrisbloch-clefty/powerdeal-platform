@@ -110,20 +110,43 @@ export type OutcomeType = (typeof OUTCOME_TYPES)[number];
 /**
  * The competitive set, from section 1A of the system prompt.
  *
- * ⚠️ 'integrator' HAS NO DOCTRINE YET. The three tiers are defined in
- * prompts/powerdeal-v3.1.8-system-prompt.md; the integrator category was moved
- * out of code and into the methodology and has not landed there. Carried here
- * because deals genuinely face packaged integrators, but a card generated
- * against this tier has no framing to draw on until the prompt defines one.
+ * ⚠️ TIER 1B EXISTS IN DOCTRINE AND IS ABSENT FROM THE REPO'S PROMPT FILE.
+ *
+ * v3.1.9 gave integrators full framing — they compete on commercial model
+ * rather than specification, a buyer choosing one has already decided not to
+ * own or operate, and the comparison is our PPA/EaaS structure against their
+ * bundle. v3.1.10 propagated it into hard rule 17, both document specs, the
+ * Spine Value Prop enum and the outreach diagnose line.
+ *
+ * prompts/powerdeal-v3.1.8-system-prompt.md contains NONE of it — the word
+ * "integrator" appears zero times in the file, §1A is still the three-tier set,
+ * and hard rule 17 is "Bottom line / the Ask".
+ *
+ * The consequence is specific: a Tier 1B card generates against the tier that
+ * dominates data-center deals with no framing to draw on, and — worse — the
+ * prompt's standing instruction to lead with what grid and combustion cannot do
+ * will steer it toward a heat-rate argument, which is exactly the answer
+ * doctrine forbids against an integrator.
+ *
+ * This is a PROMPT SYNC, not a code change. Global rule 6: the system prompt is
+ * never generated or inferred in code. Drop v3.1.10 into prompts/ and bump
+ * POWERDEAL_VERSION.
  */
-export const COMPETITOR_TIERS = ['tier-1', 'tier-2', 'tier-3', 'integrator'] as const;
+/**
+ * The doctrine's competitive set, in doctrine order.
+ *
+ * 'tier-1b' rather than 'integrator': one concept must not have two names, and
+ * the methodology's name wins. It also sorts correctly — 'integrator' sorted
+ * ahead of 'tier-1' in every `order by tier`, putting the fourth tier first.
+ */
+export const COMPETITOR_TIERS = ['tier-1', 'tier-1b', 'tier-2', 'tier-3'] as const;
 export type CompetitorTier = (typeof COMPETITOR_TIERS)[number];
 
 export const TIER_LABELS: Record<CompetitorTier, string> = {
   'tier-1': 'Tier 1 — primary',
+  'tier-1b': 'Tier 1B — integrators',
   'tier-2': 'Tier 2 — situational',
   'tier-3': 'Tier 3 — on request',
-  integrator: 'Integrator',
 };
 
 /**

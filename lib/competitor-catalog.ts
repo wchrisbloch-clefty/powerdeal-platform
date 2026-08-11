@@ -158,6 +158,18 @@ export const CATALOG: CatalogEntry[] = [
     presence: 'off',
     topLevel: true,
   },
+  {
+    // TOP LEVEL, not collapsed with the situational tiers. Tier 1B is Tier 1
+    // family and it dominates data-center deals — burying it behind a
+    // disclosure would hide the most likely opponent in the fastest-growing
+    // segment of the book.
+    key: 'tier-1b',
+    name: 'Packaged integrator',
+    tier: 'tier-1b',
+    presence: 'off',
+    topLevel: true,
+    hint: 'Competes on commercial model, not specification. Never answer one with a heat-rate argument.',
+  },
   { key: 'battery', name: 'Batteries / storage', tier: 'tier-2', presence: 'off', topLevel: false },
   { key: 'wind', name: 'Wind', tier: 'tier-2', presence: 'off', topLevel: false },
   {
@@ -174,15 +186,6 @@ export const CATALOG: CatalogEntry[] = [
     presence: 'off',
     topLevel: false,
     hint: 'Only when the prospect is already fuel-cell shopping.',
-  },
-  {
-    key: 'integrator',
-    name: 'Packaged integrator',
-    tier: 'integrator',
-    presence: 'off',
-    topLevel: false,
-    // Recorded, not invented. Flagged the same way in the migration.
-    hint: 'No doctrine yet — a card against this tier has no framing to draw on.',
   },
 ];
 
