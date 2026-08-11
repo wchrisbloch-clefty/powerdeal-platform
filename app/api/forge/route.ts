@@ -5,6 +5,7 @@ import {
   generateDocx, generatePptx, generateProForma,
   contentTypeFor, filenameFor, type ForgeFormat,
 } from '@/lib/forge/generate';
+import { generatePdf } from '@/lib/forge/pdf';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -13,6 +14,12 @@ const Body = z.object({
   dealId: z.string(),
   action: z.string().max(40),
   format: z.enum(['docx', 'pptx', 'xlsx', 'md', 'pdf']),
+  /**
+   * PDF only. Letter for the US book, A4 for everyone else — a document that
+   * prints with a clipped edge in the reader's office is a broken document, and
+   * page size is the one property no amount of styling recovers from.
+   */
+  pageSize: z.enum(['Letter', 'A4']).optional(),
   /** The already-streamed AI output. */
   content: z.string().max(200_000).optional(),
   title: z.string().max(200).optional(),
@@ -42,18 +49,6 @@ export async function POST(request: NextRequest) {
 
   const format = body.format as ForgeFormat;
 
-  // PDF needs a headless browser. Rather than ship a broken button, the UI
-  // hides the PDF option and this returns a clear reason if it's called.
-  if (format === 'pdf') {
-    return NextResponse.json(
-      {
-        error:
-          'PDF export is not wired up yet. Feasibility IS confirmed: @sparticuz/chromium + puppeteer-core trace to 70.1 MB against Vercel\'s 250 MB limit (measured 2026-07-31), and next.config.ts already force-includes the binary the tracer would otherwise miss. What remains is the HTML template, the two page sizes, and Supabase Storage. Export DOCX in the meantime.',
-      },
-      { status: 501 },
-    );
-  }
-
   const title = body.title ?? `${deal.company} — ${body.action}`;
   const subtitle = `${deal.deal_id} · ${deal.vertical}${deal.state ? ` · ${deal.state}` : ''} · ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
 
@@ -74,6 +69,8 @@ export async function POST(request: NextRequest) {
         buffer = Buffer.from(`# ${title}\n\n_${subtitle}_\n\n${body.content}\n`, 'utf-8');
       } else if (format === 'pptx') {
         buffer = await generatePptx(title, subtitle, body.content);
+      } else if (format === 'pdf') {
+        buffer = await generatePdf(title, subtitle, body.content, body.pageSize ?? 'Letter');
       } else {
         buffer = await generateDocx(title, subtitle, body.content);
       }

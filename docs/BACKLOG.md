@@ -152,15 +152,24 @@ being plain.
 
 ## 4. PDF export
 
-**Status:** parked
-**Feasibility:** confirmed — `@sparticuz/chromium` + `puppeteer-core` trace to
-70.1 MB against Vercel's 250 MB limit (measured 2026-07-31), and
-`next.config.ts` already force-includes the binary the tracer would otherwise
-miss.
+**Status:** SHIPPED 2026-08-11 — `lib/forge/pdf.ts`, wired into
+`/api/forge`. The 501 with its reason is gone.
 
-Remaining: the HTML template against final tokens, two page sizes, Supabase
-Storage. `/api/forge` returns a 501 naming exactly this rather than shipping a
-broken download button.
+Feasibility was already settled and is unchanged: @sparticuz/chromium +
+puppeteer-core trace to 70.1 MB against Vercel's 250 MB limit, and
+`next.config.ts` force-includes the brotli payload the tracer cannot see.
+
+Two things were deliberately NOT folded in. Supabase Storage stays with the
+share route, where an artifact has to outlive the request — a download that
+depended on a bucket nobody has created would have been a worse button than no
+button. And the markdown renderer is small on purpose rather than a library:
+everything it renders was written by a model and is going to a customer, so it
+escapes first and re-introduces only bold and emphasis. Raw HTML, image tags
+and scripts are escaped, and that is asserted rather than assumed.
+
+**Still open:** the UI has no PDF button. The route serves it and takes a page
+size; nothing calls it yet, which is the same shape as the stage field before
+this pass — a working server side with no caller.
 
 ---
 

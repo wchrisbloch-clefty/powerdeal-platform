@@ -1,7 +1,10 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AlertTriangle, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Button from '@/components/ui/button';
 import {
   MARKET_STRUCTURE_LABELS, SERVICE_MODEL_LABELS, UTILITY_TYPE_LABELS,
   type UtilityContext,
@@ -29,6 +32,7 @@ export default function UtilityPanel({
   deal: Deal;
   utility: UtilityContext | null;
 }) {
+  const [answering, setAnswering] = useState(false);
   if (!utility) {
     return (
       <p className="text-sm text-text-dim">
@@ -161,6 +165,28 @@ export default function UtilityPanel({
         </div>
       ) : null}
 
+      {/* ── Answering Level 3 ──
+          The card names the standby gap on every pricing defense, and until
+          this existed there was no way to close it — a gap the product raises
+          and gives you no means to answer is a nag, not a workflow. */}
+      {utility.utilityName && !answering ? (
+        <Button variant="secondary" size="sm" onClick={() => setAnswering(true)}>
+          {utility.level >= 3 ? 'Update the tariff terms' : 'Answer the standby question'}
+        </Button>
+      ) : null}
+      {answering && utility.utilityName ? (
+        <TariffForm
+          utility={utility}
+          onDone={() => setAnswering(false)}
+        />
+      ) : null}
+      {!utility.utilityName ? (
+        <p className="text-2xs text-text-faint">
+          Level 3 needs a named utility — a standby schedule belongs to a specific tariff
+          book. Name the beachhead&rsquo;s utility first.
+        </p>
+      ) : null}
+
       {utility.gaps.length > 0 ? (
         <div>
           <p className="eyebrow mb-1.5">What would sharpen this</p>
@@ -182,6 +208,133 @@ export default function UtilityPanel({
           ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Record what the tariff actually says.
+ *
+ * FREE TEXT, not a number. A standby charge is a rate SCHEDULE with a
+ * structure — demand-based, ratcheted, seasonal, sometimes waived below a
+ * threshold — and squeezing it into a $/kW-month field would produce a figure
+ * that looks like a measurement and is a summary of one. The card quotes what
+ * is written here, so what is written here has to be quotable.
+ *
+ * Empty stays empty. Saving a blank form leaves the gap open rather than
+ * recording "checked, nothing found", because those are different facts and
+ * only one of them is true.
+ */
+function TariffForm({
+  utility,
+  onDone,
+}: {
+  utility: UtilityContext;
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const [standby, setStandby] = useState('');
+  const [departing, setDeparting] = useState('');
+  const [exitFee, setExitFee] = useState('');
+  const [minimumTake, setMinimumTake] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/utility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: (utility.utilityName ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          name: utility.utilityName,
+          state: utility.state ?? '',
+          type: utility.utilityType ?? 'iou',
+          serviceModel: utility.serviceModel,
+          standbyTariff: standby.trim() || null,
+          departingLoadCharge: departing.trim() || null,
+          exitFee: exitFee.trim() || null,
+          minimumTake: minimumTake.trim() || null,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(json.error ?? `Failed (${res.status}).`);
+        return;
+      }
+      onDone();
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2 rounded-card border border-rule bg-bg-raised p-3">
+      <p className="eyebrow">Level 3 — {utility.utilityName}</p>
+      <p className="text-2xs text-text-faint">
+        What the tariff says, in its own terms. The pricing defense card quotes this, so a
+        schedule name and the structure beat a single number.
+      </p>
+      <Field
+        label="Standby rate schedule"
+        value={standby}
+        onChange={setStandby}
+        placeholder="Schedule S — demand-based standby, ratcheted on the 12-month peak, applies above 500 kW of onsite generation."
+      />
+      <Field label="Departing-load charge" value={departing} onChange={setDeparting} />
+      <Field label="Exit fee" value={exitFee} onChange={setExitFee} />
+      <Field label="Minimum-take provision" value={minimumTake} onChange={setMinimumTake} />
+      {error ? (
+        <p role="alert" className="text-xs text-danger">
+          {error}
+        </p>
+      ) : null}
+      <p className="text-2xs text-text-faint">
+        This is a fact about the utility, not about this deal — it applies to every deal in
+        the territory once recorded.
+      </p>
+      <div className="flex gap-2">
+        <Button variant="primary" size="sm" disabled={busy} onClick={save}>
+          {busy ? 'Saving…' : 'Save'}
+        </Button>
+        <Button variant="ghost" size="sm" disabled={busy} onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const id = `tariff-${label.toLowerCase().replace(/[^a-z]+/g, '-')}`;
+  return (
+    <div>
+      <label htmlFor={id} className="eyebrow mb-1 block">
+        {label}
+      </label>
+      <textarea
+        id={id}
+        rows={2}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-sm border border-rule bg-bg px-2.5 py-1.5 text-sm text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+      />
     </div>
   );
 }
