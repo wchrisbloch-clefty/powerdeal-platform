@@ -7,7 +7,22 @@ discovered again from scratch.
 
 ## 1. Nothing in the application ever changes a deal's stage
 
-**Status:** queued, after per-deal competitive state
+**Status:** SHIPPED 2026-08-11 — `components/modules/stage-control.tsx` +
+`lib/stage.ts`. Kept here because the finding, the four affected features and
+the three open questions are the record of why the fix looks the way it does.
+
+**Resolved:** the three questions below were answered as follows. Backward
+movement is ALLOWED — a ladder that only went up would force the record to lie
+about a deal that regressed, which is worse than the regression, and the
+trigger writes a transition row either way so a reversal is as legible as an
+advance. Post-Sale does NOT follow Closed-Won automatically: an automatic
+advance writes a transition nobody decided. Reopening a closed deal is allowed
+and FLAGGED, because `log_win_loss()` wrote a row on the way in and moving back
+out leaves it describing a deal that is live again.
+
+`days_in_stage` is unfrozen with it, as recorded below.
+
+**Originally filed:** queued, after per-deal competitive state
 **Found:** 2026-08-10, while scoping win-loss capture
 **Severity:** four shipped features are computing on an immovable field
 
@@ -72,7 +87,7 @@ A stage control on the deal header, writing through the existing `PATCH` route.
 The trigger already handles the transition row and the `days_in_stage` reset, so
 the server side is done — this is a UI and a decision about backwards movement.
 
-### `days_in_stage` rides on this and is frozen until it lands
+### `days_in_stage` rode on this and is now unfrozen
 
 **Added 2026-08-11.** `days_in_stage` counts from creation and is only ever
 reset by `deals_log_transition`, which fires on a stage change. With nothing in
@@ -88,11 +103,16 @@ Three shipped things read it as though it meant what it says:
   on age alone.
 - **`isAtRisk`** — `days_in_stage > 30`, which eventually catches everything.
 
-Nothing is being patched around it. A derived reset, or a backfill from
-`stage_transitions`, would make the number look right while the underlying
+Nothing was patched around it. A derived reset, or a backfill from
+`stage_transitions`, would have made the number look right while the underlying
 cause — no stage ever advancing — stayed in place, and the number looking right
-is exactly what would stop anyone fixing it. It unfreezes when stage
-advancement lands, in the same pass.
+is exactly what would have stopped anyone fixing it. It unfroze when stage
+advancement landed, in the same pass, with no change to the field itself.
+
+Existing deals still carry a `days_in_stage` that means "days since created"
+until each one is moved for the first time. That is not backfilled, for the
+same reason: a backfilled number would be a guess presented as a measurement.
+The first real move on a deal makes its counter honest.
 
 ---
 

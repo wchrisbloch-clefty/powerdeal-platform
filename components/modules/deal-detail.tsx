@@ -28,6 +28,7 @@ import SignalCapture from './signal-capture';
 import LogOutcome from './log-outcome';
 import WinLossList from './win-loss-list';
 import CompetitivePanel from './competitive-panel';
+import StageControl from './stage-control';
 import UtilityPanel from './utility-panel';
 import type { UtilityContext } from '@/lib/utility/model';
 import MapPlanPanel from './map-plan';
@@ -827,6 +828,14 @@ export default function DealDetail({
             >
               <Radio size={14} /> Log Signal
             </Button>
+          </div>
+
+          {/* Advancing, not closing. Offered on EVERY deal including terminal
+              ones — a closed deal that comes back is a real thing, and the
+              control names what reopening leaves inconsistent rather than
+              refusing the move. */}
+          <div className="pt-2 [&>button]:w-full [&>button]:justify-start">
+            <StageControl deal={deal} />
           </div>
 
           {/* Closes the deal AND records the buyer's words in one write. Not
