@@ -15,6 +15,13 @@ export interface AiStreamRequest {
   dealId?: string;
   content?: string;
   audiencePersona?: string;
+  /**
+   * Which posture a competitive card argues against — a catalog key ('grid')
+   * or a stored competitor row id. Passed, never inferred: a card that guessed
+   * would be wrong on any deal facing more than one competitor, and nothing on
+   * the page would say so.
+   */
+  postureKey?: string;
   history?: { role: 'user' | 'assistant'; content: string }[];
 }
 

@@ -1,5 +1,6 @@
 import 'server-only';
 import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
+import { CATALOG_BY_KEY, presenceWrite } from '@/lib/competitor-catalog';
 import type { CompetitorTier, DealCompetitor } from '@/lib/types';
 
 /**
@@ -16,20 +17,15 @@ import type { CompetitorTier, DealCompetitor } from '@/lib/types';
  */
 
 /**
- * Do-nothing is always in the deal, whether or not anyone recorded it.
+ * Do-nothing lives in the CATALOG, not here, and is deliberately NOT stored as
+ * a row. Storing it would make a permanent condition of every opportunity look
+ * optional — something you might or might not have entered.
  *
- * It is deliberately NOT stored as a row. Storing it would make it look
- * optional — something you might or might not have entered — when it is a
- * permanent condition of every opportunity. The no-decision card generates from
- * this constant plus the deal's own critical_event, so it exists even for a
- * deal with an empty competitor set.
+ * More generally: nothing on this table is a competitor list. It records where
+ * a deal DIFFERS from the defaults, and the defaults are in
+ * lib/competitor-catalog. A deal with zero rows is the ordinary deal — the grid
+ * and the status quo, both on — not an unconfigured one.
  */
-export const NO_DECISION: Pick<DealCompetitor, 'competitor' | 'tier' | 'posture'> = {
-  competitor: 'Do nothing',
-  tier: 'tier-1',
-  posture:
-    'The status quo has a scheduled, compounding cost. A flat comparison hides it.',
-};
 
 export async function competitorsForDeal(dealId: string): Promise<DealCompetitor[]> {
   const client = getAdminClient();
@@ -111,52 +107,60 @@ export async function removeCompetitor(
 }
 
 /**
- * The postures a card can be generated against.
+ * Flip one row of the toggle grid.
  *
- * Always includes do-nothing, whether or not the deal has any recorded
- * competitors. A deal with an empty set still faces the status quo, and a
- * competitive surface that showed nothing for such a deal would be describing
- * the record rather than the situation.
+ * The DECISION is pure and lives in lib/competitor-catalog — what a toggle
+ * writes has to be the same answer the panel renders and the tests assert, and
+ * it can only be the same answer if there is one implementation of it. This
+ * function does the IO and nothing else.
+ *
+ * `key` is a catalog key ('grid') or a stored row id. Never a display name:
+ * the grid's display name follows the Spine's Utility Territory field, so a
+ * rename there would otherwise orphan the row that switched it off and the
+ * grid would silently turn itself back on.
  */
-export function postures(competitors: DealCompetitor[]): {
+export async function setPresence(input: {
+  dealId: string;
   key: string;
-  competitor: string;
-  tier: CompetitorTier;
-  posture: string | null;
-  recorded: boolean;
-}[] {
-  const active = competitors.filter((c) => c.status === 'active');
-  return [
-    {
-      key: 'no-decision',
-      competitor: NO_DECISION.competitor,
-      tier: NO_DECISION.tier,
-      posture: NO_DECISION.posture,
-      recorded: false,
-    },
-    ...active.map((c) => ({
-      key: c.id,
-      competitor: c.competitor,
-      tier: c.tier,
-      posture: c.posture,
-      recorded: true,
-    })),
-  ];
-}
+  on: boolean;
+  /** Loaded once by the caller so the read and the write see one state. */
+  competitors: DealCompetitor[];
+}): Promise<{ ok: boolean; error?: string }> {
+  const client = getAdminClient();
+  if (!client) return { ok: false, error: 'Supabase is not configured.' };
 
-/**
- * The other competitors in the deal, for a card's "competitive set" header.
- *
- * Every card names the postures it is NOT addressing. Without it a rep can
- * carry the integrator card into a meeting where the real threat is do-nothing
- * and never notice the mismatch — the card would read as complete because it
- * says nothing about what it left out.
- */
-export function otherPostures(
-  competitors: DealCompetitor[],
-  currentKey: string,
-): string[] {
-  return postures(competitors)
-    .filter((p) => p.key !== currentKey)
-    .map((p) => p.competitor);
+  const entry = CATALOG_BY_KEY.get(input.key);
+  const existing = entry
+    ? input.competitors.find(
+        (c) => c.competitor.trim().toLowerCase() === entry.name.trim().toLowerCase(),
+      ) ?? null
+    : input.competitors.find((c) => c.id === input.key) ?? null;
+
+  if (!entry && !existing) {
+    return { ok: false, error: `Unknown competitor: ${input.key}` };
+  }
+  if (entry?.presence === 'always') {
+    // Do-nothing is a permanent condition of every opportunity, not a choice.
+    return { ok: false, error: 'Do nothing is in every deal and cannot be switched off.' };
+  }
+
+  // A hand-typed competitor has no catalog default, so its default is "off" —
+  // it exists only because someone added it.
+  const decision = presenceWrite(entry ?? { presence: 'off' }, input.on, existing);
+
+  if (decision.action === 'none') return { ok: true };
+
+  if (decision.action === 'delete') {
+    return removeCompetitor(input.dealId, existing!.competitor);
+  }
+
+  return upsertCompetitor({
+    dealId: input.dealId,
+    competitor: existing?.competitor ?? entry!.name,
+    tier: existing?.tier ?? entry!.tier,
+    posture: existing?.posture ?? null,
+    whatWasSaid: existing?.what_was_said ?? null,
+    whatLanded: existing?.what_landed ?? null,
+    status: decision.status,
+  });
 }

@@ -1,4 +1,4 @@
-import type { Deal, DealCompetitor } from '@/lib/types';
+import type { Deal } from '@/lib/types';
 
 /**
  * COMPETITIVE CARDS — one card per posture.
@@ -119,14 +119,10 @@ export function assembleCard(opts: {
   );
 }
 
-/** The postures currently live on a deal, for the card picker. */
-export function cardablePostures(
-  competitors: DealCompetitor[],
-): { key: string; label: string; tier: string }[] {
-  return [
-    { key: 'no-decision', label: 'Do nothing', tier: 'tier-1' },
-    ...competitors
-      .filter((c) => c.status === 'active')
-      .map((c) => ({ key: c.id, label: c.competitor, tier: c.tier })),
-  ];
-}
+/**
+ * The card picker is DERIVED, not maintained.
+ *
+ * See cardControls() in lib/competitor-catalog — the buttons come straight off
+ * the toggle grid. A second list here would be a second answer to "who is in
+ * this deal", and the two would disagree the first time a toggle moved.
+ */

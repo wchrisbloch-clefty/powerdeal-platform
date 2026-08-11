@@ -1,22 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
+import {
+  CATALOG, CATALOG_BY_KEY, cardControls, gridCompetitorName, gridNameIsGeneric,
+  otherPostureNames, presenceGrid, presenceWrite,
+} from '@/lib/competitor-catalog';
 import { COMPETITOR_TIERS, TIER_LABELS, type DealCompetitor } from '@/lib/types';
 
 const MIGRATION = 'supabase/migrations/20260810_deal_competitors.sql';
 
 /**
- * PER-DEAL COMPETITIVE STATE.
+ * PER-DEAL COMPETITIVE STATE, entered as a toggle grid.
  *
- * The trap being avoided: testing multi-posture with one competitor, which
- * proves a list can hold an item and nothing about whether the model supports
- * incompatible simultaneous arguments. Every fixture here carries three.
+ * Two traps are being avoided here.
+ *
+ * The first: testing multi-posture with one competitor, which proves a list can
+ * hold an item and nothing about whether the model supports incompatible
+ * simultaneous arguments. The Williams-shaped fixture carries three.
+ *
+ * The second, and the one this build keeps re-learning: a check that can only
+ * fail in one direction. "The grid is on" passes on a grid that is on because
+ * everything is on, so the defaults are asserted as a SET — what is on and what
+ * is off, together — and every toggle is exercised in both directions.
  */
 
 function competitor(over: Partial<DealCompetitor>): DealCompetitor {
   return {
     id: over.id ?? 'c1',
     deal_id: 'd1',
-    competitor: over.competitor ?? 'The Grid',
+    competitor: over.competitor ?? 'Grid supply',
     tier: over.tier ?? 'tier-1',
     posture: over.posture ?? null,
     what_was_said: over.what_was_said ?? null,
@@ -29,74 +40,349 @@ function competitor(over: Partial<DealCompetitor>): DealCompetitor {
   };
 }
 
-/** Williams-shaped: grid, combustion and an integrator in one deal. */
-function threePostures(): DealCompetitor[] {
-  return [
-    competitor({ id: 'c1', competitor: 'The Grid', tier: 'tier-1' }),
-    competitor({ id: 'c2', competitor: 'Wartsila recip', tier: 'tier-1' }),
-    competitor({ id: 'c3', competitor: 'Packaged integrator', tier: 'integrator' }),
-  ];
-}
+const WILLIAMS = { utility: 'CenterPoint' };
+const MULTI = { utility: 'multi' };
 
-describe('posture is a set, not a value', () => {
-  it('carries three incompatible postures in one deal', async () => {
-    const { postures } = await import('@/lib/competitive');
-    const p = postures(threePostures());
-    // Three recorded plus do-nothing.
-    expect(p).toHaveLength(4);
-    expect(p.filter((x) => x.recorded)).toHaveLength(3);
+const on = (deal: { utility: string | null }, cs: DealCompetitor[] = []) =>
+  presenceGrid(deal, cs).filter((r) => r.on).map((r) => r.key);
+
+const entry = (key: string) => CATALOG_BY_KEY.get(key)!;
+
+describe('the zero-click state is already right for the common deal', () => {
+  it('turns on exactly do-nothing and the grid, and nothing else', () => {
+    // Asserted as a whole set. Checking only that the grid is on would pass
+    // just as well on a grid where every competitor defaulted to on.
+    expect(on(WILLIAMS)).toEqual(['no-decision', 'grid']);
+  });
+
+  it('leaves combustion off — the default is the common case, not the union', () => {
+    const rows = presenceGrid(WILLIAMS, []);
+    expect(rows.find((r) => r.key === 'turbines')?.on).toBe(false);
+    expect(rows.find((r) => r.key === 'recips')?.on).toBe(false);
+  });
+
+  it('shows combustion at the top level anyway — it is the other Tier 1 enemy', () => {
+    const top = presenceGrid(WILLIAMS, []).filter((r) => r.topLevel).map((r) => r.key);
+    expect(top).toEqual(['no-decision', 'grid', 'turbines', 'recips']);
+  });
+
+  it('collapses tier 2, tier 3 and integrator', () => {
+    const collapsed = CATALOG.filter((e) => !e.topLevel).map((e) => e.tier);
+    expect(new Set(collapsed)).toEqual(new Set(['tier-2', 'tier-3', 'integrator']));
+  });
+
+  it('has no Bloom row in any state — Bloom is aligned, not a competitor', () => {
+    expect(CATALOG.some((e) => /bloom/i.test(e.name))).toBe(false);
+  });
+});
+
+describe('do-nothing is a condition, not a choice', () => {
+  it('is on with an empty record', () => {
+    expect(presenceGrid(MULTI, []).find((r) => r.key === 'no-decision')?.on).toBe(true);
+  });
+
+  it('cannot be switched off', () => {
+    expect(presenceGrid(MULTI, []).find((r) => r.key === 'no-decision')?.toggleable).toBe(false);
+  });
+
+  it('is not stored as a row — storing it would make it look optional', async () => {
+    const src = await readFile('lib/competitive.ts', 'utf8');
+    expect(src).toContain('deliberately NOT stored as');
+  });
+
+  it('carries the one posture that is doctrine rather than a per-deal fact', () => {
+    expect(CATALOG_BY_KEY.get('no-decision')?.posture).toMatch(/compounding cost/);
+  });
+});
+
+describe('the grid is on by default and absence means present', () => {
+  it('is on with no row at all', () => {
+    expect(presenceGrid(WILLIAMS, []).find((r) => r.key === 'grid')?.on).toBe(true);
+  });
+
+  it('goes off when a not-present row exists', () => {
+    const rows = presenceGrid(WILLIAMS, [
+      competitor({ competitor: 'Grid supply', status: 'not-present' }),
+    ]);
+    expect(rows.find((r) => r.key === 'grid')?.on).toBe(false);
+    // And the rest of the grid is unaffected — a toggle is not a reset.
+    expect(rows.find((r) => r.key === 'no-decision')?.on).toBe(true);
+  });
+
+  it('switching it off writes a row rather than deleting one', () => {
+    expect(presenceWrite(entry('grid'), false, null)).toEqual({
+      action: 'upsert',
+      status: 'not-present',
+    });
+  });
+
+  it('switching it back on DELETES the row, restoring the true default', () => {
+    // Not "upsert active". Storing the default as data makes an empty table
+    // indistinguishable from an unconfigured one.
+    const stored = competitor({ competitor: 'Grid supply', status: 'not-present' });
+    expect(presenceWrite(entry('grid'), true, stored)).toEqual({ action: 'delete' });
+  });
+
+  it('is a no-op when already at its default with nothing stored', () => {
+    expect(presenceWrite(entry('grid'), true, null)).toEqual({ action: 'none' });
+  });
+});
+
+describe('everything else is off by default', () => {
+  it('switching on writes an active row', () => {
+    expect(presenceWrite(entry('turbines'), true, null)).toEqual({
+      action: 'upsert',
+      status: 'active',
+    });
+  });
+
+  it('switching off again deletes it when nothing was recorded', () => {
+    const stored = competitor({ id: 'c9', competitor: 'Wind', tier: 'tier-2' });
+    expect(presenceWrite(entry('wind'), false, stored)).toEqual({ action: 'delete' });
+  });
+
+  it('an active row turns its catalog entry on', () => {
+    const rows = presenceGrid(WILLIAMS, [
+      competitor({ id: 'c2', competitor: 'Batteries / storage', tier: 'tier-2' }),
+    ]);
+    expect(rows.find((r) => r.key === 'battery')?.on).toBe(true);
+  });
+});
+
+describe('two seconds of toggling cannot destroy a recorded posture', () => {
+  it('switching off a row WITH detail preserves it as not-present', () => {
+    const stored = competitor({
+      id: 'c3',
+      competitor: 'Combustion turbines (GE LM / Solar)',
+      posture: 'Heat rate degrades at part load and the permit runs 14 months.',
+    });
+    expect(presenceWrite(entry('turbines'), false, stored)).toEqual({
+      action: 'upsert',
+      status: 'not-present',
+    });
+  });
+
+  it('the same is true for a buyer verbatim', () => {
+    const stored = competitor({
+      id: 'c4',
+      competitor: 'Wind',
+      tier: 'tier-2',
+      what_was_said: 'Their siting study came back at 30 months.',
+    });
+    expect(presenceWrite(entry('wind'), false, stored)).not.toEqual({ action: 'delete' });
+  });
+
+  it('and for what landed — the compounding half', () => {
+    const stored = competitor({
+      id: 'c5',
+      competitor: 'Grid supply',
+      what_landed: 'The 4CP exposure number moved them.',
+    });
+    // Back to its default, but detail exists, so the row stays.
+    expect(presenceWrite(entry('grid'), true, stored)).toEqual({
+      action: 'upsert',
+      status: 'active',
+    });
+  });
+});
+
+describe('the grid is named from the record, and identity is not the name', () => {
+  it('uses the utility when the record has one', () => {
+    expect(gridCompetitorName({ utility: 'CenterPoint' })).toBe('CenterPoint');
+  });
+
+  it('falls back to "the grid" for the multi-territory placeholder', () => {
+    // 13 of 21 deals carry 'multi'. Without this the majority of the book
+    // would produce cards titled "pricing defense vs. multi".
+    expect(gridCompetitorName({ utility: 'multi' })).toBe('the grid');
+    expect(gridNameIsGeneric({ utility: 'multi' })).toBe(true);
+  });
+
+  it('falls back when the field is empty or missing', () => {
+    expect(gridCompetitorName({ utility: '' })).toBe('the grid');
+    expect(gridCompetitorName({ utility: null })).toBe('the grid');
+    expect(gridCompetitorName({ utility: '  ' })).toBe('the grid');
+  });
+
+  it('does NOT silently correct a market operator into a utility', () => {
+    // Two deals carry ERCOT, which is not who bills them. The card will say
+    // "vs. ERCOT". Rewriting it here would invent a fact about the deal from
+    // inside a naming function; the fix belongs in the Spine.
+    expect(gridCompetitorName({ utility: 'ERCOT' })).toBe('ERCOT');
+  });
+
+  it('keeps a switched-off grid switched off when the utility is renamed', () => {
+    // The failure this prevents: storing the row under the display name, then
+    // the Spine's Utility Territory changes and the row is orphaned — the grid
+    // silently turns itself back on with nothing saying it moved.
+    const off = [competitor({ competitor: 'Grid supply', status: 'not-present' })];
+    expect(presenceGrid({ utility: 'CenterPoint' }, off).find((r) => r.key === 'grid')?.on).toBe(false);
+    expect(presenceGrid({ utility: 'PG&E' }, off).find((r) => r.key === 'grid')?.on).toBe(false);
+    expect(presenceGrid({ utility: 'multi' }, off).find((r) => r.key === 'grid')?.on).toBe(false);
+  });
+
+  it('relabels the same row when the utility changes', () => {
+    const label = (u: string) =>
+      presenceGrid({ utility: u }, []).find((r) => r.key === 'grid')!.label;
+    expect(label('CenterPoint')).toBe('CenterPoint');
+    expect(label('PG&E')).toBe('PG&E');
+    expect(label('multi')).toBe('the grid');
+  });
+});
+
+describe('posture is a set — a Williams-shaped deal holds three at once', () => {
+  const williams = [
+    competitor({ id: 'c1', competitor: 'Reciprocating engines (Wärtsilä / INNIO / CAT)' }),
+    competitor({ id: 'c2', competitor: 'Packaged integrator', tier: 'integrator' }),
+  ];
+
+  it('carries grid, combustion and integrator simultaneously', () => {
+    expect(on(WILLIAMS, williams)).toEqual(['no-decision', 'grid', 'recips', 'integrator']);
   });
 
   it('spans more than one tier — a single-tier fixture would prove nothing', () => {
-    const tiers = new Set(threePostures().map((c) => c.tier));
+    const tiers = new Set(
+      presenceGrid(WILLIAMS, williams).filter((r) => r.on).map((r) => r.tier),
+    );
     expect(tiers.size).toBeGreaterThan(1);
   });
 
-  it('excludes eliminated competitors from the live posture set', async () => {
-    const { postures } = await import('@/lib/competitive');
+  it('drops an eliminated competitor from the live set', () => {
     const withDead = [
-      ...threePostures(),
-      competitor({ id: 'c4', competitor: 'Battery', tier: 'tier-2', status: 'eliminated' }),
+      ...williams,
+      competitor({ id: 'c3', competitor: 'Batteries / storage', tier: 'tier-2', status: 'eliminated' }),
     ];
-    expect(postures(withDead).map((p) => p.competitor)).not.toContain('Battery');
+    expect(on(WILLIAMS, withDead)).not.toContain('battery');
   });
 });
 
-describe('do-nothing is always present', () => {
-  it('appears even when the deal has no recorded competitors', async () => {
-    const { postures } = await import('@/lib/competitive');
-    const p = postures([]);
-    expect(p).toHaveLength(1);
-    expect(p[0].competitor).toBe('Do nothing');
+describe('a hand-typed competitor is not flattened into a catalog bucket', () => {
+  const named = [
+    competitor({ id: 'x1', competitor: 'Wärtsilä via Burns & McDonnell', tier: 'tier-1' }),
+  ];
+
+  it('appears in the grid under its own name', () => {
+    const row = presenceGrid(WILLIAMS, named).find((r) => r.custom);
+    expect(row?.label).toBe('Wärtsilä via Burns & McDonnell');
+    expect(row?.on).toBe(true);
   });
 
-  it('is marked unrecorded, so the UI can say it was never entered', async () => {
-    const { postures } = await import('@/lib/competitive');
-    expect(postures(threePostures()).find((p) => p.key === 'no-decision')?.recorded).toBe(false);
+  it('is keyed by its row id, since it has no catalog key', () => {
+    expect(presenceGrid(WILLIAMS, named).find((r) => r.custom)?.key).toBe('x1');
   });
 
-  it('is not stored as a row — it is a condition, not an entry', async () => {
+  it('does not duplicate a catalog entry that already claimed its row', () => {
+    // A stored row matching a catalog name must appear ONCE, as that catalog
+    // entry — not twice, as itself and as a stray hand-typed addition.
+    const rows = presenceGrid(WILLIAMS, [competitor({ competitor: 'Grid supply' })]);
+    expect(rows.filter((r) => r.on && /grid|CenterPoint/i.test(r.label))).toHaveLength(1);
+    expect(rows.some((r) => r.custom)).toBe(false);
+  });
+
+  it('matches the catalog name case-insensitively', () => {
+    const rows = presenceGrid(WILLIAMS, [
+      competitor({ competitor: 'grid supply', status: 'not-present' }),
+    ]);
+    expect(rows.find((r) => r.key === 'grid')?.on).toBe(false);
+    expect(rows.some((r) => r.custom)).toBe(false);
+  });
+});
+
+describe('the card buttons derive from the toggle state', () => {
+  it('every deal has at least two cards with no entry required', () => {
+    const cards = cardControls(MULTI, []);
+    expect(cards.map((c) => c.label)).toEqual(['Do nothing', 'the grid']);
+  });
+
+  it('names the utility on the grid card when the record has one', () => {
+    expect(cardControls(WILLIAMS, []).map((c) => c.label)).toEqual(['Do nothing', 'CenterPoint']);
+  });
+
+  it('routes do-nothing to its own task and everything else to pricing defense', () => {
+    const cards = cardControls(WILLIAMS, []);
+    expect(cards[0].task).toBe('no-decision-card');
+    expect(cards[1].task).toBe('pricing-defense-card');
+  });
+
+  it('gains a button the moment a competitor is switched on', () => {
+    const before = cardControls(WILLIAMS, []).length;
+    const after = cardControls(WILLIAMS, [
+      competitor({ id: 'c2', competitor: 'Wind', tier: 'tier-2' }),
+    ]).length;
+    expect(after).toBe(before + 1);
+  });
+
+  it('loses it again when switched off', () => {
+    const cards = cardControls(WILLIAMS, [
+      competitor({ id: 'c2', competitor: 'Wind', tier: 'tier-2', status: 'not-present' }),
+    ]);
+    expect(cards.map((c) => c.label)).not.toContain('Wind');
+  });
+
+  it('marks a posture with nothing recorded as thin — a hint, never a gate', () => {
+    expect(cardControls(WILLIAMS, []).every((c) => c.thin)).toBe(true);
+    const fat = cardControls(WILLIAMS, [
+      competitor({ id: 'c2', competitor: 'Wind', tier: 'tier-2', posture: 'Siting timeline.' }),
+    ]);
+    expect(fat.find((c) => c.label === 'Wind')?.thin).toBe(false);
+  });
+
+  it('uses a stable postureKey, not the display name', () => {
+    // The key survives a utility rename; the label does not.
+    expect(cardControls(WILLIAMS, [])[1].postureKey).toBe('grid');
+    expect(cardControls(MULTI, [])[1].postureKey).toBe('grid');
+  });
+});
+
+describe('the negative header reads the toggle set, not the stored rows', () => {
+  it('names the grid even though no row exists for it', () => {
+    // The failure this prevents: the header omitting the single posture most
+    // likely to be the real one, because the common case stores nothing.
+    const others = otherPostureNames(WILLIAMS, [], 'no-decision');
+    expect(others).toEqual(['CenterPoint']);
+  });
+
+  it('names do-nothing when the card is a pricing defense', () => {
+    expect(otherPostureNames(WILLIAMS, [], 'grid')).toEqual(['Do nothing']);
+  });
+
+  it('updates when a competitor is switched on', () => {
+    const others = otherPostureNames(
+      WILLIAMS,
+      [competitor({ id: 'c2', competitor: 'Packaged integrator', tier: 'integrator' })],
+      'grid',
+    );
+    expect(others).toEqual(['Do nothing', 'Packaged integrator']);
+  });
+
+  it('drops a competitor that was switched off', () => {
+    const others = otherPostureNames(
+      WILLIAMS,
+      [competitor({ id: 'c2', competitor: 'Wind', tier: 'tier-2', status: 'not-present' })],
+      'grid',
+    );
+    expect(others).not.toContain('Wind');
+  });
+
+  it('never names the posture the card is addressing', () => {
+    for (const key of ['no-decision', 'grid']) {
+      const label = presenceGrid(WILLIAMS, []).find((r) => r.key === key)!.label;
+      expect(otherPostureNames(WILLIAMS, [], key)).not.toContain(label);
+    }
+  });
+});
+
+describe('one implementation of "who is in this deal"', () => {
+  it('the card picker is derived, not a second maintained list', async () => {
+    const src = await readFile('lib/cards.ts', 'utf8');
+    expect(src).toContain('DERIVED, not maintained');
+    expect(src).not.toContain('export function cardablePostures');
+  });
+
+  it('the toggle decision is pure, so panel, API and tests share it', async () => {
     const src = await readFile('lib/competitive.ts', 'utf8');
-    // Storing it would make a permanent condition look optional.
-    expect(src).toContain('deliberately NOT stored as a row');
-  });
-});
-
-describe('every card names the postures it is not addressing', () => {
-  it('lists the others, including do-nothing', async () => {
-    const { otherPostures } = await import('@/lib/competitive');
-    const others = otherPostures(threePostures(), 'c1');
-    expect(others).toContain('Do nothing');
-    expect(others).toContain('Wartsila recip');
-    expect(others).toContain('Packaged integrator');
-    expect(others).not.toContain('The Grid');
-  });
-
-  it('still names the others when the current card IS do-nothing', async () => {
-    const { otherPostures } = await import('@/lib/competitive');
-    const others = otherPostures(threePostures(), 'no-decision');
-    expect(others).toHaveLength(3);
-    expect(others).not.toContain('Do nothing');
+    expect(src).toContain('presenceWrite');
+    expect(src).toContain('lib/competitor-catalog');
   });
 });
 
@@ -105,6 +391,10 @@ describe('tiers track the doctrine', () => {
     for (const t of COMPETITOR_TIERS) {
       expect(TIER_LABELS[t]).toBeTruthy();
     }
+  });
+
+  it('every catalog entry carries a declared tier', () => {
+    for (const e of CATALOG) expect(COMPETITOR_TIERS).toContain(e.tier);
   });
 
   it('the three doctrine tiers exist in the system prompt', async () => {
@@ -126,6 +416,10 @@ describe('tiers track the doctrine', () => {
     const prompt = await readFile('prompts/powerdeal-v3.1.8-system-prompt.md', 'utf8');
     expect(prompt).not.toMatch(/TIER 1B|TIER 4|INTEGRATOR —/i);
   });
+
+  it('says so on the toggle itself, where someone is about to switch it on', () => {
+    expect(CATALOG_BY_KEY.get('integrator')?.hint).toMatch(/no doctrine yet/i);
+  });
 });
 
 describe('the migration', () => {
@@ -133,6 +427,12 @@ describe('the migration', () => {
     const sql = await readFile(MIGRATION, 'utf8');
     for (const t of COMPETITOR_TIERS) expect(sql).toContain(`'${t}'`);
     expect(sql).toContain('check (tier in');
+  });
+
+  it('admits not-present, which is how a default-on competitor is switched off', async () => {
+    const sql = await readFile(MIGRATION, 'utf8');
+    expect(sql).toContain("'not-present'");
+    expect(sql).toContain('check (status in');
   });
 
   it('enforces one row per competitor per deal', async () => {
@@ -153,12 +453,15 @@ describe('the migration', () => {
     expect(idx).toHaveLength(guarded.length);
   });
 
-  it('ships a behavioural verification that exercises the constraints', async () => {
+  it('ships a behavioural verification that exercises every constraint', async () => {
     const sql = await readFile(MIGRATION, 'utf8');
     // Structural checks alone pass on a table with no unique constraint.
     expect(sql).toContain('FAIL: duplicate competitor was accepted');
     expect(sql).toContain('FAIL: an undefined tier was accepted');
-    expect(sql).toContain('competitors on one deal');
+    // The status constraint was WIDENED to admit not-present, and widening is
+    // where a typo stops being caught.
+    expect(sql).toContain('FAIL: an undefined status was accepted');
+    expect(sql).toContain('ACTIVE competitors');
   });
 });
 
@@ -166,5 +469,10 @@ describe('schema.sql carries the table too', () => {
   it('a fresh instance gets deal_competitors without the migration', async () => {
     const schema = await readFile('supabase/schema.sql', 'utf8');
     expect(schema).toContain('create table if not exists deal_competitors');
+  });
+
+  it('and gets the widened status constraint with it', async () => {
+    const schema = await readFile('supabase/schema.sql', 'utf8');
+    expect(schema).toContain("'not-present'");
   });
 });

@@ -2,13 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import JSZip from 'jszip';
 import { generateDocx } from '@/lib/forge/generate';
-import {
-  assembleCard,
-  cardFilename,
-  cardTitle,
-  cardablePostures,
-  negativeHeader,
-} from '@/lib/cards';
+import { assembleCard, cardFilename, cardTitle, negativeHeader } from '@/lib/cards';
+import { cardControls } from '@/lib/competitor-catalog';
 import type { DealCompetitor } from '@/lib/types';
 
 /**
@@ -165,13 +160,14 @@ describe('filenames tell two cards apart without opening them', () => {
 });
 
 describe('do-nothing is always cardable', () => {
-  it('appears with no competitors recorded', () => {
-    expect(cardablePostures([]).map((p) => p.label)).toEqual(['Do nothing']);
+  const deal = { utility: 'CenterPoint' };
+
+  it('appears with no competitors recorded, alongside the default-on grid', () => {
+    expect(cardControls(deal, []).map((p) => p.label)).toEqual(['Do nothing', 'CenterPoint']);
   });
 
   it('leads the list when competitors exist', () => {
-    const p = cardablePostures([
-      competitor({ id: 'c1', competitor: 'The Grid' }),
+    const p = cardControls(deal, [
       competitor({ id: 'c2', competitor: 'Packaged integrator', tier: 'integrator' }),
     ]);
     expect(p[0].label).toBe('Do nothing');
@@ -179,8 +175,10 @@ describe('do-nothing is always cardable', () => {
   });
 
   it('omits eliminated competitors', () => {
-    const p = cardablePostures([competitor({ id: 'c1', competitor: 'Battery', status: 'eliminated' })]);
-    expect(p.map((x) => x.label)).not.toContain('Battery');
+    const p = cardControls(deal, [
+      competitor({ id: 'c1', competitor: 'Batteries / storage', tier: 'tier-2', status: 'eliminated' }),
+    ]);
+    expect(p.map((x) => x.label)).not.toContain('Batteries / storage');
   });
 });
 
@@ -226,5 +224,35 @@ describe('source tagging is a structural requirement of both prompts', () => {
   it('the pricing defense takes posture as an input, never inferred', async () => {
     const route = await readFile('app/api/ai/route.ts', 'utf8');
     expect(route).toContain('requires a postureKey');
+  });
+});
+
+describe('the header is emitted before the model, not after it', () => {
+  /**
+   * The whole point of building the header in code is that it cannot be lost.
+   * Appending it after generation would lose it on every failed or interrupted
+   * stream — and a half-generated card is exactly the situation where a reader
+   * most needs to know which posture they are holding.
+   */
+  it('the route prefixes the stream rather than post-processing it', async () => {
+    const route = await readFile('app/api/ai/route.ts', 'utf8');
+    expect(route).toContain('withCardHeader');
+    expect(route).toContain('if (header) yield');
+    // Prefixed, so it lands in the same buffer the export button reads.
+    expect(route).toContain('toSseResponse(withCardHeader(');
+  });
+
+  it('resolves the posture against the TOGGLE GRID, not the stored rows', async () => {
+    // The grid is on by default and stores no row for the ordinary case, so a
+    // lookup restricted to stored rows would refuse the most common card on
+    // the majority of the book.
+    const route = await readFile('app/api/ai/route.ts', 'utf8');
+    expect(route).toContain('presenceGrid(deal, competitors)');
+    expect(route).not.toContain('competitors.find((c) => c.id === body.postureKey)');
+  });
+
+  it('reads the others from the toggle set, so switching one on changes it', async () => {
+    const route = await readFile('app/api/ai/route.ts', 'utf8');
+    expect(route).toContain('otherPostureNames(deal, competitors');
   });
 });

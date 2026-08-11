@@ -213,8 +213,21 @@ create table if not exists deal_competitors (
   -- Which of our arguments actually moved them. The compounding half.
   what_landed     text,
 
+  -- 'not-present' is how a DEFAULT-ON competitor is switched off.
+  --
+  -- The grid is on by default and is not stored as a row: absence means
+  -- present, so the zero-click state is already correct for the great majority
+  -- of deals. Toggling it OFF is the exception, and writing a row is how the
+  -- exception is recorded. That is the opposite of the usual convention and is
+  -- deliberate — the alternative seeds a row onto every deal to express the
+  -- normal case, which makes an empty table indistinguishable from an
+  -- unconfigured one.
+  --
+  -- 'eliminated' is NOT the same thing: it means we beat them. 'not-present'
+  -- means they were never in this deal — a remote off-grid site where the real
+  -- fight is a recip engine and grid supply was never an option.
   status          text not null default 'active'
-                  check (status in ('active','eliminated','lost-to','won-against')),
+                  check (status in ('active','eliminated','lost-to','won-against','not-present')),
 
   created_at      timestamptz default now(),
   updated_at      timestamptz default now(),

@@ -9,7 +9,7 @@ import {
   ShieldCheck, AlertTriangle,
 } from 'lucide-react';
 import type {
-  Deal, Signal, MarketWatchEntry, StageTransition,
+  Deal, Signal, MarketWatchEntry, StageTransition, DealCompetitor,
 } from '@/lib/types';
 import { meddpiccBreakdown, riskFlags } from '@/lib/deals';
 import { formatMw, formatUsd, formatDate, relativeTime, cn } from '@/lib/utils';
@@ -27,13 +27,17 @@ import AiOutput from '@/components/ui/ai-output';
 import SignalCapture from './signal-capture';
 import LogOutcome from './log-outcome';
 import WinLossList from './win-loss-list';
+import CompetitivePanel from './competitive-panel';
 import MapPlanPanel from './map-plan';
+import { cardFilename, cardTitle } from '@/lib/cards';
 import { starterPlan } from '@/lib/map/schedule';
 import type { MapPlan } from '@/lib/map/schedule';
 import { TERMINAL_STAGES } from '@/lib/types';
 import type { DealStage, WinLossEntry } from '@/lib/types';
 
-type Tab = 'intel' | 'signals' | 'market' | 'map' | 'history' | 'outcome' | 'artifacts';
+type Tab =
+  | 'intel' | 'signals' | 'market' | 'map' | 'competitive'
+  | 'history' | 'outcome' | 'artifacts';
 
 const AI_ACTIONS: { task: TaskKind; label: string; icon: typeof FileText }[] = [
   { task: 'brief', label: 'Generate Brief', icon: FileText },
@@ -54,6 +58,7 @@ export default function DealDetail({
   isSeed,
   mapPlan,
   winLoss = [],
+  competitors = [],
 }: {
   deal: Deal;
   signals: Signal[];
@@ -64,6 +69,12 @@ export default function DealDetail({
   mapPlan?: MapPlan | null;
   /** Outcomes logged against this deal. */
   winLoss?: WinLossEntry[];
+  /**
+   * Stored competitor rows. EMPTY IS THE DEFAULT STATE, not an absence — the
+   * toggle grid has do-nothing and the grid on with no rows at all, and a row
+   * exists only where someone contradicted a default or recorded detail.
+   */
+  competitors?: DealCompetitor[];
 }) {
   const params = useSearchParams();
   const [tab, setTab] = useState<Tab>('intel');
@@ -72,6 +83,18 @@ export default function DealDetail({
   const [closing, setClosing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  /**
+   * The card currently on screen: its posture and the day it was built.
+   *
+   * Held here because both are load-bearing on the way out — the title, the
+   * filename and the header all name the posture, and the date is what tells
+   * two cards for the same deal apart in a downloads folder.
+   */
+  const [card, setCard] = useState<{
+    kind: 'no-decision' | 'pricing-defense';
+    label: string;
+    date: string;
+  } | null>(null);
   const ai = useAiStream();
 
   const flags = riskFlags(deal);
@@ -81,8 +104,35 @@ export default function DealDetail({
 
   async function runTask(task: TaskKind) {
     setActiveTask(task);
+    setCard(null);
     setExportError(null);
     await ai.run({ task, dealId: deal.id });
+  }
+
+  /**
+   * Generate one competitive card against one posture.
+   *
+   * The postureKey is passed, never inferred. A card that guessed which
+   * competitor it was arguing against would be wrong on any deal facing more
+   * than one, and nothing on the page would say so.
+   *
+   * The negative header is prepended SERVER-SIDE, ahead of the model's first
+   * token, so it is already in the streamed text this component buffers and it
+   * reaches the DOCX with no second code path.
+   */
+  async function runCard(
+    task: 'no-decision-card' | 'pricing-defense-card',
+    postureKey: string,
+    label: string,
+  ) {
+    setActiveTask(task);
+    setExportError(null);
+    setCard({
+      kind: task === 'no-decision-card' ? 'no-decision' : 'pricing-defense',
+      label,
+      date: new Date().toISOString().slice(0, 10),
+    });
+    await ai.run({ task, dealId: deal.id, postureKey });
   }
 
   /**
@@ -93,7 +143,12 @@ export default function DealDetail({
    * the one on screen, and the user would have no way to tell which they had
    * downloaded.
    */
-  async function exportDocx(action: string, label: string | undefined, content: string) {
+  async function exportDocx(
+    action: string,
+    label: string | undefined,
+    content: string,
+    filename?: string,
+  ) {
     setExporting(true);
     setExportError(null);
     try {
@@ -119,7 +174,11 @@ export default function DealDetail({
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
+      // An explicit name wins: a card's filename carries its posture and the
+      // day it was built, and both have to be legible from the file listing
+      // without opening it.
       a.download =
+        filename ??
         res.headers.get('Content-Disposition')?.match(/filename="(.+?)"/)?.[1] ??
         `${deal.deal_id}-${action}.docx`;
       a.click();
@@ -461,6 +520,7 @@ export default function DealDetail({
                   ['signals', `Signals (${signals.length})`],
                   ['market', `Market watch (${marketWatch.length})`],
                   ['map', 'MAP'],
+                  ['competitive', 'Competitive'],
                   ['outcome', `Outcome (${winLoss.length})`],
                   ['history', `Stage history (${transitions.length})`],
                   ['artifacts', `Artifacts (${deal.artifacts?.length ?? 0})`],
@@ -614,6 +674,15 @@ export default function DealDetail({
                 />
               )}
 
+              {tab === 'competitive' && (
+                <CompetitivePanel
+                  deal={deal}
+                  competitors={competitors}
+                  busy={ai.streaming}
+                  onGenerate={runCard}
+                />
+              )}
+
               {tab === 'outcome' && <WinLossList entries={winLoss} />}
 
               {tab === 'artifacts' &&
@@ -650,7 +719,9 @@ export default function DealDetail({
           {(ai.text || ai.streaming || ai.error) && (
             <div>
               <p className="eyebrow mb-2">
-                {AI_ACTIONS.find((a) => a.task === activeTask)?.label ?? 'Output'}
+                {card
+                  ? cardTitle({ company: deal.company }, card.kind, card.label)
+                  : AI_ACTIONS.find((a) => a.task === activeTask)?.label ?? 'Output'}
               </p>
               <AiOutput
                 text={ai.text}
@@ -671,11 +742,18 @@ export default function DealDetail({
                     size="sm"
                     disabled={exporting}
                     onClick={() =>
-                      exportDocx(
-                        activeTask ?? 'output',
-                        AI_ACTIONS.find((a) => a.task === activeTask)?.label,
-                        ai.text,
-                      )
+                      card
+                        ? exportDocx(
+                            activeTask ?? 'output',
+                            `${card.kind === 'no-decision' ? 'No-decision case' : 'Pricing defense'} vs ${card.label}`,
+                            ai.text,
+                            cardFilename({ company: deal.company }, card.kind, card.label, card.date),
+                          )
+                        : exportDocx(
+                            activeTask ?? 'output',
+                            AI_ACTIONS.find((a) => a.task === activeTask)?.label,
+                            ai.text,
+                          )
                     }
                   >
                     <Download size={14} /> {exporting ? 'Rendering…' : 'Export DOCX'}

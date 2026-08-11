@@ -126,7 +126,20 @@ export const TIER_LABELS: Record<CompetitorTier, string> = {
   integrator: 'Integrator',
 };
 
-export const COMPETITOR_STATUSES = ['active', 'eliminated', 'lost-to', 'won-against'] as const;
+/**
+ * 'not-present' is how a DEFAULT-ON competitor is switched off.
+ *
+ * Distinct from 'eliminated', which means we beat them. 'not-present' means
+ * they were never in this deal at all — a remote off-grid site where the real
+ * fight is a recip engine and grid supply was never an option.
+ */
+export const COMPETITOR_STATUSES = [
+  'active',
+  'eliminated',
+  'lost-to',
+  'won-against',
+  'not-present',
+] as const;
 export type CompetitorStatus = (typeof COMPETITOR_STATUSES)[number];
 
 /**

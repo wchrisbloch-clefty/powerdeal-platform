@@ -40,8 +40,21 @@ create table if not exists deal_competitors (
   -- Which of our arguments actually moved them. The compounding half.
   what_landed     text,
 
+  -- 'not-present' is how a DEFAULT-ON competitor is switched off.
+  --
+  -- The grid is on by default and is not stored as a row: absence means
+  -- present, so the zero-click state is already correct for the great majority
+  -- of deals. Toggling it OFF is the exception, and writing a row is how the
+  -- exception is recorded. That is the opposite of the usual convention and is
+  -- deliberate — the alternative seeds a row onto every deal to express the
+  -- normal case, which makes an empty table indistinguishable from an
+  -- unconfigured one.
+  --
+  -- 'eliminated' is NOT the same thing: it means we beat them. 'not-present'
+  -- means they were never in this deal — a remote off-grid site where the real
+  -- fight is a recip engine and grid supply was never an option.
   status          text not null default 'active'
-                  check (status in ('active','eliminated','lost-to','won-against')),
+                  check (status in ('active','eliminated','lost-to','won-against','not-present')),
 
   created_at      timestamptz default now(),
   updated_at      timestamptz default now(),
@@ -128,11 +141,18 @@ create index if not exists deal_competitors_user_idx on deal_competitors(user_id
 --      'Bundled price hides financing cost and cannot be unbundled later',
 --      (select user_id from deals limit 1));
 --
+--   -- 'not-present' must be accepted: it is how a default-on competitor is
+--   -- switched off, and rejecting it would make the grid untoggleable.
+--   insert into deal_competitors (deal_id, competitor, tier, status, user_id)
+--   values (v_deal, 'CenterPoint', 'tier-1', 'not-present',
+--           (select user_id from deals limit 1));
+--
 --   select count(*), string_agg(distinct tier, ', ' order by tier)
 --     into v_count, v_tiers
---     from deal_competitors where deal_id = v_deal;
+--     from deal_competitors
+--    where deal_id = v_deal and status = 'active';
 --
---   raise notice 'competitors on one deal : % (expect 3)', v_count;
+--   raise notice 'ACTIVE competitors       : % (expect 3, the not-present row excluded)', v_count;
 --   raise notice 'distinct tiers          : %', v_tiers;
 --
 --   if v_count <> 3 then
@@ -158,7 +178,19 @@ create index if not exists deal_competitors_user_idx on deal_competitors(user_id
 --     raise notice 'undefined tier rejected       : correct';
 --   end;
 --
---   raise notice 'PASS: multi-posture, unique per competitor, tier constrained';
+--   -- The status constraint was WIDENED to admit 'not-present'. Widening is
+--   -- where a typo stops being caught, so the closed arm is tested too: an
+--   -- underscore instead of a hyphen must be refused, not silently stored as a
+--   -- status nothing reads.
+--   begin
+--     insert into deal_competitors (deal_id, competitor, tier, status, user_id)
+--     values (v_deal, 'Typo Co', 'tier-1', 'not_present', (select user_id from deals limit 1));
+--     raise exception 'FAIL: an undefined status was accepted';
+--   exception when check_violation then
+--     raise notice 'undefined status rejected     : correct';
+--   end;
+--
+--   raise notice 'PASS: multi-posture, unique per competitor, tier + status constrained';
 --
 --   delete from deal_competitors where deal_id = v_deal;
 --   delete from deals where id = v_deal;

@@ -2,11 +2,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import {
   routeStream, toSseResponse, isDomainTask, canRun, NoProviderError,
-  type TaskKind,
+  type TaskKind, type StreamChunk,
 } from '@/lib/engine/model-routing';
 import { BRAIN_READY, BRAIN_ERROR, SYSTEM_PROMPT } from '@/lib/prompts/system';
 import { scenariosOn } from '@/lib/economics/scenarios';
 import { competitorsForDeal } from '@/lib/competitive';
+import { presenceGrid, otherPostureNames } from '@/lib/competitor-catalog';
+import { negativeHeader } from '@/lib/cards';
 import { researchForDeal } from '@/lib/research';
 import {
   buildBusinessCasePrompt, buildObjectionsPrompt,
@@ -95,7 +97,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let input: ChatInput;
+  let input: BuiltInput;
   try {
     input = await buildInput(task, body);
   } catch (err) {
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    return toSseResponse(routeStream(task, input));
+    return toSseResponse(withCardHeader(input.cardHeader, routeStream(task, input)));
   } catch (err) {
     if (err instanceof NoProviderError) {
       return NextResponse.json({ error: err.message, code: 'NO_PROVIDER' }, { status: 503 });
@@ -118,10 +120,35 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * A prompt, plus the card header that must reach the reader whatever the model
+ * does. Only the two card tasks set it.
+ */
+type BuiltInput = ChatInput & { cardHeader?: string };
+
+/**
+ * Emit the negative header as the FIRST text of the stream.
+ *
+ * Before the model is called, not after it returns. A header appended at the
+ * end is a header that never arrives when generation fails halfway, and the
+ * failure it prevents — a rep carrying the wrong card into a meeting — is
+ * exactly the situation a half-generated card creates.
+ *
+ * It lands in the same buffer the export button reads, so it survives to DOCX
+ * with no second code path to keep in step.
+ */
+async function* withCardHeader(
+  header: string | undefined,
+  gen: AsyncGenerator<StreamChunk>,
+): AsyncGenerator<StreamChunk> {
+  if (header) yield { type: 'text', text: header };
+  yield* gen;
+}
+
 async function buildInput(
   task: TaskKind,
   body: z.infer<typeof Body>,
-): Promise<ChatInput> {
+): Promise<BuiltInput> {
   // "intel" without a dealId is a portfolio-wide strategic read rather than
   // an error — it's a genuinely useful question ("how is the book doing?").
   if (task === 'intel' && !body.dealId) {
@@ -177,31 +204,52 @@ async function buildInput(
       case 'business-case': return buildBusinessCasePrompt(ctx);
       case 'objections': return buildObjectionsPrompt(ctx);
       case 'no-decision-card':
-        return buildNoDecisionCardPrompt({
-          ...ctx,
-          criticalEvent: deal.critical_event,
-          criticalEventDate: deal.critical_event_date,
-        });
+        return {
+          ...buildNoDecisionCardPrompt({
+            ...ctx,
+            criticalEvent: deal.critical_event,
+            criticalEventDate: deal.critical_event_date,
+          }),
+          // Built in code and emitted BEFORE the model is called, so it exists
+          // even if generation fails outright.
+          cardHeader: negativeHeader({
+            addressing: 'do nothing — the status quo',
+            others: otherPostureNames(deal, competitors, 'no-decision'),
+            generatedOn: new Date().toISOString().slice(0, 10),
+          }),
+        };
       case 'pricing-defense-card': {
-        // The posture is named by the caller. A card that guessed which
-        // competitor it was writing against would be wrong half the time with
-        // nothing on the page saying so.
-        const chosen = competitors.find((c) => c.id === body.postureKey);
+        // The posture is named by the caller and resolved against the TOGGLE
+        // GRID, not the stored rows. The grid is on by default and stores no
+        // row for the ordinary case, so a lookup restricted to stored rows
+        // would refuse the single most common card on the majority of deals.
+        const grid = presenceGrid(deal, competitors);
+        const chosen = grid.find((r) => r.key === body.postureKey && r.on);
         if (!chosen) {
           throw new Error(
-            'A pricing defense card requires a postureKey naming one competitor on this deal.',
+            'A pricing defense card requires a postureKey naming a competitor switched on for this deal.',
           );
         }
-        return buildPricingDefenseCardPrompt({
-          ...ctx,
-          posture: {
-            competitor: chosen.competitor,
-            tier: chosen.tier,
-            posture: chosen.posture,
-            whatWasSaid: chosen.what_was_said,
-            whatLanded: chosen.what_landed,
-          },
-        });
+        if (chosen.key === 'no-decision') {
+          throw new Error('Do nothing has its own card — use the no-decision-card task.');
+        }
+        return {
+          ...buildPricingDefenseCardPrompt({
+            ...ctx,
+            posture: {
+              competitor: chosen.label,
+              tier: chosen.tier,
+              posture: chosen.record?.posture ?? null,
+              whatWasSaid: chosen.record?.what_was_said ?? null,
+              whatLanded: chosen.record?.what_landed ?? null,
+            },
+          }),
+          cardHeader: negativeHeader({
+            addressing: chosen.label,
+            others: otherPostureNames(deal, competitors, chosen.key),
+            generatedOn: new Date().toISOString().slice(0, 10),
+          }),
+        };
       }
       default: break;
     }
