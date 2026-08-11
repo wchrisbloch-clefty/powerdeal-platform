@@ -71,6 +71,10 @@ create table if not exists deals (
   utility         text,
   value_prop      text,                          -- Grid-fighter / Combustion-fighter / Both
   beachhead_site  text,
+  -- Utility territory of the beachhead site. Wins over `utility` in the
+  -- resolver: the account-level field describes the company, the beachhead is
+  -- where the tariff actually is.
+  beachhead_utility text,
   stage           text not null default 'Prospecting',
   -- Stages: Prospecting, Qualified, Intro Call, Discovery, Solution Design,
   --         Economic Proposal, Negotiation, Contracting, Closed-Won, Post-Sale, Archived
@@ -567,3 +571,158 @@ end;
 $$ language plpgsql security definer set search_path = public;
 
 grant execute on function seed_new_user() to authenticated;
+
+
+-- ═══════════════════════════════════════════════════════
+-- THE UTILITY LAYER — reference data, not user data
+--
+-- No user_id and no RLS scoping: market structure is a fact about a
+-- jurisdiction, identical for every user. Scoping it per user would make it
+-- unreachable from an origination surface that has no deal and therefore no
+-- owner to scope by.
+-- ═══════════════════════════════════════════════════════
+
+-- ── Level 0 ──
+--
+-- Reference data, not user data: no user_id and no RLS scoping. Market
+-- structure is a fact about a jurisdiction, identical for every user, and
+-- scoping it per user would make it unreachable from an origination surface
+-- that has no deal and therefore no owner to scope by.
+create table if not exists state_market_structure (
+  state       text primary key,
+  structure   text not null check (structure in ('regulated','deregulated','hybrid')),
+  -- Why it is not the obvious answer, where that is the case.
+  note        text,
+  updated_at  timestamptz default now()
+);
+
+-- ── Levels 1-3 ──
+create table if not exists utilities (
+  key                        text primary key,
+  name                       text not null,
+  state                      text not null,
+
+  -- Level 1. Typed, never free text: the type is what changes the argument.
+  type                       text not null
+                             check (type in ('iou','muni','coop','wires-only','ipp')),
+
+  -- Level 2. NULL is a real state — named but not yet characterised.
+  -- Decides whether rate escalation is one story or splits into delivery and
+  -- energy.
+  service_model              text
+                             check (service_model in ('vertically-integrated','wires-only','gnt-member')),
+  iso                        text,
+
+  -- Level 3. NULL IS THE HONEST DEFAULT, and every seeded utility ships with
+  -- these unset. Inventing a standby charge to fill the field would be worse
+  -- than the gap it filled: a pricing argument built on a fabricated tariff
+  -- loses the deal on the day somebody reads the real one.
+  standby_tariff             text,
+  departing_load_charge      text,
+  exit_fee                   text,
+  minimum_take               text,
+
+  -- Co-op only. NULL means UNVERIFIED, not absent — and unverified is treated
+  -- as a live NO-GO candidate, because a co-op whose G&T contract nobody has
+  -- checked is exactly the deal that flag exists for.
+  all_requirements_contract  boolean,
+
+  notes                      text,
+  created_at                 timestamptz default now(),
+  updated_at                 timestamptz default now()
+);
+
+create index if not exists utilities_state_idx on utilities(state);
+create index if not exists utilities_type_idx on utilities(type);
+
+-- ── Level 0 seed: 51 jurisdictions ──
+--
+-- on conflict do nothing, deliberately. Storing this is what lets a
+-- reclassification be an UPDATE rather than a deploy, and re-running the
+-- migration must not silently revert one. A corrected seed is applied by
+-- hand, on purpose.
+insert into state_market_structure (state, structure, note) values
+  ('CT', 'deregulated', null),
+  ('DC', 'deregulated', null),
+  ('DE', 'deregulated', null),
+  ('IL', 'deregulated', null),
+  ('MA', 'deregulated', null),
+  ('MD', 'deregulated', null),
+  ('ME', 'deregulated', null),
+  ('NH', 'deregulated', null),
+  ('NJ', 'deregulated', null),
+  ('NY', 'deregulated', null),
+  ('OH', 'deregulated', null),
+  ('PA', 'deregulated', null),
+  ('RI', 'deregulated', null),
+  ('TX', 'deregulated', 'ERCOT only. El Paso, and the parts of East Texas inside SPP or MISO, remain vertically integrated.'),
+  ('CA', 'hybrid', 'Direct access is capped and largely closed; CCA load departure is the live mechanism, and departing-load charges follow it.'),
+  ('GA', 'hybrid', 'Choice exists only for new loads above roughly 900 kW.'),
+  ('MI', 'hybrid', 'Choice is capped near 10% of load.'),
+  ('MT', 'hybrid', 'Choice retained by large customers only.'),
+  ('NV', 'hybrid', 'Large customers may exit via an approved impact fee.'),
+  ('OR', 'hybrid', 'Non-residential choice only, on capped schedules.'),
+  ('VA', 'hybrid', 'Limited choice for large loads and for aggregated 100% renewable supply.'),
+  ('AK', 'regulated', null),
+  ('AL', 'regulated', null),
+  ('AR', 'regulated', null),
+  ('AZ', 'regulated', null),
+  ('CO', 'regulated', null),
+  ('FL', 'regulated', null),
+  ('HI', 'regulated', null),
+  ('IA', 'regulated', null),
+  ('ID', 'regulated', null),
+  ('IN', 'regulated', null),
+  ('KS', 'regulated', null),
+  ('KY', 'regulated', null),
+  ('LA', 'regulated', null),
+  ('MN', 'regulated', null),
+  ('MO', 'regulated', null),
+  ('MS', 'regulated', null),
+  ('NC', 'regulated', null),
+  ('ND', 'regulated', null),
+  ('NE', 'regulated', 'Entirely public power — no investor-owned utility in the state.'),
+  ('NM', 'regulated', null),
+  ('OK', 'regulated', null),
+  ('SC', 'regulated', null),
+  ('SD', 'regulated', null),
+  ('TN', 'regulated', 'TVA territory — distributors buy wholesale under long-term contracts.'),
+  ('UT', 'regulated', null),
+  ('VT', 'regulated', null),
+  ('WA', 'regulated', null),
+  ('WI', 'regulated', null),
+  ('WV', 'regulated', null),
+  ('WY', 'regulated', null)
+on conflict (state) do nothing;
+
+
+-- ── Levels 1-2 seed: the utilities in the book, and only those ──
+--
+-- Six rows, not six thousand. Everything else resolves at Level 0 from its
+-- state until somebody has a reason to add it.
+--
+-- LEVEL 3 IS DELIBERATELY NULL ON EVERY ROW. Standby and departing-load terms
+-- are not known here, and a seeded guess would be a fabricated number inside a
+-- pricing argument. Null makes the resolver name it as a gap, which is the
+-- correct output.
+--
+-- TAXONOMY NOTE: 'wires-only' appears in both the type and the service_model
+-- sets. CenterPoint and Delmarva are investor-owned AND wires-only, so they are
+-- seeded as type 'iou' with service_model 'wires-only' — ownership at Level 1,
+-- structure at Level 2, which keeps the two levels distinguishable. Whether
+-- type should carry 'wires-only' at all is a taxonomy call, flagged rather than
+-- silently resolved.
+insert into utilities (key, name, state, type, service_model, iso, notes) values
+  ('pso', 'Public Service Company of Oklahoma', 'OK', 'iou', 'vertically-integrated', 'SPP',
+   'AEP operating company in a regulated state.'),
+  ('sdge', 'San Diego Gas & Electric', 'CA', 'iou', 'vertically-integrated', 'CAISO',
+   'CCA load departure is live in this territory; departing-load charges follow it. Standby schedule not yet read.'),
+  ('centerpoint', 'CenterPoint Energy Houston Electric', 'TX', 'iou', 'wires-only', 'ERCOT',
+   'TDU inside ERCOT. The bill splits: regulated delivery, competitive energy from a REP. An all-in $/MWh is a number this customer does not recognise.'),
+  ('delmarva', 'Delmarva Power & Light', 'DE', 'iou', 'wires-only', 'PJM',
+   'Serves Delaware and the Maryland Eastern Shore; state column carries DE only.'),
+  ('dominion', 'Dominion Energy Virginia', 'VA', 'iou', 'vertically-integrated', 'PJM',
+   'Virginia is a hybrid market — limited choice for large loads. Whether this customer can buy competitively is a question, not an assumption.'),
+  ('pge', 'Pacific Gas and Electric', 'CA', 'iou', 'vertically-integrated', 'CAISO',
+   'Heavy CCA departure across the territory. Standby schedule not yet read.')
+on conflict (key) do nothing;

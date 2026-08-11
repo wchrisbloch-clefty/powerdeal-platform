@@ -33,6 +33,7 @@ function perfectExceptEvent(): Deal {
     utility: 'multi',
     value_prop: 'Both',
     beachhead_site: null,
+    beachhead_utility: null,
     stage: 'Solution Design',
     size_mw: 12,
     size_usd_m: null,

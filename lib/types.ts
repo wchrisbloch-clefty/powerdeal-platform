@@ -180,6 +180,16 @@ export interface Deal {
   utility: string | null;
   value_prop: ValueProp | string | null;
   beachhead_site: string | null;
+  /**
+   * Utility territory of the beachhead site, which WINS over the account-level
+   * `utility` field in the resolver.
+   *
+   * On a national account the account-level field describes the company; the
+   * beachhead is where the electrons and the tariff actually are, and those are
+   * routinely different. Null is normal — resolution falls through to the
+   * account level and then to the generic label.
+   */
+  beachhead_utility: string | null;
   stage: DealStage | string;
   size_mw: number | null;
   size_usd_m: number | null;
@@ -210,6 +220,19 @@ export interface Deal {
   decision_process: string | null;
   identified_pain: string | null;
   champion: string | null;
+  /**
+   * @deprecated as the competitive record. `deal_competitors` plus the toggle
+   * grid is the sole authority for who is in a deal.
+   *
+   * Free text cannot hold a SET of postures, cannot say which competitor an
+   * argument was aimed at, and cannot be switched off — and every one of those
+   * is something the card generator needs. Nothing generated reads this field.
+   *
+   * The column is kept and still displayed as a legacy note, because it is
+   * where whatever was written before this table existed still lives. Dropping
+   * it would delete the only copy. Its one remaining behavioural role is the
+   * MEDDPICC 'C' point — see docs/BACKLOG.md item 6.
+   */
   competition: string | null;
 
   // Land-and-expand

@@ -1,4 +1,15 @@
+import { resolveUtility, GENERIC_GRID_LABEL } from '@/lib/utility/model';
 import type { CompetitorTier, DealCompetitor, Deal } from '@/lib/types';
+
+/**
+ * Everything the grid label needs, and no more.
+ *
+ * Not a Deal: the same resolution has to work for a prospect with no deal
+ * row at all, which is the whole point of the utility layer being reachable
+ * without one.
+ */
+export type GridNameInput = Pick<Deal, 'utility'> &
+  Partial<Pick<Deal, 'beachhead_utility' | 'state'>>;
 
 /**
  * COMPETITOR PRESENCE — a toggle grid, defaulted to the common case.
@@ -22,43 +33,48 @@ import type { CompetitorTier, DealCompetitor, Deal } from '@/lib/types';
  */
 
 /**
- * Utility Territory values that are not a utility.
- *
- * 'multi' is by far the most common — 13 of 21 deals carry it — and it means
- * the account spans several territories, so no single utility can be named.
- * Without this list a card would be titled "pricing defense vs. multi" on the
- * majority of the book.
- *
- * deal-detail already treats 'multi' as a non-entity when deciding whether to
- * link the utility out to its entity page; this is the same judgement applied
- * to the same field.
- */
-const PLACEHOLDER_UTILITIES = new Set([
-  'multi', 'multiple', 'various', 'n/a', 'na', 'tbd', 'unknown', 'none', '-', '—',
-]);
-
-/**
  * What the grid posture is CALLED in this deal.
  *
- * "Pricing defense vs. CenterPoint" is an argument about a named rate a buyer
- * recognises on their own bill. "Pricing defense vs. the grid" is a category.
- * The first is worth carrying into a meeting, so the utility name is used
- * wherever the record has one.
+ * Delegates to the utility resolver so there is one implementation of "which
+ * counterparty is this" — the toggle grid, the card title, the negative header
+ * and the risk list all have to name the same one, and they can only agree if
+ * they share the resolution.
  *
- * Note what this does NOT do: it does not correct the field. Two deals carry
- * 'ERCOT', which is a market operator rather than the utility that bills them.
- * The card will say "vs. ERCOT". Rewriting it here would be inventing a fact
- * about the deal from inside a naming function — the fix belongs in the Spine.
+ * Resolution order is SITE FIRST, then account, then generic. On a national
+ * account the account-level Utility Territory describes the company; the
+ * beachhead is where the electrons and the tariff actually are.
+ *
+ * The ISO guard applies here: 'ERCOT' does not become a counterparty name and
+ * does not get autocorrected into a TDU either. See lib/utility/model.
  */
-export function gridCompetitorName(deal: Pick<Deal, 'utility'>): string {
-  const u = (deal.utility ?? '').trim();
-  if (!u || PLACEHOLDER_UTILITIES.has(u.toLowerCase())) return 'the grid';
-  return u;
+export function gridCompetitorName(deal: GridNameInput): string {
+  return resolveUtility({
+    state: deal.state ?? null,
+    siteUtility: deal.beachhead_utility ?? null,
+    accountUtility: deal.utility ?? null,
+  }).gridLabel;
 }
 
 /** Whether the grid name came from the record or from the fallback. */
-export function gridNameIsGeneric(deal: Pick<Deal, 'utility'>): boolean {
-  return gridCompetitorName(deal) === 'the grid';
+export function gridNameIsGeneric(deal: GridNameInput): boolean {
+  return gridCompetitorName(deal) === GENERIC_GRID_LABEL;
+}
+
+/**
+ * Why the name is generic, when it is — so the panel can say something more
+ * useful than nothing. An ISO in the field is a different problem from an empty
+ * field, and only one of them is fixed by typing a utility name.
+ */
+export function gridNameGap(deal: GridNameInput): string | null {
+  const ctx = resolveUtility({
+    state: deal.state ?? null,
+    siteUtility: deal.beachhead_utility ?? null,
+    accountUtility: deal.utility ?? null,
+  });
+  if (ctx.utilityName) return null;
+  return ctx.isoInField
+    ? `Utility Territory reads “${ctx.isoInField}”, a market operator rather than the utility that bills this site. Which TDU serves the beachhead is a fact about the site, so it is not inferred.`
+    : 'No utility named on this deal, so the grid argument stays generic. Naming the beachhead’s utility makes it a rate the buyer recognises on their own bill.';
 }
 
 export type PresenceDefault =
@@ -87,7 +103,7 @@ export interface CatalogEntry {
   /** Visible without expanding. Tier 1 only — the daily fight. */
   topLevel: boolean;
   /** Resolves its display name from the deal record instead of `name`. */
-  resolveName?: (deal: Pick<Deal, 'utility'>) => string;
+  resolveName?: (deal: GridNameInput) => string;
   hint?: string;
   /** A doctrine posture, where one exists independent of the deal. */
   posture?: string;
@@ -205,7 +221,7 @@ function findRecord(competitors: DealCompetitor[], name: string): DealCompetitor
  * it, and the contradiction is what gets written.
  */
 export function presenceGrid(
-  deal: Pick<Deal, 'utility'>,
+  deal: GridNameInput,
   competitors: DealCompetitor[],
 ): PresenceRow[] {
   const claimed = new Set<string>();
@@ -308,7 +324,7 @@ export interface CardControl {
  * nothing instead of something honest about what it does not know.
  */
 export function cardControls(
-  deal: Pick<Deal, 'utility'>,
+  deal: GridNameInput,
   competitors: DealCompetitor[],
 ): CardControl[] {
   return presenceGrid(deal, competitors)
@@ -334,7 +350,7 @@ export function cardControls(
  * likely to be the real one.
  */
 export function otherPostureNames(
-  deal: Pick<Deal, 'utility'>,
+  deal: GridNameInput,
   competitors: DealCompetitor[],
   currentKey: string,
 ): string[] {

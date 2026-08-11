@@ -204,6 +204,10 @@ function buildDeal(spec: SeedSpec, index: number): Deal {
     id: `seed-${spec.deal_id.toLowerCase()}`,
     ...spec,
     stage: 'Prospecting',
+    // Null across the whole seed. Site-level territory is a fact about a site
+    // nobody has visited; resolution falls through to the account level, which
+    // is exactly the graceful path.
+    beachhead_utility: null,
     size_usd_m: null,
     meddpicc_score: 0,
     health_score: 3,

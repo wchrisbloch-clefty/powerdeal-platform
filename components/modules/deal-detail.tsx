@@ -11,7 +11,7 @@ import {
 import type {
   Deal, Signal, MarketWatchEntry, StageTransition, DealCompetitor,
 } from '@/lib/types';
-import { meddpiccBreakdown, riskFlags } from '@/lib/deals';
+import { meddpiccBreakdown, riskFlags, utilityRiskFlags } from '@/lib/deals';
 import { formatMw, formatUsd, formatDate, relativeTime, cn } from '@/lib/utils';
 import { nonAttainmentForState, primacyFor } from '@/lib/geo/epa-api';
 import { useAiStream } from '@/lib/use-ai-stream';
@@ -28,6 +28,8 @@ import SignalCapture from './signal-capture';
 import LogOutcome from './log-outcome';
 import WinLossList from './win-loss-list';
 import CompetitivePanel from './competitive-panel';
+import UtilityPanel from './utility-panel';
+import type { UtilityContext } from '@/lib/utility/model';
 import MapPlanPanel from './map-plan';
 import { cardFilename, cardTitle } from '@/lib/cards';
 import { starterPlan } from '@/lib/map/schedule';
@@ -59,6 +61,7 @@ export default function DealDetail({
   mapPlan,
   winLoss = [],
   competitors = [],
+  utility = null,
 }: {
   deal: Deal;
   signals: Signal[];
@@ -75,6 +78,11 @@ export default function DealDetail({
    * exists only where someone contradicted a default or recorded detail.
    */
   competitors?: DealCompetitor[];
+  /**
+   * The resolved utility layer. Null only when the lookup failed — Level 0
+   * answers from a state alone, so an ordinary deal always has one.
+   */
+  utility?: UtilityContext | null;
 }) {
   const params = useSearchParams();
   const [tab, setTab] = useState<Tab>('intel');
@@ -97,7 +105,10 @@ export default function DealDetail({
   } | null>(null);
   const ai = useAiStream();
 
-  const flags = riskFlags(deal);
+  // Structural utility risk sits alongside the deal's own flags, not in a
+  // separate corner: a co-op all-requirements contract is a NO-GO candidate,
+  // and burying it under a tab would make it late by construction.
+  const flags = [...riskFlags(deal), ...utilityRiskFlags(utility)];
   const meddpicc = meddpiccBreakdown(deal);
   const nonAttainment = nonAttainmentForState(deal.state);
   const primacy = primacyFor(deal.state);
@@ -553,7 +564,13 @@ export default function DealDetail({
                   )}
                   <Field label="Key risk" value={deal.key_risk} />
                   <Field label="Identified pain" value={deal.identified_pain} />
-                  <Field label="Competition" value={deal.competition} />
+                  {/* Legacy, and labelled as such. The competitive record is
+                      the toggle grid on the Competitive tab; this is where
+                      whatever was written before that existed still lives, and
+                      nothing generated reads it. */}
+                  {deal.competition ? (
+                    <Field label="Competition (legacy note)" value={deal.competition} />
+                  ) : null}
                   <Field label="Notes" value={deal.notes} />
                   {deal.partner_notes && (
                     <Field label="Partner notes" value={deal.partner_notes} />
@@ -675,12 +692,16 @@ export default function DealDetail({
               )}
 
               {tab === 'competitive' && (
-                <CompetitivePanel
-                  deal={deal}
-                  competitors={competitors}
-                  busy={ai.streaming}
-                  onGenerate={runCard}
-                />
+                <>
+                  <UtilityPanel deal={deal} utility={utility} />
+                  <div className="mt-5" />
+                  <CompetitivePanel
+                    deal={deal}
+                    competitors={competitors}
+                    busy={ai.streaming}
+                    onGenerate={runCard}
+                  />
+                </>
               )}
 
               {tab === 'outcome' && <WinLossList entries={winLoss} />}

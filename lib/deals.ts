@@ -1,3 +1,4 @@
+import type { UtilityContext } from '@/lib/utility/model';
 import type { Deal, DealStage } from './types';
 import { TERMINAL_STAGES, MEDDPICC_FIELDS } from './types';
 
@@ -70,6 +71,14 @@ export function computeMeddpiccScore(deal: Partial<Deal>): number {
   if (deal.decision_process) n++;
   if (deal.identified_pain) n++;
   if (deal.champion) n++;
+  // ⚠️ THE LAST DEPENDENCY ON A DEPRECATED FIELD. `deals.competition` is no
+  // longer the competitive record — deal_competitors and the toggle grid are —
+  // but this point still reads it. Scoring it off presence instead is not a
+  // drop-in: the grid has do-nothing and the grid ON by default, so presence
+  // alone would hand every deal a free MEDDPICC point. The rule that works is
+  // "a stored row exists", which needs the competitor set threaded through a
+  // function the pipeline table calls once per row, and it moves a score on 21
+  // live deals. Deliberately not rewired in this pass. See BACKLOG item 6.
   if (deal.competition) n++;
   if (deal.decision_mapped) n++;
   return n;
@@ -164,6 +173,37 @@ export function riskFlags(deal: Deal): RiskFlag[] {
   }
 
   return flags;
+}
+
+/**
+ * Structural utility risks, as qualification-stage flags.
+ *
+ * Separate from riskFlags() and deliberately so: riskFlags is pure and
+ * synchronous over a Deal, and the utility layer resolves asynchronously from
+ * fields that a prospect with no deal row also has. Merging them would drag a
+ * database read into a function the pipeline table calls once per row.
+ *
+ * A CO-OP is the case this exists for. Many distribution co-ops are bound to a
+ * G&T under all-requirements contracts that prohibit behind-the-meter
+ * generation outright or price the exit punitively. That is discoverable at
+ * LEVEL 1 — the moment the type field says 'coop' — and it belongs in
+ * qualification rather than in month-five diligence, because nothing
+ * downstream of it survives a contract that forbids the project.
+ *
+ * Unverified counts. A co-op whose contract nobody has read is exactly the
+ * deal the flag is for, so `null` raises it just as `true` does.
+ */
+export function utilityRiskFlags(ctx: UtilityContext | null): RiskFlag[] {
+  if (!ctx) return [];
+  return ctx.risks
+    .filter((r) => !r.answered)
+    .map((r) => ({
+      key: r.key,
+      label: r.label,
+      // A NO-GO candidate is not a warning. Everything after it is wasted if
+      // the answer comes back the wrong way.
+      severity: r.severity === 'no-go-candidate' ? ('danger' as const) : ('warn' as const),
+    }));
 }
 
 export function isAtRisk(deal: Deal): boolean {

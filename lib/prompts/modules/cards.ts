@@ -1,5 +1,6 @@
 import { SYSTEM_PROMPT } from '../system';
 import type { ChatInput } from '@/lib/types';
+import type { UtilityContext } from '@/lib/utility/model';
 import {
   dealBlock,
   economicsBlock,
@@ -124,9 +125,73 @@ ${ctx.extra ? `\n\nADDITIONAL CONTEXT FROM THE USER:\n${ctx.extra}` : ''}`,
  * and a card that guessed which one it was writing would be wrong half the time
  * with nothing on the page saying so.
  */
+/**
+ * THE UTILITY BLOCK — structure, and the gap that outranks it.
+ *
+ * Two things go on every pricing defense card.
+ *
+ * The market structure, because it decides whether rate escalation is one story
+ * or two. Against a vertically integrated utility the pitch is a single all-in
+ * $/MWh; against a wires-only TDU the bill splits into regulated delivery and
+ * competitive energy, and an all-in number is one the buyer does not recognise.
+ *
+ * And the standby charge, ALWAYS, until it is answered. A standby rate bills
+ * for the capacity the utility holds in reserve behind an onsite generator and
+ * can erase the savings the whole case rests on. It is genuinely a late input,
+ * which is exactly why it is named rather than waited for: unnamed, the card
+ * reads as complete and is wrong in a way nothing visible discloses. Same
+ * no-hard-gates standard as every other missing input — the card generates, and
+ * says what it does not know.
+ */
+function utilityBlock(u?: UtilityContext | null): string {
+  if (!u) {
+    return `UTILITY STRUCTURE: nothing resolved — not even a state.
+  Say so in the card. Market structure is available for any prospect anywhere
+  from a two-letter state code, so its absence is a gap in the record rather
+  than an unknowable.
+  STANDBY / DEPARTING LOAD: unquantified. Name it as an open item.`;
+  }
+
+  const lines = [
+    'UTILITY STRUCTURE (level ' + u.level + ' of 3):',
+    `  State market structure : ${u.marketStructure ?? 'unknown'}${u.marketStructureNote ? ` — ${u.marketStructureNote}` : ''}`,
+    `  Utility                : ${u.utilityName ?? 'not named — the grid argument stays generic'}`,
+    `  Type                   : ${u.utilityType ?? 'not typed — IOU, muni, co-op, wires-only and IPP are five different conversations'}`,
+    `  Service model          : ${u.serviceModel ?? 'not established'}`,
+  ];
+
+  if (u.serviceModel === 'wires-only') {
+    lines.push(
+      '  → WIRES-ONLY: the bill splits. Delivery is regulated and BTM barely touches it; energy is competitive and BTM displaces it entirely. Do NOT quote an all-in $/MWh at this buyer — split the comparison.',
+    );
+  }
+  if (u.serviceModel === 'vertically-integrated') {
+    lines.push('  → VERTICALLY INTEGRATED: one all-in rate, one escalation story.');
+  }
+  if (u.serviceModel === 'gnt-member') {
+    lines.push(
+      '  → G&T MEMBER: the utility does not set its own wholesale cost. The escalation argument runs through the G&T contract, and so does the question of whether this project is permitted at all.',
+    );
+  }
+
+  for (const r of u.risks.filter((x) => !x.answered)) {
+    lines.push(
+      '',
+      `OPEN STRUCTURAL RISK — ${r.label}`,
+      `  ${r.detail}`,
+      `  State it in the card as an explicit gap, in these terms, and carry the question: "${r.question}"`,
+    );
+  }
+
+  for (const g of u.gaps) lines.push('', `GAP: ${g}`);
+
+  return lines.join('\n');
+}
+
 export function buildPricingDefenseCardPrompt(
   ctx: PromptContext & {
     posture: { competitor: string; tier: string; posture?: string | null; whatWasSaid?: string | null; whatLanded?: string | null };
+    utility?: UtilityContext | null;
   },
 ): ChatInput {
   const { deal, economics, signals, posture } = ctx;
@@ -161,6 +226,13 @@ STRUCTURE:
    what is needed to build it.
 4. What we concede. Every card gets one. A defense with no concession reads as
    marketing and is discounted whole.
+5. Open structural risks. Every unanswered item in the block below appears here
+   by name, with the question that closes it. This section is NEVER omitted and
+   is never softened into "subject to standard diligence" — a standby charge
+   that nobody has read is the largest silent risk in this document, and a card
+   that stays quiet about it reads as complete while being wrong.
+
+${utilityBlock(ctx.utility)}
 
 ${PROVENANCE_RULES}
 

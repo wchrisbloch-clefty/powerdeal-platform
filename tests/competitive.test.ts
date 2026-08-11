@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import {
   CATALOG, CATALOG_BY_KEY, cardControls, gridCompetitorName, gridNameIsGeneric,
-  otherPostureNames, presenceGrid, presenceWrite,
+  gridNameGap, otherPostureNames, presenceGrid, presenceWrite,
 } from '@/lib/competitor-catalog';
 import { COMPETITOR_TIERS, TIER_LABELS, type DealCompetitor } from '@/lib/types';
 
@@ -204,11 +204,37 @@ describe('the grid is named from the record, and identity is not the name', () =
     expect(gridCompetitorName({ utility: '  ' })).toBe('the grid');
   });
 
-  it('does NOT silently correct a market operator into a utility', () => {
-    // Two deals carry ERCOT, which is not who bills them. The card will say
-    // "vs. ERCOT". Rewriting it here would invent a fact about the deal from
-    // inside a naming function; the fix belongs in the Spine.
-    expect(gridCompetitorName({ utility: 'ERCOT' })).toBe('ERCOT');
+  it('declines an ISO rather than naming it as the counterparty', () => {
+    // Two deals carry ERCOT. It is a market operator — it bills nobody, and a
+    // BTM project displaces no ERCOT charge. Naming it would put a
+    // counterparty on a customer-facing card that does not sell them power.
+    expect(gridCompetitorName({ utility: 'ERCOT' })).toBe('the grid');
+  });
+
+  it('and does NOT autocorrect the ISO into a utility', () => {
+    // Which TDU serves a given site is a fact about the site. Guessing Oncor
+    // or CenterPoint from "ERCOT" would fabricate a counterparty; the guard
+    // detects and declines, and the gap says why.
+    expect(gridNameGap({ utility: 'ERCOT' })).toMatch(/market operator/);
+    expect(gridNameGap({ utility: 'ERCOT' })).toMatch(/not inferred/);
+  });
+
+  it('prefers the beachhead site over the account-level field', () => {
+    // A national account's Utility Territory describes the company; the
+    // beachhead is where the electrons and the tariff actually are.
+    expect(
+      gridCompetitorName({ utility: 'multi', beachhead_utility: 'CenterPoint' }),
+    ).toBe('CenterPoint');
+  });
+
+  it('falls through to the account level when the site has none', () => {
+    expect(gridCompetitorName({ utility: 'PG&E', beachhead_utility: null })).toBe('PG&E');
+  });
+
+  it('falls through past an ISO at site level to a real account-level name', () => {
+    expect(
+      gridCompetitorName({ utility: 'CenterPoint', beachhead_utility: 'ERCOT' }),
+    ).toBe('CenterPoint');
   });
 
   it('keeps a switched-off grid switched off when the utility is renamed', () => {

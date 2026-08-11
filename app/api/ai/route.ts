@@ -9,6 +9,7 @@ import { scenariosOn } from '@/lib/economics/scenarios';
 import { competitorsForDeal } from '@/lib/competitive';
 import { presenceGrid, otherPostureNames } from '@/lib/competitor-catalog';
 import { negativeHeader } from '@/lib/cards';
+import { resolveUtilityContext } from '@/lib/utility/store';
 import { researchForDeal } from '@/lib/research';
 import {
   buildBusinessCasePrompt, buildObjectionsPrompt,
@@ -184,6 +185,15 @@ async function buildInput(
     // Posture is an INPUT to the cards, never inferred. Empty is normal.
     const competitors = await competitorsForDeal(body.dealId).catch(() => []);
 
+    // Resolved from the deal's FIELDS, never by a join from its id — the same
+    // call an origination surface makes with a state and nothing else. Level 0
+    // always answers, so this never throws the card away.
+    const utility = await resolveUtilityContext({
+      state: deal.state,
+      siteUtility: deal.beachhead_utility,
+      accountUtility: deal.utility,
+    }).catch(() => null);
+
     const ctx = {
       deal,
       signals,
@@ -236,6 +246,7 @@ async function buildInput(
         return {
           ...buildPricingDefenseCardPrompt({
             ...ctx,
+            utility,
             posture: {
               competitor: chosen.label,
               tier: chosen.tier,

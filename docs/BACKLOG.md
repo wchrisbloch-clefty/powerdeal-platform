@@ -72,6 +72,28 @@ A stage control on the deal header, writing through the existing `PATCH` route.
 The trigger already handles the transition row and the `days_in_stage` reset, so
 the server side is done — this is a UI and a decision about backwards movement.
 
+### `days_in_stage` rides on this and is frozen until it lands
+
+**Added 2026-08-11.** `days_in_stage` counts from creation and is only ever
+reset by `deals_log_transition`, which fires on a stage change. With nothing in
+the application changing a stage, the field never resets — so every deal's
+"days in stage" is really "days since it was created", and the two agree only
+until the first advance that never comes.
+
+Three shipped things read it as though it meant what it says:
+
+- **`riskFlags`** — `Stalled 60d` and `30d in stage`. Both are currently
+  "created 60 days ago", which is not the same claim.
+- **`computeHealthScore`** — 15% of deal health, so every deal drifts downward
+  on age alone.
+- **`isAtRisk`** — `days_in_stage > 30`, which eventually catches everything.
+
+Nothing is being patched around it. A derived reset, or a backfill from
+`stage_transitions`, would make the number look right while the underlying
+cause — no stage ever advancing — stayed in place, and the number looking right
+is exactly what would stop anyone fixing it. It unfreezes when stage
+advancement lands, in the same pass.
+
 ---
 
 ## 2. `Archived` collapses three different losses
@@ -137,3 +159,42 @@ private and cannot simply be disabled.
 `championSignal()` reads them correctly. The plumbing is ready; the route is
 not, and it should be designed together with the domain rather than retrofitted
 to it.
+
+
+## 6. `deals.competition` still scores one MEDDPICC point
+
+**Status:** open
+**Found:** 2026-08-11, deprecating the field as the competitive record
+**Severity:** one point of eight, on a field nothing else reads
+
+### The decision that was made
+
+`deal_competitors` plus the toggle grid is the **sole authority** for who is in
+a deal. `deals.competition` is free text: it cannot hold a set of postures,
+cannot say which competitor an argument was aimed at, and cannot be switched
+off. Nothing generated reads it any more, and the deal page now labels it
+`Competition (legacy note)`.
+
+The column is **kept, not dropped** — it is the only copy of whatever was
+written before the table existed.
+
+### What is still wired to it
+
+`computeMeddpiccScore()` awards the 'C' point for `deal.competition` being
+non-empty. That is the last behavioural dependency.
+
+### Why it was not rewired in the same pass
+
+Scoring off presence is not a drop-in. The toggle grid has do-nothing and the
+grid **on by default**, so "has competitors" is true for every deal the moment
+it exists and the point becomes free. The rule that actually means something is
+"a stored `deal_competitors` row exists" — someone switched a competitor on, or
+recorded a posture — which requires threading the competitor set through
+`computeMeddpiccScore()` and `meddpiccBreakdown()`, both of which the pipeline
+table calls once per row. It also moves a visible score on live deals.
+
+### Suggested shape
+
+Thread the competitor set in, score the point on a stored row rather than on
+presence, and state the change where the score is displayed so a deal that
+drops a point shows why.

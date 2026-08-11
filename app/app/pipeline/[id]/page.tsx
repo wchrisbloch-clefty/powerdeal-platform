@@ -6,6 +6,7 @@ import DealDetail from '@/components/modules/deal-detail';
 import { getMapPlan } from '@/lib/map/store';
 import { winLossForDeal } from '@/lib/win-loss';
 import { competitorsForDeal } from '@/lib/competitive';
+import { resolveUtilityContext } from '@/lib/utility/store';
 
 export async function generateMetadata({
   params,
@@ -41,6 +42,15 @@ export default async function DealPage({
     competitorsForDeal(id).catch(() => []),
   ]);
 
+  // Resolved from the deal's FIELDS, not by a join from its id. The same call
+  // an origination surface makes with a state and nothing else — which is what
+  // keeps the utility layer reachable for a prospect with no deal row.
+  const utility = await resolveUtilityContext({
+    state: deal.state,
+    siteUtility: deal.beachhead_utility,
+    accountUtility: deal.utility,
+  }).catch(() => null);
+
   return (
     <DealDetail
       deal={deal}
@@ -51,6 +61,7 @@ export default async function DealPage({
       mapPlan={mapPlan}
       winLoss={winLoss}
       competitors={competitors}
+      utility={utility}
     />
   );
 }
