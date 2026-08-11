@@ -6,11 +6,11 @@ import {
 import JSZip from 'jszip';
 import PptxGenJS from 'pptxgenjs';
 import ExcelJS from 'exceljs';
-import { BRAND, APP_NAME } from '@/lib/brand';
+import { APP_NAME } from '@/lib/brand';
 import {
   PALETTE, TABLE_BORDERS, TABLE_CELL_MARGINS, buildStylesXml,
   TABLE_HEADER_SHADING, TITLE_RULE, brandHeader, PAGE_MARGIN_TWIPS,
-  FONT as THEME_FONT,
+  FONT as THEME_FONT, WORDMARK, withPowerDealClrScheme,
 } from './theme';
 import type { Deal } from '@/lib/types';
 
@@ -318,6 +318,28 @@ async function replaceStylesPart(buffer: Buffer, stylesXml: string): Promise<Buf
 
 // ── PPTX ────────────────────────────────────────────────────────
 
+/**
+ * PPTX — the same brand system as the DOCX, from the same module.
+ *
+ * This was the last output the theme did not reach. It carried its own
+ * palette: a near-black `0F1117` cover, `9A9DAA` subtitles and `FFFFFF` text —
+ * none of them in PALETTE, all of them invented at the point of use. A deck and
+ * a document handed to the same reader in the same meeting described the same
+ * company with different ink.
+ *
+ * Three brand rules from the DOCX pass carry over unchanged, and each one is
+ * asserted in tests/brand.test.ts against the generated OOXML rather than
+ * against this source:
+ *
+ *   ACCENT ONLY. Bloom green is a rule, a mark, a 0.045in bar — never a fill
+ *   behind text and never a heading colour.
+ *   NEVER LIGHT TEXT ON GREEN. There is no shape in this file that puts type
+ *   over the accent.
+ *   ONE DARK VALUE. charcoal for every heading, every bullet, every wordmark.
+ *
+ * The dark cover is gone rather than re-tinted. A dark title slide in front of
+ * a light document is the drift, not the fix.
+ */
 export async function generatePptx(
   title: string,
   subtitle: string,
@@ -328,21 +350,35 @@ export async function generatePptx(
   pptx.author = APP_NAME;
   pptx.title = title;
 
-  // Title slide.
+  // Slide geometry, named once. The DOCX page margin is 0.75in; 0.6in here is
+  // the 16:9 equivalent at this width and is used by every element below, so
+  // the left edge of a heading and the left edge of a bullet agree.
+  const M = 0.6;
+  const W = 8.8;
+
+  /** The wordmark, in the same place on every slide as the DOCX header band. */
+  const stamp = (slide: PptxGenJS.Slide) => {
+    slide.addText(WORDMARK, {
+      x: M, y: 4.85, w: W, h: 0.3,
+      fontSize: 9, color: PALETTE.muted, fontFace: FONT_STACK,
+    });
+  };
+
+  // ── Title slide ──
   const cover = pptx.addSlide();
-  cover.background = { color: '0F1117' };
   cover.addShape(pptx.ShapeType.rect, {
-    x: 0.6, y: 2.35, w: 0.9, h: 0.06,
-    fill: { color: BRAND.accent.replace('#', '') },
+    x: M, y: 2.35, w: 0.9, h: 0.06,
+    fill: { color: PALETTE.bloom },
   });
   cover.addText(title, {
-    x: 0.6, y: 2.6, w: 8.8, h: 1.0,
-    fontSize: 34, bold: true, color: 'FFFFFF', fontFace: FONT_STACK,
+    x: M, y: 2.6, w: W, h: 1.0,
+    fontSize: 34, bold: true, color: PALETTE.charcoal, fontFace: FONT_STACK,
   });
   cover.addText(subtitle, {
-    x: 0.6, y: 3.55, w: 8.8, h: 0.5,
-    fontSize: 15, color: '9A9DAA', fontFace: FONT_STACK,
+    x: M, y: 3.55, w: W, h: 0.5,
+    fontSize: 15, color: PALETTE.muted, fontFace: FONT_STACK,
   });
+  stamp(cover);
 
   // Content slides: each h1/h2 opens a slide, everything under it is bullets.
   const blocks = parseBlocks(markdown);
@@ -354,37 +390,42 @@ export async function generatePptx(
       slide.addText(
         bullets.map((b) => ({ text: b, options: { breakLine: true, bullet: true } })),
         {
-          x: 0.6, y: 1.35, w: 8.8, h: 3.6,
-          fontSize: 15, color: '3E3E3E', fontFace: FONT_STACK, valign: 'top',
+          x: M, y: 1.35, w: W, h: 3.4,
+          fontSize: 15, color: PALETTE.charcoal, fontFace: FONT_STACK, valign: 'top',
         },
       );
     }
     bullets = [];
   };
 
+  const openSlide = (heading: string, muted = false) => {
+    const s = pptx.addSlide();
+    s.addText(heading, {
+      x: M, y: 0.5, w: W, h: 0.6,
+      fontSize: muted ? 18 : 24,
+      bold: !muted,
+      color: muted ? PALETTE.muted : PALETTE.charcoal,
+      fontFace: FONT_STACK,
+    });
+    s.addShape(pptx.ShapeType.rect, {
+      x: M, y: 1.15, w: 0.7, h: 0.045,
+      fill: { color: PALETTE.bloom },
+    });
+    stamp(s);
+    return s;
+  };
+
   for (const block of blocks) {
     if (block.type === 'h1' || block.type === 'h2') {
       flush();
-      slide = pptx.addSlide();
-      slide.addText(block.text, {
-        x: 0.6, y: 0.5, w: 8.8, h: 0.6,
-        fontSize: 24, bold: true, color: '3E3E3E', fontFace: FONT_STACK,
-      });
-      slide.addShape(pptx.ShapeType.rect, {
-        x: 0.6, y: 1.15, w: 0.7, h: 0.045,
-        fill: { color: BRAND.accent.replace('#', '') },
-      });
+      slide = openSlide(block.text);
     } else if (block.type === 'rule') {
       continue;
     } else if (slide) {
       // PowerPoint bullets stop being readable past ~9 per slide.
       if (bullets.length >= 9) {
         flush();
-        slide = pptx.addSlide();
-        slide.addText('(continued)', {
-          x: 0.6, y: 0.5, w: 8.8, h: 0.6,
-          fontSize: 18, color: '9A9DAA', fontFace: FONT_STACK,
-        });
+        slide = openSlide('(continued)', true);
       }
       bullets.push(block.text);
     }
@@ -393,7 +434,18 @@ export async function generatePptx(
 
   // pptxgenjs types the nodebuffer case loosely; it does return a Buffer.
   const out = (await pptx.write({ outputType: 'nodebuffer' })) as unknown;
-  return out as Buffer;
+
+  // The slides are clean by construction; the THEME PART is not. pptxgenjs
+  // packs Office's stock colour scheme, and the layouts reference it by name —
+  // so the first shape or link anyone adds in PowerPoint reintroduces colours
+  // this build never chose. Replaced after packing, the same way word/styles.xml
+  // is, because there is no hook to do it before.
+  const zip = await JSZip.loadAsync(out as Buffer);
+  const themes = Object.keys(zip.files).filter((f) => /^ppt\/theme\/theme\d+\.xml$/.test(f));
+  for (const part of themes) {
+    zip.file(part, withPowerDealClrScheme(await zip.file(part)!.async('string')));
+  }
+  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
 // ── XLSX ────────────────────────────────────────────────────────

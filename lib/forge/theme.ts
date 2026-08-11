@@ -349,3 +349,61 @@ export function buildStylesXml(): string {
     '</w:styles>'
   );
 }
+
+
+// ── PPTX theme ─────────────────────────────────────────────────────
+
+/**
+ * The deck's colour scheme, replacing the one pptxgenjs ships.
+ *
+ * The slides themselves render clean once generatePptx draws from PALETTE, and
+ * that is where a check would stop. Measured in the packed file, the THEME PART
+ * still carried Office's stock scheme: 4472C4, ED7D31, FFC000, 70AD47, and —
+ * the two that matter — 0563C1 and 954F72, the exact hyperlink pair listed in
+ * WORD_DEFAULT_COLORS and stripped from the DOCX for the same reason.
+ *
+ * It is latent rather than visible, which is what makes it worth fixing. Slide
+ * layouts and masters reference the scheme by NAME, so the moment anyone adds a
+ * shape, a chart or a link in PowerPoint the deck starts emitting colours this
+ * build never chose — on a customer-facing artifact, months after anyone looked.
+ * Same defect class as the unreferenced Word heading styles: an unreferenced
+ * landmine is worse precisely because nothing reveals it.
+ *
+ * lt1 iswhite paper rather than a palette entry, exactly as the DOCX page is.
+ * hlink takes charcoal with the underline carrying the affordance — the same
+ * decision as the DOCX Hyperlink style, so a link looks the same in both.
+ */
+export function buildPptxClrScheme(): string {
+  const srgb = (v: string) => `<a:srgbClr val="${v}"/>`;
+  return (
+    '<a:clrScheme name="PowerDeal">' +
+    `<a:dk1>${srgb(PALETTE.charcoal)}</a:dk1>` +
+    `<a:lt1>${srgb('FFFFFF')}</a:lt1>` +
+    `<a:dk2>${srgb(PALETTE.charcoal)}</a:dk2>` +
+    `<a:lt2>${srgb(PALETTE.headerFill)}</a:lt2>` +
+    // accent1 is the ONLY green. The remaining five are neutrals from the same
+    // palette rather than a spread — a deck that offered six accent colours
+    // would be offering five colours this build never declared.
+    `<a:accent1>${srgb(PALETTE.bloom)}</a:accent1>` +
+    `<a:accent2>${srgb(PALETTE.muted)}</a:accent2>` +
+    `<a:accent3>${srgb(PALETTE.rule)}</a:accent3>` +
+    `<a:accent4>${srgb(PALETTE.ruleFaint)}</a:accent4>` +
+    `<a:accent5>${srgb(PALETTE.headerFill)}</a:accent5>` +
+    `<a:accent6>${srgb(PALETTE.charcoal)}</a:accent6>` +
+    `<a:hlink>${srgb(PALETTE.charcoal)}</a:hlink>` +
+    `<a:folHlink>${srgb(PALETTE.muted)}</a:folHlink>` +
+    '</a:clrScheme>'
+  );
+}
+
+/**
+ * Swap the colour scheme in every theme part of a packed PPTX.
+ *
+ * Replaces the scheme rather than the whole theme file: the font scheme and
+ * format scheme in the same part are referenced by the layouts, and dropping
+ * them produced exactly the kind of version-dependent breakage the duplicate
+ * Word styleIds did.
+ */
+export function withPowerDealClrScheme(xml: string): string {
+  return xml.replace(/<a:clrScheme[\s\S]*?<\/a:clrScheme>/, buildPptxClrScheme());
+}

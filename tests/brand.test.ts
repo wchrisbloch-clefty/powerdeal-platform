@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 import JSZip from 'jszip';
-import { generateDocx } from '@/lib/forge/generate';
+import { generateDocx, generatePptx } from '@/lib/forge/generate';
 import {
   DECLARED_COLORS,
   FONT,
@@ -315,5 +315,146 @@ describe('referential integrity of the packed styles part', () => {
     for (const id of ['FootnoteReference', 'EndnoteReference', 'ListParagraph', 'Normal']) {
       expect(out.styles).toContain(`w:styleId="${id}"`);
     }
+  });
+});
+
+describe('the deck is the same brand system as the document', () => {
+  /**
+   * The PPTX was the last output the theme did not reach. It carried its own
+   * palette — a near-black cover, 9A9DAA subtitles, FFFFFF type — none of it in
+   * PALETTE, all of it invented at the point of use. A deck and a document
+   * handed to the same reader in the same meeting described the same company
+   * with different ink.
+   *
+   * Asserted against the GENERATED OOXML, not the source. A test that read
+   * generate.ts would pass on a file that imported the palette and then wrote
+   * a literal anyway.
+   */
+  const DECK = `# Where they win
+- Single-throat procurement
+- Contracting speed
+
+## Where we win
+- Zero planned downtime inside the O&M scope
+- No combustion permitting for the host
+`;
+
+  async function slideXml(): Promise<string> {
+    const buf = await generatePptx('Williams — Pricing defense', 'OG-019 · O&G-Mid', DECK);
+    const zip = await JSZip.loadAsync(buf);
+    const parts = Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f));
+    expect(parts.length).toBeGreaterThan(1);
+    return (await Promise.all(parts.map((f) => zip.file(f)!.async('string')))).join('\n');
+  }
+
+  it('uses no colour outside the declared palette', async () => {
+    const xml = await slideXml();
+    const used = [...xml.matchAll(/srgbClr val="([0-9A-Fa-f]{6})"/g)].map((m) => m[1].toUpperCase());
+    expect(used.length).toBeGreaterThan(0);
+    const declared = DECLARED_COLORS.map((c) => c.toUpperCase());
+    const drift = [...new Set(used)].filter((c) => !declared.includes(c));
+    expect(drift, `undeclared colours in the deck: ${drift.join(', ')}`).toEqual([]);
+  });
+
+  it('has retired the invented values specifically', async () => {
+    // Named rather than left to the set check, because these are the exact
+    // three that were there and a regression would reintroduce them by name.
+    const xml = await slideXml();
+    for (const dead of ['0F1117', '9A9DAA', 'FFFFFF']) {
+      expect(xml.toUpperCase(), `${dead} is back`).not.toContain(`SRGBCLR VAL="${dead}"`);
+    }
+  });
+
+  it('uses ONE dark value for headings and body alike', async () => {
+    // Pinned, not derived. A luminance heuristic was tried in the DOCX pass
+    // and classified Bloom green as a dark neutral — clever, and wrong in a
+    // way that would have passed silently.
+    const xml = await slideXml();
+    const used = new Set(
+      [...xml.matchAll(/srgbClr val="([0-9A-Fa-f]{6})"/g)].map((m) => m[1].toUpperCase()),
+    );
+    const DARK = new Set(['000000', '1A1A24', '0F1117', '767676', '9A9DAA']);
+    for (const d of DARK) expect(used, `${d} is a second dark value`).not.toContain(d);
+    expect(used).toContain(PALETTE.charcoal.toUpperCase());
+  });
+
+  it('uses green as an accent only — never as a fill behind text', async () => {
+    const buf = await generatePptx('T', 'S', DECK);
+    const zip = await JSZip.loadAsync(buf);
+    const xml = await zip.file('ppt/slides/slide2.xml')!.async('string');
+    // Every green occurrence must sit inside a shape's fill, and that shape
+    // must carry no text run. Split on shape boundaries and check each.
+    const shapes = xml.split(/<p:sp>/).filter((s) => s.includes(PALETTE.bloom));
+    expect(shapes.length).toBeGreaterThan(0);
+    for (const shape of shapes) {
+      expect(shape, 'text found in a green shape').not.toMatch(/<a:t>[^<]+<\/a:t>/);
+    }
+  });
+
+  it('has no Office colour scheme left in the theme part', async () => {
+    // The slides render clean by construction, and a check that stopped there
+    // would pass. The THEME PART shipped Office's stock scheme — 4472C4,
+    // ED7D31, FFC000, 70AD47, and the 0563C1 / 954F72 hyperlink pair already
+    // stripped from the DOCX. Layouts reference it by NAME, so the first shape
+    // or link added in PowerPoint reintroduces colours this build never chose.
+    const buf = await generatePptx('T', 'S', DECK);
+    const zip = await JSZip.loadAsync(buf);
+    const theme = await zip.file('ppt/theme/theme1.xml')!.async('string');
+    for (const office of ['4472C4', 'ED7D31', 'FFC000', '70AD47', 'A5A5A5', '5B9BD5', '44546A', 'E7E6E6']) {
+      expect(theme.toUpperCase(), `Office ${office} still in the theme`).not.toContain(office);
+    }
+    for (const link of WORD_DEFAULT_COLORS) {
+      expect(theme.toUpperCase(), `${link} still in the theme`).not.toContain(link.toUpperCase());
+    }
+  });
+
+  it('names the scheme after the palette, so a stray shape inherits it', async () => {
+    const zip = await JSZip.loadAsync(await generatePptx('T', 'S', DECK));
+    const theme = await zip.file('ppt/theme/theme1.xml')!.async('string');
+    expect(theme).toContain('<a:clrScheme name="PowerDeal">');
+    expect(theme).toContain(`<a:accent1><a:srgbClr val="${PALETTE.bloom}"/></a:accent1>`);
+    // The hyperlink takes charcoal with the underline carrying the affordance,
+    // matching the DOCX Hyperlink style so a link looks the same in both.
+    expect(theme).toContain(`<a:hlink><a:srgbClr val="${PALETTE.charcoal}"/></a:hlink>`);
+  });
+
+  it('keeps the font and format schemes the layouts reference', async () => {
+    // The scheme is REPLACED, not the whole theme file. Dropping the sibling
+    // schemes produced exactly the version-dependent breakage the duplicate
+    // Word styleIds did.
+    const zip = await JSZip.loadAsync(await generatePptx('T', 'S', DECK));
+    const theme = await zip.file('ppt/theme/theme1.xml')!.async('string');
+    expect(theme).toContain('<a:fontScheme');
+    expect(theme).toContain('<a:fmtScheme');
+  });
+
+  it('allows black ONLY as a shadow, never as ink', async () => {
+    // One 000000 survives, inside an outerShdw at 63% alpha in the format
+    // scheme. A shadow is not type. Asserted as a location rather than waved
+    // through, so black reappearing as a text or fill colour fails here.
+    const zip = await JSZip.loadAsync(await generatePptx('T', 'S', DECK));
+    for (const f of Object.keys(zip.files).filter((n) => n.endsWith('.xml'))) {
+      const xml = await zip.file(f)!.async('string');
+      for (const m of xml.matchAll(/srgbClr val="000000"/gi)) {
+        const before = xml.slice(Math.max(0, m.index! - 200), m.index!);
+        expect(before, `black used as ink in ${f}`).toMatch(/Shdw|effect/i);
+      }
+    }
+  });
+
+  it('carries the PowerDeal wordmark, and no Bloom mark', async () => {
+    const xml = await slideXml();
+    expect(xml).toContain(WORDMARK);
+    // Same rule as the document: a partner's trademark on a customer-facing
+    // artifact is a permission question that belongs outside the codebase.
+    expect(xml).not.toMatch(/Bloom/i);
+  });
+
+  it('opens a slide per heading and keeps bullets under it', async () => {
+    const buf = await generatePptx('T', 'S', DECK);
+    const zip = await JSZip.loadAsync(buf);
+    const s2 = await zip.file('ppt/slides/slide2.xml')!.async('string');
+    expect(s2).toContain('Where they win');
+    expect(s2).toContain('Single-throat procurement');
   });
 });
