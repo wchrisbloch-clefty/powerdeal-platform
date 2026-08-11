@@ -460,13 +460,17 @@ describe('deals.competition is deprecated as the competitive record', () => {
     expect(backlog).toContain('`deals.competition` still scores one MEDDPICC point');
   });
 
-  it('days_in_stage is recorded as frozen under the stage-advancement item', async () => {
+  it('days_in_stage was unfrozen by the stage-advancement item, not patched around', async () => {
+    // This assertion moved with the fix rather than being deleted. What it
+    // protects is the REASON: no derived reset and no backfill, because a
+    // number that looks right is what stops anyone fixing the cause.
     const backlog = await readFile('docs/BACKLOG.md', 'utf8');
     const item1 = backlog.slice(
-      backlog.indexOf("## 1. Nothing in the application"),
+      backlog.indexOf('## 1. Nothing in the application'),
       backlog.indexOf('## 2.'),
     );
-    expect(item1).toContain('`days_in_stage` rides on this and is frozen');
-    expect(item1).toContain('Nothing is being patched around it');
+    expect(item1).toContain('`days_in_stage` rode on this and is now unfrozen');
+    expect(item1).toContain('Nothing was patched around it');
+    expect(item1).toContain('That is not backfilled');
   });
 });
