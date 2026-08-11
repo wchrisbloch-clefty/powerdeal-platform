@@ -65,6 +65,20 @@ create table if not exists deal_competitors (
   constraint deal_competitors_unique unique (deal_id, competitor)
 );
 
+-- ── Constraint repair, for a table that predates 'not-present' ──
+--
+-- `create table if not exists` above is a NO-OP on an existing table, including
+-- its CHECK constraints. If this migration was applied before 'not-present'
+-- existed, re-running it would appear to succeed and leave the old constraint
+-- in place — and the failure would surface in production, the first time
+-- somebody switched the grid off on a deal.
+--
+-- Dropping first makes the pair idempotent: `add constraint` alone would fail
+-- on the second run.
+alter table deal_competitors drop constraint if exists deal_competitors_status_check;
+alter table deal_competitors add constraint deal_competitors_status_check
+  check (status in ('active','eliminated','lost-to','won-against','not-present'));
+
 create index if not exists deal_competitors_deal_idx on deal_competitors(deal_id);
 create index if not exists deal_competitors_tier_idx on deal_competitors(tier);
 create index if not exists deal_competitors_user_idx on deal_competitors(user_id);
@@ -95,6 +109,17 @@ create index if not exists deal_competitors_user_idx on deal_competitors(user_id
 --   from information_schema.constraint_column_usage ccu
 --   join information_schema.check_constraints cc using (constraint_name)
 --   where ccu.table_name = 'deal_competitors' and ccu.column_name = 'tier'
+--
+--   union all
+--   -- Reports on the repair above. On a table applied before 'not-present'
+--   -- existed, `create table if not exists` is a no-op and this is the only
+--   -- check that would notice.
+--   select 'status admits not-present — the toggle-off state',
+--          count(*) = 1,
+--          coalesce(max(pg_get_constraintdef(oid)), 'NO not-present IN THE STATUS CONSTRAINT')
+--   from pg_constraint
+--   where conname = 'deal_competitors_status_check'
+--     and pg_get_constraintdef(oid) like '%not-present%'
 --
 --   union all
 --   select 'one row per competitor per deal',

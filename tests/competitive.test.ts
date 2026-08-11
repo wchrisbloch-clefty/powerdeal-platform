@@ -435,6 +435,23 @@ describe('the migration', () => {
     expect(sql).toContain('check (status in');
   });
 
+  it('repairs the constraint on a table that predates not-present', async () => {
+    // `create table if not exists` is a no-op on an existing table, CHECK
+    // constraints included, so re-running would appear to succeed and the
+    // failure would surface the first time somebody switched the grid off.
+    const sql = await readFile(MIGRATION, 'utf8');
+    expect(sql).toContain('drop constraint if exists deal_competitors_status_check');
+    expect(sql).toContain('add constraint deal_competitors_status_check');
+    // Drop-then-add, so the pair is idempotent; add alone is not.
+    expect(sql.indexOf('drop constraint if exists deal_competitors_status_check'))
+      .toBeLessThan(sql.indexOf('add constraint deal_competitors_status_check'));
+  });
+
+  it('verifies the repair rather than assuming it', async () => {
+    const sql = await readFile(MIGRATION, 'utf8');
+    expect(sql).toContain('NO not-present IN THE STATUS CONSTRAINT');
+  });
+
   it('enforces one row per competitor per deal', async () => {
     const sql = await readFile(MIGRATION, 'utf8');
     expect(sql).toContain('unique (deal_id, competitor)');
