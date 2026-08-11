@@ -6,9 +6,11 @@ import {
 } from '@/lib/engine/model-routing';
 import { BRAIN_READY, BRAIN_ERROR, SYSTEM_PROMPT } from '@/lib/prompts/system';
 import { scenariosOn } from '@/lib/economics/scenarios';
+import { competitorsForDeal } from '@/lib/competitive';
 import { researchForDeal } from '@/lib/research';
 import {
   buildBusinessCasePrompt, buildObjectionsPrompt,
+  buildNoDecisionCardPrompt, buildPricingDefenseCardPrompt,
   buildBriefPrompt, buildQualifyPrompt, buildPlanPrompt, buildMapPrompt,
   buildOutreachPrompt, buildCampaignPrompt, buildIntelPrompt,
   buildPortfolioIntelPrompt, buildPersuadePrompt,
@@ -26,6 +28,7 @@ const TASKS = [
   'summarize', 'synthesize', 'ask', 'classify', 'market-watch', 'qualify',
   'brief', 'plan', 'map-gen', 'outreach', 'campaign', 'intel', 'persuade',
   'forge-doc', 'recap', 'business-case', 'objections',
+  'no-decision-card', 'pricing-defense-card',
 ] as const;
 
 const Body = z.object({
@@ -34,6 +37,8 @@ const Body = z.object({
   /** Free-text: the chat message, the draft to sharpen, extra context. */
   content: z.string().max(50_000).optional(),
   audiencePersona: z.string().max(60).optional(),
+  /** Names which competitor a pricing-defense card argues against. */
+  postureKey: z.string().max(80).optional(),
   /** Prior turns, for the chat surface. */
   history: z
     .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string() }))
@@ -130,7 +135,7 @@ async function buildInput(
   // Tasks that operate on a single account load the full record + signals.
   const needsDeal = [
     'brief', 'qualify', 'plan', 'map-gen', 'outreach', 'intel',
-    'business-case', 'objections',
+    'business-case', 'objections', 'no-decision-card', 'pricing-defense-card',
   ].includes(task);
 
   if (needsDeal) {
@@ -149,6 +154,8 @@ async function buildInput(
     // Absent economics is a normal state, not an error — economicsBlock renders
     // an empty list as a named gap the document carries. Nothing gates on it.
     const economics = scenariosOn(deal);
+    // Posture is an INPUT to the cards, never inferred. Empty is normal.
+    const competitors = await competitorsForDeal(body.dealId).catch(() => []);
 
     const ctx = {
       deal,
@@ -169,6 +176,33 @@ async function buildInput(
       case 'intel': return buildIntelPrompt(ctx);
       case 'business-case': return buildBusinessCasePrompt(ctx);
       case 'objections': return buildObjectionsPrompt(ctx);
+      case 'no-decision-card':
+        return buildNoDecisionCardPrompt({
+          ...ctx,
+          criticalEvent: deal.critical_event,
+          criticalEventDate: deal.critical_event_date,
+        });
+      case 'pricing-defense-card': {
+        // The posture is named by the caller. A card that guessed which
+        // competitor it was writing against would be wrong half the time with
+        // nothing on the page saying so.
+        const chosen = competitors.find((c) => c.id === body.postureKey);
+        if (!chosen) {
+          throw new Error(
+            'A pricing defense card requires a postureKey naming one competitor on this deal.',
+          );
+        }
+        return buildPricingDefenseCardPrompt({
+          ...ctx,
+          posture: {
+            competitor: chosen.competitor,
+            tier: chosen.tier,
+            posture: chosen.posture,
+            whatWasSaid: chosen.what_was_said,
+            whatLanded: chosen.what_landed,
+          },
+        });
+      }
       default: break;
     }
   }

@@ -34,6 +34,8 @@ export type TaskKind =
   | 'intel' // Strategic read / intelligence → Claude (domain)
   | 'business-case' // Champion-facing business case → Claude (domain)
   | 'objections' // Champion objection scripts → Claude (domain)
+  | 'no-decision-card' // No-decision card, per deal → Claude (domain)
+  | 'pricing-defense-card' // Pricing defense vs one posture → Claude (domain)
   | 'persuade' // Persuasion enhancement → Claude (domain)
   | 'forge-doc' // Document generation (PPTX/DOCX) → Claude (domain)
   | 'recap'; // Weekly recap → Claude Haiku (structured)
@@ -51,6 +53,8 @@ export const DOMAIN_TASKS: readonly TaskKind[] = [
   'forge-doc',
   'business-case',
   'objections',
+  'no-decision-card',
+  'pricing-defense-card',
 ];
 
 export function isDomainTask(task: TaskKind): boolean {
@@ -74,6 +78,8 @@ const ORDER: Record<TaskKind, Provider[]> = {
   intel: ['claude'],
   'business-case': ['claude'],
   objections: ['claude'],
+  'no-decision-card': ['claude'],
+  'pricing-defense-card': ['claude'],
   persuade: ['claude'],
   'forge-doc': ['claude'],
 };
