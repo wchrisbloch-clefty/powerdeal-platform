@@ -43,3 +43,59 @@ update deals set value_prop = 'Multiple' where value_prop = 'Both';
 -- ── Then read the spread ──
 -- select coalesce(value_prop, '— unset —') as value_prop, count(*)
 -- from deals group by 1 order by 2 desc;
+
+
+-- ── Behavioural: the rename moves a real row and the check bites ──
+--
+-- A one-statement migration still gets one, because the verification above is
+-- a COUNT of zero — and a count of zero passes on an empty table, on a table
+-- the update never touched, and on a table that has no such column. This block
+-- creates the condition first, so the check is proven against a row that was
+-- actually on 'Both'.
+--
+-- A DO block is one statement, so a raise inside it undoes everything it
+-- created.
+--
+-- do $$
+-- declare
+--   v_deal uuid;
+--   v_prop text;
+--   v_stray int;
+-- begin
+--   insert into deals (deal_id, company, vertical, stage, value_prop, user_id)
+--   values ('ZZ-VALPROP', 'Rename Test Co', 'Other', 'Discovery', 'Both',
+--           (select user_id from deals limit 1))
+--   returning id into v_deal;
+--
+--   update deals set value_prop = 'Multiple'
+--    where value_prop = 'Both';
+--
+--   select value_prop into v_prop from deals where id = v_deal;
+--   raise notice 'a row created on ''Both'' now reads : %', v_prop;
+--   if v_prop <> 'Multiple' then
+--     raise exception 'FAIL: the rename did not move a row that was on ''Both'' — got %', v_prop;
+--   end if;
+--
+--   -- And the enum must actually be closed. A value the code has never heard
+--   -- of has to be visible, because value_prop is plain text with no CHECK
+--   -- constraint to refuse it — the verification query IS the guard.
+--   --
+--   -- The count is SELECTED and PRINTED before it is asserted on. An earlier
+--   -- draft of this block raised inside an `if` and then printed "correct"
+--   -- unconditionally underneath — so neutralising the guard still produced a
+--   -- passing run with a reassuring line in it. Observing the number first
+--   -- means a broken guard shows a wrong number rather than a right message.
+--   update deals set value_prop = 'Genset-fighter' where id = v_deal;
+--   select count(*) into v_stray from deals
+--    where value_prop is not null
+--      and value_prop not in ('Grid-fighter','Combustion-fighter','Integrator-fighter','Multiple');
+--   raise notice 'undeclared values visible          : % (expect 1)', v_stray;
+--   if v_stray <> 1 then
+--     raise exception 'FAIL: an undeclared value_prop went unnoticed — the check cannot fail';
+--   end if;
+--
+--   raise notice 'PASS: rename moves real rows, undeclared values are visible';
+--
+--   delete from deals where id = v_deal;
+--   raise notice 'cleaned up';
+-- end $$;
