@@ -57,8 +57,23 @@ export type RelationshipType = (typeof RELATIONSHIP_TYPES)[number];
 export const GEO_TIERS = ['Primary', 'Secondary', 'National'] as const;
 export type GeoTier = (typeof GEO_TIERS)[number];
 
-/** Grid-fighter = rate/reliability pain. Combustion-fighter = emissions/permit pain. */
-export const VALUE_PROPS = ['Grid-fighter', 'Combustion-fighter', 'Both'] as const;
+/**
+ * Which fight this deal is, from §1A and the Spine schema in v3.1.10.
+ *
+ * Grid-fighter      rate / reliability / queue pain
+ * Combustion-fighter emissions / permitting pain
+ * Integrator-fighter a bundle, not a machine — the comparison is our PPA/EaaS
+ *                   structure against theirs, and a heat-rate argument lands
+ *                   flat because the buyer already decided not to own or operate
+ * Multiple          more than one at once
+ *
+ * 'Both' was the old third arm and is renamed rather than kept alongside
+ * 'Multiple': two names for one concept is the defect the tier rename just
+ * removed. The data migration is in 20260811_value_prop_integrator.sql.
+ */
+export const VALUE_PROPS = [
+  'Grid-fighter', 'Combustion-fighter', 'Integrator-fighter', 'Multiple',
+] as const;
 export type ValueProp = (typeof VALUE_PROPS)[number];
 
 /** Graded provenance — The Hub's trust spine, applied to every intelligence item. */
@@ -110,27 +125,18 @@ export type OutcomeType = (typeof OUTCOME_TYPES)[number];
 /**
  * The competitive set, from section 1A of the system prompt.
  *
- * ⚠️ TIER 1B EXISTS IN DOCTRINE AND IS ABSENT FROM THE REPO'S PROMPT FILE.
+ * Tier 1B is INTEGRATORS — VoltaGrid, Enchanted Rock, PowerSecure, Conduit,
+ * Aggreko, ProEnergy, Liberty, APR Energy, Williams. They compete on commercial
+ * model rather than specification: a buyer comparing an integrator has already
+ * decided not to own or operate anything, so heat rate and emissions land flat
+ * and the comparison is our PPA/EaaS structure against their bundle.
  *
- * v3.1.9 gave integrators full framing — they compete on commercial model
- * rather than specification, a buyer choosing one has already decided not to
- * own or operate, and the comparison is our PPA/EaaS structure against their
- * bundle. v3.1.10 propagated it into hard rule 17, both document specs, the
- * Spine Value Prop enum and the outreach diagnose line.
- *
- * prompts/powerdeal-v3.1.8-system-prompt.md contains NONE of it — the word
- * "integrator" appears zero times in the file, §1A is still the three-tier set,
- * and hard rule 17 is "Bottom line / the Ask".
- *
- * The consequence is specific: a Tier 1B card generates against the tier that
- * dominates data-center deals with no framing to draw on, and — worse — the
- * prompt's standing instruction to lead with what grid and combustion cannot do
- * will steer it toward a heat-rate argument, which is exactly the answer
- * doctrine forbids against an integrator.
- *
- * This is a PROMPT SYNC, not a code change. Global rule 6: the system prompt is
- * never generated or inferred in code. Drop v3.1.10 into prompts/ and bump
- * POWERDEAL_VERSION.
+ * Hard rule 17 is the binding form — never answer an integrator with a heat
+ * rate — and it arrived with prompts/powerdeal-v3.1.10-system-prompt.md. Before
+ * that sync the repo carried v3.1.8, which contained the word "integrator" zero
+ * times, and a Tier 1B card generated against the standing instruction to lead
+ * with what grid and combustion cannot do: a heat-rate argument, which is the
+ * one answer doctrine forbids here.
  */
 /**
  * The doctrine's competitive set, in doctrine order.

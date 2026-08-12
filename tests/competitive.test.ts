@@ -5,6 +5,7 @@ import {
   gridNameGap, otherPostureNames, presenceGrid, presenceWrite,
 } from '@/lib/competitor-catalog';
 import { COMPETITOR_TIERS, TIER_LABELS, type DealCompetitor } from '@/lib/types';
+import { POWERDEAL_VERSION } from '@/lib/brand';
 
 const MIGRATION = 'supabase/migrations/20260810_deal_competitors.sql';
 
@@ -431,9 +432,12 @@ describe('tiers track the doctrine', () => {
     for (const e of CATALOG) expect(COMPETITOR_TIERS).toContain(e.tier);
   });
 
-  it('the three doctrine tiers exist in the system prompt', async () => {
-    const prompt = await readFile('prompts/powerdeal-v3.1.8-system-prompt.md', 'utf8');
+  it('all FOUR doctrine tiers exist in the shipped system prompt', async () => {
+    // Four, not three. The path is derived from POWERDEAL_VERSION so a version
+    // bump without the matching file fails here rather than at runtime.
+    const prompt = await readFile(`prompts/powerdeal-v${POWERDEAL_VERSION}-system-prompt.md`, 'utf8');
     expect(prompt).toContain('TIER 1 — PRIMARY');
+    expect(prompt).toContain('TIER 1B — INTEGRATORS');
     expect(prompt).toContain('TIER 2 — SECONDARY');
     expect(prompt).toContain('TIER 3 — TERTIARY');
   });
@@ -455,32 +459,48 @@ describe('tiers track the doctrine', () => {
     }
   });
 
-  /**
-   * Deliberately asserts a GAP, not a property.
-   *
-   * Tier 1B EXISTS in doctrine — v3.1.9 gave integrators full framing and
-   * v3.1.10 propagated it. The repo's prompt file is two versions behind and
-   * contains the word zero times, so a Tier 1B card generates with nothing to
-   * draw on. When the prompt is synced this test FAILS, which is the signal to
-   * delete it and the warning comments beside it.
-   */
-  it('the shipped prompt is BEHIND doctrine on Tier 1B — failing here is the fix landing', async () => {
-    const prompt = await readFile('prompts/powerdeal-v3.1.8-system-prompt.md', 'utf8');
-    expect(prompt).not.toMatch(/integrator/i);
+  it('the shipped prompt now carries the Tier 1B doctrine', async () => {
+    // This replaces a test that asserted the GAP — the repo shipped v3.1.8,
+    // which contained the word zero times. It failed on sync, which was the
+    // signal, and the assertion is inverted rather than deleted so a version
+    // rollback that quietly dropped the doctrine would fail here.
+    const prompt = await readFile(`prompts/powerdeal-v${POWERDEAL_VERSION}-system-prompt.md`, 'utf8');
+    expect(prompt).toMatch(/TIER 1B — INTEGRATORS/);
+    expect(prompt).toMatch(/never answer an integrator with a heat rate/i);
+    expect(prompt).toContain('VERTICAL-AWARE SURFACING');
+  });
+
+  it('the loader points at a prompt file that exists', async () => {
+    // The filename is derived from POWERDEAL_VERSION, so a bump without the
+    // file is a runtime BRAIN_NOT_SYNCED on every domain call — a 503 that
+    // looks like an outage rather than a missing paste.
+    const prompt = await readFile(`prompts/powerdeal-v${POWERDEAL_VERSION}-system-prompt.md`, 'utf8');
+    expect(prompt.length).toBeGreaterThan(200);
+    expect(prompt).not.toContain('PD-PLACEHOLDER-SENTINEL');
   });
 
   it('says so on the toggle itself, where someone is about to switch it on', () => {
     // The one line of doctrine that IS known: never answer an integrator with
     // a heat-rate argument.
-    expect(CATALOG_BY_KEY.get('tier-1b')?.hint).toMatch(/heat-rate/i);
+    expect(CATALOG_BY_KEY.get('tier-1b')?.hint).toMatch(/heat rate/i);
   });
 
-  it('records the prompt-sync gap where the enum is declared', async () => {
+  it('records what Tier 1B is where the enum is declared', async () => {
     const src = await readFile('lib/types.ts', 'utf8');
-    expect(src).toContain('ABSENT FROM THE');
-    expect(src).toContain('v3.1.10');
-    // It is a prompt sync, not a code change — global rule 6.
-    expect(src).toContain('never generated or inferred in code');
+    expect(src).toContain('commercial\n * model rather than specification');
+    expect(src).toContain('Hard rule 17');
+  });
+
+  it('carries the Integrator-fighter Value Prop arm from v3.1.10', async () => {
+    const { VALUE_PROPS } = await import('@/lib/types');
+    expect(VALUE_PROPS).toEqual([
+      'Grid-fighter', 'Combustion-fighter', 'Integrator-fighter', 'Multiple',
+    ]);
+    // 'Both' is renamed, not kept alongside 'Multiple' — two names for one
+    // concept is the defect the tier rename removed.
+    expect(VALUE_PROPS).not.toContain('Both');
+    const sql = await readFile('supabase/migrations/20260811_value_prop_integrator.sql', 'utf8');
+    expect(sql).toContain("update deals set value_prop = 'Multiple' where value_prop = 'Both'");
   });
 });
 

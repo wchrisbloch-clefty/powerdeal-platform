@@ -24,7 +24,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'DEF-001', company: 'BAE Systems', vertical: 'Defense',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'CA',
-    utility: 'SDG&E', value_prop: 'Both', beachhead_site: 'ES — San Diego',
+    utility: 'SDG&E', value_prop: 'Multiple', beachhead_site: 'ES — San Diego',
     size_mw: 116, champion: 'Trevor Reitsma (Energy & Utilities Mgr)',
     next_move: 'Land San Diego feasibility convo; name EB + security gatekeeper',
     key_risk: 'Single-threaded on Trevor; no load number confirmed',
@@ -32,7 +32,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'DEF-006', company: 'General Dynamics', vertical: 'Defense',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'VA',
-    utility: 'Dominion', value_prop: 'Both', beachhead_site: null,
+    utility: 'Dominion', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
     next_move: 'Identify beachhead segment (land systems vs. marine)',
     key_risk: 'Massive multi-segment enterprise; security gates throughout',
@@ -40,7 +40,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'DEF-007', company: 'L3Harris', vertical: 'Defense',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'FL',
-    utility: 'multi', value_prop: 'Both', beachhead_site: null,
+    utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
     next_move: 'Map facility footprint; identify reliability-critical fabs',
     key_risk: 'Multi-site; security/OPSEC gates like BAE',
@@ -48,7 +48,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'DEF-021', company: 'SpaceX', vertical: 'Defense/Special',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'TX',
-    utility: 'ERCOT', value_prop: 'Both', beachhead_site: 'Starbase TX',
+    utility: 'ERCOT', value_prop: 'Multiple', beachhead_site: 'Starbase TX',
     size_mw: null, champion: null,
     next_move: 'Qualify Starbase + factory loads; time-to-power is their language',
     key_risk: 'Moves fast, vertically integrated — may self-build power; ITAR gates',
@@ -58,7 +58,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'IND-002', company: 'Cabot Corp', vertical: 'Industrial-Chemical',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'MA',
-    utility: 'multi', value_prop: 'Both', beachhead_site: null,
+    utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
     next_move: 'Identify multi-site beachhead; map carbon black plant loads',
     key_risk: 'Multi-site enterprise; no contact; load unknown',
@@ -66,7 +66,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'IND-004', company: 'DuPont', vertical: 'Industrial-Chemical',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'DE',
-    utility: 'multi', value_prop: 'Both', beachhead_site: null,
+    utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
     next_move: 'Map US plant footprint post-Qnity spin; find beachhead',
     key_risk: 'Post-Qnity spinoff — footprint shrank, re-scope needed',
@@ -74,7 +74,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'IND-005', company: 'Evonik', vertical: 'Industrial-Chemical',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'multi',
-    utility: 'multi', value_prop: 'Both', beachhead_site: null,
+    utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
     next_move: 'Map US footprint; find US decision authority (German parent)',
     key_risk: 'Foreign parent; US decision autonomy unclear',
@@ -82,7 +82,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'IND-008', company: 'Stepan Co', vertical: 'Industrial-Chemical',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'IL',
-    utility: 'multi', value_prop: 'Both', beachhead_site: null,
+    utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
     next_move: 'Qualify process-continuity + ESG pain at surfactant plants',
     key_risk: 'Mid-cap; load profile unknown; no contact yet',
@@ -90,7 +90,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'IND-009', company: 'Westlake Corp', vertical: 'Industrial-Chemical',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'TX',
-    utility: 'CenterPoint', value_prop: 'Both',
+    utility: 'CenterPoint', value_prop: 'Multiple',
     beachhead_site: 'Gulf Coast petrochemical', size_mw: null, champion: null,
     next_move: 'HGB non-attainment permitting angle; map Gulf Coast vinyls plants',
     key_risk: 'Home-turf Houston; no contact yet; HGB is the wedge',
@@ -98,7 +98,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'IND-014', company: 'Qnity Electronics', vertical: 'Industrial-Semicon',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'DE',
-    utility: 'Delmarva', value_prop: 'Both', beachhead_site: 'Newark DE fab',
+    utility: 'Delmarva', value_prop: 'Multiple', beachhead_site: 'Newark DE fab',
     size_mw: null, champion: null,
     next_move: 'Map US fab footprint; fresh-spin energy strategy window NOW',
     key_risk: 'New company (Nov 2025) — processes still forming; DuPont sibling',
@@ -108,7 +108,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'OG-003', company: 'CVR Energy', vertical: 'O&G-Down',
     relationship_type: 'Direct', geo_tier: 'Secondary', state: 'KS',
-    utility: 'multi', value_prop: 'Both', beachhead_site: null,
+    utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
     next_move: 'Qualify refinery reliability + permitting pain at Coffeyville/Wynnewood',
     key_risk: '2 mid-con refineries; no contact; mid-con HGB less acute than Gulf Coast',
@@ -116,7 +116,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'OG-010', company: 'Valero', vertical: 'O&G-Down',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'TX',
-    utility: 'multi', value_prop: 'Both', beachhead_site: null,
+    utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
     next_move: 'Pick beachhead refinery; reliability + HGB permitting angle',
     key_risk: '15-refinery giant; enterprise sequencing like BAE needed',
@@ -124,7 +124,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'OG-017', company: 'Marathon Petroleum', vertical: 'O&G-Down',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'OH',
-    utility: 'multi', value_prop: 'Both', beachhead_site: 'Galveston Bay TX (HGB)',
+    utility: 'multi', value_prop: 'Multiple', beachhead_site: 'Galveston Bay TX (HGB)',
     size_mw: null, champion: null,
     next_move: 'Galveston Bay refinery = HGB non-attainment wedge; pick beachhead',
     key_risk: 'Largest US refiner; enterprise sequencing needed same as Valero',
@@ -134,7 +134,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'OG-013', company: 'Targa Resources', vertical: 'O&G-Mid',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'TX',
-    utility: 'ERCOT', value_prop: 'Both', beachhead_site: 'Permian gas processing',
+    utility: 'ERCOT', value_prop: 'Multiple', beachhead_site: 'Permian gas processing',
     size_mw: null, champion: null,
     next_move: 'Map Permian processing/fractionation loads — they OWN the fuel',
     key_risk: 'Multi-asset Permian sprawl; distributed loads',
@@ -150,7 +150,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'OG-016', company: 'Tallgrass', vertical: 'O&G-Mid',
     relationship_type: 'Direct/Partner', geo_tier: 'Secondary', state: 'KS',
-    utility: 'multi', value_prop: 'Both', beachhead_site: null,
+    utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
     next_move: 'Probe dual angle: compression loads (Direct) + decarb infra ambitions (Partner)',
     key_risk: 'Energy-transition strategy may make them partner not just buyer',
@@ -158,7 +158,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'OG-018', company: 'ONEOK', vertical: 'O&G-Mid',
     relationship_type: 'Direct', geo_tier: 'Secondary', state: 'OK',
-    utility: 'PSO', value_prop: 'Both',
+    utility: 'PSO', value_prop: 'Multiple',
     beachhead_site: 'Mont Belvieu TX NGL fractionation', size_mw: null, champion: null,
     next_move: 'Map fractionator + processing loads; Mont Belvieu = TX cluster play',
     key_risk: 'Multi-state asset sprawl; OK HQ but TX loads are the prize',
@@ -166,7 +166,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'OG-019', company: 'Williams', vertical: 'O&G-Mid',
     relationship_type: 'Direct/Partner', geo_tier: 'Secondary', state: 'OK',
-    utility: 'multi', value_prop: 'Both', beachhead_site: null,
+    utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
     next_move: 'Dual angle: Transco compression loads + announced power-for-DC builds',
     key_risk: 'They are building gas power themselves — buyer, partner, or neither?',
@@ -174,7 +174,7 @@ const SPECS: SeedSpec[] = [
   {
     deal_id: 'OG-020', company: 'TC Energy', vertical: 'O&G-Mid',
     relationship_type: 'Direct/Partner', geo_tier: 'Secondary', state: 'TX',
-    utility: 'multi', value_prop: 'Both', beachhead_site: null,
+    utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
     next_move: 'US decision authority (Calgary parent); dual angle incl. power ambitions',
     key_risk: 'Foreign parent; pursuing own power plays; US autonomy unclear',

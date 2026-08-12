@@ -1,0 +1,45 @@
+-- ═══════════════════════════════════════════════════════
+-- MIGRATION — Value Prop gains the Integrator-fighter arm
+--
+-- v3.1.10 propagates the Tier 1B integrator doctrine into the Spine schema.
+-- The enum becomes Grid-fighter / Combustion-fighter / Integrator-fighter /
+-- Multiple, and 'Both' is RENAMED to 'Multiple' rather than kept alongside it:
+-- two names for one concept is the same defect the integrator → tier-1b rename
+-- just removed.
+--
+-- There is no CHECK constraint on deals.value_prop — it is plain text — so this
+-- is a data rename with nothing to drop first. The enum lives in lib/types.ts.
+--
+-- See migrations/README.md for the checklist this satisfies.
+-- ═══════════════════════════════════════════════════════
+
+update deals set value_prop = 'Multiple' where value_prop = 'Both';
+
+
+-- ═══════════════════════════════════════════════════════
+-- VERIFICATION — run AFTER the migration.
+-- ═══════════════════════════════════════════════════════
+--
+-- with checks as (
+--   select 'no deal is left on the retired value' as check_name,
+--          count(*) = 0 as passed,
+--          case when count(*) = 0 then 'zero rows on ''Both'''
+--               else count(*)::text || ' row(s) still ''Both''' end as observed
+--   from deals where value_prop = 'Both'
+--
+--   union all
+--   select 'every value_prop is one the code knows',
+--          count(*) = 0,
+--          case when count(*) = 0 then 'all values in the declared set'
+--               else 'unknown: ' || string_agg(distinct value_prop, ', ') end
+--   from deals
+--   where value_prop is not null
+--     and value_prop not in ('Grid-fighter','Combustion-fighter','Integrator-fighter','Multiple')
+-- )
+-- select check_name, case when passed then 'PASS' else 'FAIL' end as result, observed
+-- from checks order by result desc, check_name;
+--
+--
+-- ── Then read the spread ──
+-- select coalesce(value_prop, '— unset —') as value_prop, count(*)
+-- from deals group by 1 order by 2 desc;

@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, BookOpen, Briefcase, Calculator, CheckCircle2, Download,
   FileText, HelpCircle, Map as MapIcon, MessagesSquare, Quote, Radio, Send,
-  ShieldCheck, AlertTriangle,
+  ShieldCheck, AlertTriangle, FileDown,
 } from 'lucide-react';
 import type {
   Deal, Signal, MarketWatchEntry, StageTransition, DealCompetitor,
@@ -160,6 +160,7 @@ export default function DealDetail({
     label: string | undefined,
     content: string,
     filename?: string,
+    format: 'docx' | 'pdf' = 'docx',
   ) {
     setExporting(true);
     setExportError(null);
@@ -170,7 +171,7 @@ export default function DealDetail({
         body: JSON.stringify({
           dealId: deal.id,
           action,
-          format: 'docx',
+          format,
           content,
           title: `${deal.company} — ${label ?? action}`,
         }),
@@ -192,7 +193,7 @@ export default function DealDetail({
       a.download =
         filename ??
         res.headers.get('Content-Disposition')?.match(/filename="(.+?)"/)?.[1] ??
-        `${deal.deal_id}-${action}.docx`;
+        `${deal.deal_id}-${action}.${format}`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -779,6 +780,37 @@ export default function DealDetail({
                     }
                   >
                     <Download size={14} /> {exporting ? 'Rendering…' : 'Export DOCX'}
+                  </Button>
+                  {/* The third built-but-unreachable surface in this build,
+                      after the stage field and log_win_loss. The route serves
+                      PDF and takes a page size; nothing called it. A working
+                      server side with no caller is indistinguishable from a
+                      missing feature to everyone except the person who wrote
+                      it. */}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={exporting}
+                    onClick={() =>
+                      card
+                        ? exportDocx(
+                            activeTask ?? 'output',
+                            `${card.kind === 'no-decision' ? 'No-decision case' : 'Pricing defense'} vs ${card.label}`,
+                            ai.text,
+                            cardFilename({ company: deal.company }, card.kind, card.label, card.date)
+                              .replace(/\.docx$/, '.pdf'),
+                            'pdf',
+                          )
+                        : exportDocx(
+                            activeTask ?? 'output',
+                            AI_ACTIONS.find((a) => a.task === activeTask)?.label,
+                            ai.text,
+                            undefined,
+                            'pdf',
+                          )
+                    }
+                  >
+                    <FileDown size={14} /> {exporting ? 'Rendering…' : 'Export PDF'}
                   </Button>
                   {exportError ? (
                     <span role="status" className="text-xs text-danger">

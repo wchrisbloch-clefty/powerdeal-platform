@@ -29,12 +29,9 @@ create table if not exists deal_competitors (
   -- It also sorts correctly — 'integrator' sorted ahead of 'tier-1' in every
   -- `order by tier`, which put the fourth tier first in every read.
   --
-  -- ⚠️ TIER 1B EXISTS IN DOCTRINE (v3.1.9/v3.1.10) AND IS ABSENT FROM THE
-  -- REPO'S PROMPT FILE. prompts/powerdeal-v3.1.8-system-prompt.md contains the
-  -- word "integrator" zero times. Until the prompt is synced, a Tier 1B card
-  -- generates with no framing — and the prompt's standing instruction to lead
-  -- with what grid and combustion cannot do will steer it toward a heat-rate
-  -- argument, which is the answer doctrine forbids against an integrator.
+  -- Tier 1B is INTEGRATORS, defined in §1A and hard rule 17 of
+  -- prompts/powerdeal-v3.1.10-system-prompt.md: they compete on commercial
+  -- model, not specification, and are never answered with a heat rate.
   tier            text not null check (tier in ('tier-1','tier-1b','tier-2','tier-3')),
 
   -- What WE argue against this competitor in this deal.

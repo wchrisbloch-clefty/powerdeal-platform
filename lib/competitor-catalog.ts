@@ -168,7 +168,7 @@ export const CATALOG: CatalogEntry[] = [
     tier: 'tier-1b',
     presence: 'off',
     topLevel: true,
-    hint: 'Competes on commercial model, not specification. Never answer one with a heat-rate argument.',
+    hint: 'Competes on commercial model, not specification — the comparison is our PPA/EaaS structure against their bundle. Hard rule 17: never answer one with a heat rate.',
   },
   { key: 'battery', name: 'Batteries / storage', tier: 'tier-2', presence: 'off', topLevel: false },
   { key: 'wind', name: 'Wind', tier: 'tier-2', presence: 'off', topLevel: false },

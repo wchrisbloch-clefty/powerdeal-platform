@@ -73,3 +73,23 @@ that could only fail in one direction:
 `psql` and a PostgreSQL server are available in the dev container. Build the
 table, reproduce the pre-migration state, apply, apply again, and run the
 verification. A migration that has never been executed is a draft.
+
+## 6. Confirm every mutation actually changed the source
+
+A mutation that silently fails to apply is **indistinguishable from a test that
+cannot fail**. Both print the same thing: the suite still passes.
+
+This is not hypothetical. Two mutations in this build appeared to pass and
+neither result was real — a `perl` pattern whose indentation did not match, and
+a second where the intended edit was a no-op. Rerun with the edit confirmed and
+both failed immediately, which was the honest answer all along.
+
+So the rule: before recording a mutation as "caught" or "not caught", check
+that the file actually changed. `git diff --stat`, a `grep` for the new text, or
+a printed before/after count. An unapplied mutation proves nothing, and
+recording it as a pass is worse than not running it — it is a false negative
+that reads as evidence.
+
+The same reasoning as rule 4. A check that has only ever seen the passing case
+is unproven, and a mutation that never ran is a check that has only ever seen
+the passing case.

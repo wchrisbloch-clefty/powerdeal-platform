@@ -69,7 +69,7 @@ create table if not exists deals (
   geo_tier        text,                          -- Primary / Secondary / National
   state           text,
   utility         text,
-  value_prop      text,                          -- Grid-fighter / Combustion-fighter / Both
+  value_prop      text,                          -- Grid-fighter / Combustion-fighter / Integrator-fighter / Multiple
   beachhead_site  text,
   -- Utility territory of the beachhead site. Wins over `utility` in the
   -- resolver: the account-level field describes the company, the beachhead is
@@ -206,8 +206,7 @@ create table if not exists deal_competitors (
   -- and it sorts correctly — 'integrator' sorted ahead of 'tier-1' in every
   -- `order by tier`, which put the fourth tier first in every read.
   --
-  -- ⚠️ TIER 1B EXISTS IN DOCTRINE (v3.1.9/v3.1.10) AND IS ABSENT FROM THE
-  -- REPO'S PROMPT FILE. See lib/types.ts for the consequence and the fix.
+  -- Tier 1B is INTEGRATORS — see §1A and hard rule 17 of the system prompt.
   tier            text not null check (tier in ('tier-1','tier-1b','tier-2','tier-3')),
 
   -- What WE argue against this competitor in this deal.

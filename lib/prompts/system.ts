@@ -11,7 +11,7 @@ import { POWERDEAL_VERSION } from '@/lib/brand';
  * It is read verbatim from the committed markdown file, which is synced by
  * hand from the Claude.ai project.
  *
- * To update the brain: edit prompts/powerdeal-v3.1.8-system-prompt.md,
+ * To update the brain: edit the file named by POWERDEAL_VERSION in prompts/,,
  * commit, push. Vercel redeploys and the new methodology is live.
  *
  * Server-only — `fs` is unavailable in the browser bundle. Import this from

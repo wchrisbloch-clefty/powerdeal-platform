@@ -173,22 +173,57 @@ this pass — a working server side with no caller.
 
 ---
 
-## 5. MAP share link
+## 5. MAP share link — REMOVED FROM SCOPE
 
-**Status:** parked, deliberately paired with the custom-domain decision
+**Status:** CUT 2026-08-11. Not deferred — removed. Do not build the route, add
+the custom domain, or touch Deployment Protection.
 
-Vercel Deployment Protection is enabled with
-`deploymentType: all_except_custom_domains`, and the app runs on a
-`*.vercel.app` domain — so any share URL gets a 401 from Vercel's edge before
-the route runs. The app has no auth of its own (no `middleware.ts`, one
-hardcoded user id), so that protection is the only thing keeping the pipeline
-private and cannot simply be disabled.
+### Why it was cut, in the buyer's terms
 
-`shareToken`, `championViewedAt` and `championEditedAt` exist and
-`championSignal()` reads them correctly. The plumbing is ready; the route is
-not, and it should be designed together with the domain rather than retrofitted
-to it.
+The champions are VPs at defense and midstream accounts. They forward
+attachments to their boss. They do not open a vendor-hosted web app that needs
+a security review to reach. **PDF and DOCX export are the delivery mechanism.**
 
+### Why it could not be built safely anyway
+
+The app has no auth of its own — no `middleware.ts`, no login route, no
+session, and a service-role client scoped to one hardcoded user id. Vercel
+Deployment Protection is the entire security boundary, and it runs at the
+platform edge BEFORE Next.js middleware. So there were only two ways to expose
+a share URL:
+
+- **Protection Bypass for Automation** — a global bypass secret, not
+  path-scoped. Opens every route, not just `/share`.
+- **`all_except_custom_domains`** — protection applies to `*.vercel.app` but
+  not the custom domain, which leaves `/app` unprotected on that domain.
+
+Both are "an exemption that opens the app". Under either, a middleware file
+written in one pass becomes the only thing keeping the pipeline private, with
+no second layer behind it. Adding real auth to `/app` to serve a link the
+buyers will not click is the wrong trade.
+
+### What is kept, and what goes dormant
+
+`shareToken` STAYS in `MapPlan`. It costs nothing, and the decision could
+reverse if the delivery channel ever changes.
+
+**`championSignal()` goes dormant.** It reads `shareToken`,
+`championViewedAt` and `championEditedAt` and returns `'not-shared'` for every
+plan, because nothing will ever set them. The MAP export prints that label,
+which is accurate rather than broken.
+
+That loss is ACCEPTED, and for a reason beyond the trade: in defense accounts,
+engagement tracking on a named individual inside the customer's organisation is
+a liability rather than a feature. View/edit telemetry on a champion is the
+kind of thing that surfaces in a security review and costs the deal.
+
+### If this ever reverses
+
+Real auth on `/app` first — Supabase sign-in restoring the cookie-bound client.
+RLS policies are already in place and untouched, so that is a client swap, not
+a schema migration. The share route comes after, never instead.
+
+---
 
 ## 6. `deals.competition` still scores one MEDDPICC point
 
