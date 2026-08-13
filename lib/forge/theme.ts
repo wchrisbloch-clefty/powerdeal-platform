@@ -84,6 +84,45 @@ export const PALETTE = {
   ruleFaint: 'EDEDED',
   /** Table header row fill. Neutral by decision — see the note above. */
   headerFill: 'F4F5F7',
+
+  /**
+   * Callout surface. Pale green tint behind CHARCOAL text.
+   *
+   * This is the one place green appears as a fill, and it is legal precisely
+   * because nothing light sits on it: the text stays charcoal and the accent
+   * bar inside it stays 3CAD3A. The never-light-text-on-green rule is about
+   * contrast, not about the hue — a 6% tint at charcoal is a stronger read
+   * than the grey it replaces.
+   */
+  calloutFill: 'E8F5E8',
+
+  /**
+   * Neutral surface, for callouts that must NOT read as good news.
+   *
+   * A gap, a risk or an unanswered question in the green callout would code
+   * as a positive by colour while saying the opposite in words, and colour
+   * wins that argument every time.
+   */
+  neutralFill: 'F5F5F5',
+} as const;
+
+/**
+ * The section bar takes NO new token.
+ *
+ * It was specified as "3E3E3E fill with FFFFFF text", and both values are
+ * already declared — 3E3E3E is `charcoal` and FFFFFF is paper, which the
+ * suite has always admitted. Adding `sectionBarFill: '3E3E3E'` would have put
+ * one hex behind two names, which is the defect the integrator → tier-1b
+ * rename removed and the 'Both' → 'Multiple' rename removed again. The
+ * palette-pin test caught it on the first run.
+ *
+ * So the bar is a COMPOSITION of declared tokens, not a new one. It is the
+ * only light-on-dark pairing in the system and is reserved for structural
+ * dividers — a document that used it per heading would be a document of bars.
+ */
+export const SECTION_BAR = {
+  fill: PALETTE.charcoal,
+  text: 'FFFFFF',
 } as const;
 
 export type PaletteKey = keyof typeof PALETTE;
@@ -265,6 +304,143 @@ export const TABLE_CELL_MARGINS = { top: 60, bottom: 60, left: 80, right: 80 };
 export const TITLE_RULE = {
   bottom: { color: PALETTE.bloom, size: 12, style: BorderStyle.SINGLE, space: 6 },
 };
+
+
+// ── Callouts and the classification header ─────────────────────────
+
+/**
+ * A callout: a single-cell table with a shaded surface.
+ *
+ * A single-cell table rather than a bordered paragraph because Word paragraph
+ * borders do not take a fill that survives round-tripping, and the header band
+ * already established that a one-cell table is how this build gets an exact
+ * shaded box.
+ *
+ * `tone` is the whole decision. Green codes as good news, and a gap or a risk
+ * rendered on the green surface would say one thing in colour and the opposite
+ * in words — colour wins that argument. So anything the reader must NOT read
+ * as favourable takes the neutral surface.
+ */
+export type CalloutTone = 'positive' | 'neutral';
+
+export function callout(lines: string[], tone: CalloutTone = 'positive'): Table {
+  const fill = tone === 'positive' ? PALETTE.calloutFill : PALETTE.neutralFill;
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 2, color: fill },
+      bottom: { style: BorderStyle.SINGLE, size: 2, color: fill },
+      left: { style: BorderStyle.SINGLE, size: 12, color: PALETTE.bloom },
+      right: { style: BorderStyle.SINGLE, size: 2, color: fill },
+      insideHorizontal: { style: BorderStyle.NONE, size: 0, color: fill },
+      insideVertical: { style: BorderStyle.NONE, size: 0, color: fill },
+    },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            shading: { type: ShadingType.CLEAR, color: 'auto', fill },
+            margins: { top: 120, bottom: 120, left: 160, right: 160 },
+            children: lines.map(
+              (text, i) =>
+                new Paragraph({
+                  spacing: { before: i === 0 ? 0 : 60, after: 0 },
+                  children: [
+                    // Charcoal on the tint, always. The accent is the left
+                    // edge of the box, never the type inside it.
+                    new TextRun({ text, size: 20, color: PALETTE.charcoal, font: FONT }),
+                  ],
+                }),
+            ),
+          }),
+        ],
+      }),
+    ],
+  });
+}
+
+/**
+ * A section bar: charcoal fill, white text, an EXACT row height.
+ *
+ * Fixed height for the same reason the page header band is fixed — a shaded
+ * box that grows with its content reflows the page around it, and the
+ * reference document this pattern came from shipped a header band with no
+ * trHeight at all.
+ */
+export const SECTION_BAR_TWIPS = 400;
+
+export function sectionBar(label: string): Table {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: { style: BorderStyle.NONE, size: 0, color: SECTION_BAR.fill },
+      bottom: { style: BorderStyle.NONE, size: 0, color: SECTION_BAR.fill },
+      left: { style: BorderStyle.NONE, size: 0, color: SECTION_BAR.fill },
+      right: { style: BorderStyle.NONE, size: 0, color: SECTION_BAR.fill },
+      insideHorizontal: { style: BorderStyle.NONE, size: 0, color: SECTION_BAR.fill },
+      insideVertical: { style: BorderStyle.NONE, size: 0, color: SECTION_BAR.fill },
+    },
+    rows: [
+      new TableRow({
+        height: { value: SECTION_BAR_TWIPS, rule: HeightRule.EXACT },
+        children: [
+          new TableCell({
+            shading: { type: ShadingType.CLEAR, color: 'auto', fill: SECTION_BAR.fill },
+            margins: { top: 40, bottom: 40, left: 160, right: 160 },
+            children: [
+              new Paragraph({
+                spacing: { before: 0, after: 0 },
+                children: [
+                  new TextRun({
+                    text: label.toUpperCase(),
+                    bold: true,
+                    size: 18,
+                    color: SECTION_BAR.text,
+                    font: FONT,
+                    characterSpacing: 30,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+}
+
+/**
+ * The classification line, on INTERNAL artifacts only.
+ *
+ * The distinction is the point. A meeting prep, a qualification gate and a
+ * war-room output are working documents that assume the reader is on our side
+ * of the table; a business case or a pricing defense is written to be handed
+ * across it. Stamping both the same way trains the reader to ignore the stamp,
+ * and stamping the champion-facing one wrongly is worse — it tells a customer
+ * they are holding something they were not meant to see.
+ */
+export const CLASSIFICATION_INTERNAL = 'CONFIDENTIAL — INTERNAL USE ONLY';
+
+export type Audience = 'internal' | 'champion-facing';
+
+export function classificationLine(audience: Audience): Paragraph[] {
+  if (audience !== 'internal') return [];
+  return [
+    new Paragraph({
+      spacing: { before: 0, after: 80 },
+      children: [
+        new TextRun({
+          text: CLASSIFICATION_INTERNAL,
+          bold: true,
+          size: 16,
+          color: PALETTE.muted,
+          font: FONT,
+          characterSpacing: 40,
+        }),
+      ],
+    }),
+  ];
+}
 
 
 // ── styles.xml, supplied wholesale ──────────────────────────────────

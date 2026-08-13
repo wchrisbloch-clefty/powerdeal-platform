@@ -262,3 +262,67 @@ table calls once per row. It also moves a visible score on live deals.
 Thread the competitor set in, score the point on a stored row rather than on
 presence, and state the change where the score is displayed so a deal that
 drops a point shows why.
+
+
+## 7. Meeting Prep generator — BLOCKED on SKILL-meeting-prep.md
+
+**Status:** blocked, not started
+**Found:** 2026-08-13
+**Severity:** the highest-value artifact type identified so far, and the
+intended default surface before a call
+
+### Why it is blocked
+
+`SKILL-meeting-prep.md` is **not in this repository.** No SKILL file is —
+`find` returns zero matches. The system prompt says the Forge "reads the
+relevant SKILL.md first", but those files live in the Claude.ai project, not in
+git, so the repository has never had access to any of them.
+
+The generator was specified as "build it against the skill", and the skill
+supplies four catalogs that are pure doctrine:
+
+- **15 meeting types** — each with its own time shape
+- **13 personas** — the calibration target for every section
+- **the methodology matrix** — which technique applies to which combination
+- **the landmine library** — vertical-specific, situational
+
+None of those can be inferred. Inventing 15 meeting types would be writing
+doctrine in code, which is the same error as the integrator tier that shipped
+with no framing for two versions — and it would be worse here, because a
+plausible-looking meeting plan is used in a live meeting before anybody
+notices it was invented.
+
+### What IS specifiable without the file, and could be built first
+
+The mechanism was described in enough detail to build independently of the
+catalogs, and none of it is doctrine:
+
+- **Duration budgeting** — minutes allocated across openers / core discovery /
+  closers, from a duration input. A 30-minute intro and a 90-minute technical
+  deep-dive are different documents.
+- **Branch selection** — three openers with distinct leads (cost / risk / soft)
+  and two closes (hard / soft), each labelled with the condition that selects
+  it: "if the room reads cautious."
+- **The filler section** — no-wrong-answer questions for a quiet room.
+- **"Why it works"** on every script — one line, mechanism not restatement.
+- **The walk-out checklist**, read from the actual deal record rather than
+  templated: "one new name — health caps at 6 while single-threaded" is a
+  sentence generated from `multi_threaded` and `computeHealthScore`, and every
+  item like it already has a field behind it.
+- **Market intel**, filtered from the Market Watch log by the deal's utility,
+  state, ISO and vertical, each item dated, sourced, and rewritten as a spoken
+  hook, closing with a Signal / Use As / Timing table.
+- **The return path**, which shipped in this pass as a platform-wide rule.
+
+### What landed in this pass regardless
+
+The three theme tokens, the callout and section-bar builders, the
+classification header, the five defect assertions, and both platform-wide
+extractions are all done and independent of the skill file. See
+`lib/forge/theme.ts` and `lib/provenance.ts`.
+
+### To unblock
+
+Drop `SKILL-meeting-prep.md` into the repo. It is doctrine, so it belongs
+beside the system prompt under the same rule 6 that governs it: read verbatim
+from a committed file, never generated or inferred in code.

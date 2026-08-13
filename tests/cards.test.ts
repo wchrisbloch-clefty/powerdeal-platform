@@ -256,3 +256,64 @@ describe('the header is emitted before the model, not after it', () => {
     expect(route).toContain('otherPostureNames(deal, competitors');
   });
 });
+
+describe('two rules extracted from the meeting-prep pattern, applied platform-wide', () => {
+  /**
+   * Both were found in a document that was better than what this build ships.
+   * Adopting a pattern is exactly when its rules get left behind, so they are
+   * asserted on the artifacts that already exist rather than only on the new
+   * one.
+   */
+
+  it('every figure carries its source IN THE BODY, on both cards', async () => {
+    const src = await readFile('lib/prompts/modules/cards.ts', 'utf8');
+    expect(src).toContain('INLINE_SOURCE_RULE');
+    const { INLINE_SOURCE_RULE } = await import('@/lib/provenance');
+    expect(INLINE_SOURCE_RULE).toContain('not in a footnote');
+    // The distinction that makes this more than the existing tier rule.
+    expect(INLINE_SOURCE_RULE).toContain('SEPARATE from and ADDITIONAL to the tier tag');
+  });
+
+  it('reaches BOTH built prompts, not just the one that was edited', async () => {
+    const { buildNoDecisionCardPrompt, buildPricingDefenseCardPrompt } =
+      await import('@/lib/prompts/modules');
+    const deal = { company: 'X', deal_id: 'X-1' } as never;
+    const a = buildNoDecisionCardPrompt({ deal } as never);
+    const b = buildPricingDefenseCardPrompt({
+      deal,
+      posture: { competitor: 'the grid', tier: 'tier-1' },
+    } as never);
+    for (const [name, built] of [['no-decision', a], ['pricing-defense', b]] as const) {
+      expect(built.user, `${name} lost the inline-source rule`).toContain('INLINE SOURCE AND DATE');
+      expect(built.user, `${name} lost the return path`).toContain('What this should update');
+    }
+  });
+
+  it('the return path names Spine fields as the Spine names them', async () => {
+    const { RETURN_PATH_RULE } = await import('@/lib/provenance');
+    // A reader looking for "the champion field" has to be able to find it.
+    for (const field of ['champion', 'economic_buyer', 'critical_event', 'deal_competitors']) {
+      expect(RETURN_PATH_RULE).toContain(field);
+    }
+    // And it names the consequence, not just the field.
+    expect(RETURN_PATH_RULE).toContain('health uncaps from 6');
+  });
+
+  it('detects an untagged figure and leaves prose alone', async () => {
+    const { untagged, untaggedFigures } = await import('@/lib/provenance');
+    expect(untagged('Peak load is roughly 116 MW')).toBe(true);
+    expect(untagged('Peak load is roughly 116 MW [REPORTED]')).toBe(false);
+    expect(untagged('8% increase (CPUC Decision A.25-05-012, Dec 2025)')).toBe(false);
+    // Not applicable is not a violation — flagging every sentence would make
+    // the warning useless.
+    expect(untagged('The buyer has not named a signer.')).toBe(false);
+    expect(untaggedFigures('a\n$4.2M saving\nb\n$4.2M saving [VERIFIED]\n')).toEqual([
+      '$4.2M saving',
+    ]);
+  });
+
+  it('a citation without a year does not count — a stale figure is the failure', async () => {
+    const { untagged } = await import('@/lib/provenance');
+    expect(untagged('8% increase (CPUC decision)')).toBe(true);
+  });
+});

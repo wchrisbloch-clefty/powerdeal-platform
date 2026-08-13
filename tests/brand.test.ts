@@ -1,6 +1,9 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 import JSZip from 'jszip';
+import { Document, Packer, type Paragraph, type Table } from 'docx';
 import { generateDocx, generatePptx } from '@/lib/forge/generate';
+import { VALUE_PROPS } from '@/lib/types';
+import { untagged } from '@/lib/provenance';
 import {
   DECLARED_COLORS,
   FONT,
@@ -9,6 +12,12 @@ import {
   HEADING_STYLE_IDS,
   PALETTE,
   WORDMARK,
+  SECTION_BAR,
+  SECTION_BAR_TWIPS,
+  callout,
+  sectionBar,
+  classificationLine,
+  CLASSIFICATION_INTERNAL,
   WORD_DEFAULT_COLORS,
 } from '@/lib/forge/theme';
 
@@ -153,9 +162,35 @@ describe.each([
     // tried first and classified Bloom green as a dark neutral (relative
     // luminance 126 against a 128 threshold) — clever, and wrong in a way that
     // would have hidden a real palette addition behind a false pass.
+    // Two added deliberately for the callout patterns: E8F5E8 is the pale
+    // green surface (charcoal text on it, accent permitted inside it) and
+    // F5F5F5 is its neutral twin, for callouts that must not read as good news.
+    //
+    // The section bar added NOTHING. It was specified as 3E3E3E on FFFFFF, and
+    // both are already declared — charcoal and paper. A `sectionBarFill` token
+    // would have put one hex behind two names, and this assertion is what
+    // caught it.
     expect(new Set(DECLARED_COLORS)).toEqual(
-      new Set(['3E3E3E', '5A5D6B', '3CAD3A', 'D9D9D9', 'EDEDED', 'F4F5F7']),
+      new Set(['3E3E3E', '5A5D6B', '3CAD3A', 'D9D9D9', 'EDEDED', 'F4F5F7', 'E8F5E8', 'F5F5F5']),
     );
+  });
+
+  it('the section bar is composed from declared tokens, never a new one', () => {
+    expect(SECTION_BAR.fill).toBe(PALETTE.charcoal);
+    expect(SECTION_BAR.text).toBe('FFFFFF');
+    // And the composition must not have leaked back into the palette.
+    expect(DECLARED_COLORS.filter((c) => c === PALETTE.charcoal)).toHaveLength(1);
+  });
+
+  it('keeps the two callout surfaces light enough for charcoal text', () => {
+    // The rule is about CONTRAST, not hue. A green fill is legal here only
+    // because the text on it stays charcoal — the same reasoning that forbids
+    // white on 3CAD3A permits charcoal on E8F5E8.
+    for (const fill of [PALETTE.calloutFill, PALETTE.neutralFill]) {
+      const n = parseInt(fill, 16);
+      const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+      expect(lum, `${fill} is too dark to carry charcoal text`).toBeGreaterThan(200);
+    }
   });
 
   it('carries exactly one dark neutral and one grey, accent excluded', () => {
@@ -456,5 +491,164 @@ describe('the deck is the same brand system as the document', () => {
     const s2 = await zip.file('ppt/slides/slide2.xml')!.async('string');
     expect(s2).toContain('Where they win');
     expect(s2).toContain('Single-throat procurement');
+  });
+});
+
+describe('the five defects in the reference document, asserted against our output', () => {
+  /**
+   * The Meeting Prep reference doc is better than what this build ships in
+   * three ways — the callout surfaces and the section bar are adopted above.
+   * It also carries five defects, and adopting a pattern is exactly when they
+   * get inherited: the good parts and the bad parts arrive in the same file.
+   *
+   * Each one is asserted against the RENDERED artifact, not against our source,
+   * because the question is what reaches the reader.
+   */
+
+  const CONTENT = `# Meeting prep
+## Openers
+- **Cost lead** — open on the rate trajectory.
+
+| Field | Value |
+|---|---|
+| Value Prop | Multiple |
+| Size | ~116 MW [REPORTED] |
+`;
+
+  async function docParts() {
+    const buf = await generateDocx('Williams — Meeting prep', 'OG-019 · 45 min', CONTENT);
+    const zip = await JSZip.loadAsync(buf);
+    const out: Record<string, string> = {};
+    for (const f of Object.keys(zip.files)) {
+      if (f.endsWith('.xml')) out[f] = await zip.file(f)!.async('string');
+    }
+    return out;
+  }
+
+  it('DEFECT 1 — no Word blue anywhere in styles.xml', async () => {
+    // The reference doc carries it in the stock heading and hyperlink styles.
+    // Unreferenced, but one stray HeadingLevel.HEADING_1 brings it back.
+    const parts = await docParts();
+    const styles = parts['word/styles.xml'];
+    expect(styles).toBeTruthy();
+    for (const blue of WORD_DEFAULT_COLORS) {
+      expect(styles.toUpperCase(), `${blue} is in styles.xml`).not.toContain(blue.toUpperCase());
+    }
+  });
+
+  it('DEFECT 2 — none of the four undeclared greys reach the document', async () => {
+    // 666666, 888888, 999999, DDDDDD. Four greys against a palette naming one,
+    // which is how a document ends up with four shades of "secondary text"
+    // that nobody chose.
+    const parts = await docParts();
+    const all = Object.values(parts).join('\n').toUpperCase();
+    for (const grey of ['666666', '888888', '999999', 'DDDDDD']) {
+      expect(all, `undeclared grey ${grey} reached the output`).not.toContain(grey);
+    }
+  });
+
+  it('DEFECT 3 — every shaded band carries an EXACT row height', async () => {
+    // The reference header band has no trHeight, so it grows with its content
+    // and reflows the page around it. Both of our shaded bands pin it.
+    const parts = await docParts();
+    const doc = parts['word/document.xml'] + (parts['word/header1.xml'] ?? '');
+    const bands = [...doc.matchAll(/<w:trHeight[^/]*\/>/g)].map((m) => m[0]);
+    expect(bands.length, 'no fixed-height row found at all').toBeGreaterThan(0);
+    for (const b of bands) {
+      expect(b, `a shaded band is not exact: ${b}`).toContain('w:hRule="exact"');
+    }
+    expect(sectionBar('Openers')).toBeTruthy();
+    expect(SECTION_BAR_TWIPS).toBeGreaterThan(0);
+  });
+
+  it('DEFECT 4 — the retired Value Prop value cannot render', async () => {
+    // The reference prints "Both", which v3.1.10 renamed to "Multiple".
+    const parts = await docParts();
+    const text = parts['word/document.xml'].replace(/<[^>]+>/g, '');
+    expect(text).toContain('Multiple');
+    expect(text).not.toMatch(/\bBoth\b/);
+    // And the enum itself no longer offers it, so the renderer cannot be fed it.
+    expect(VALUE_PROPS as readonly string[]).not.toContain('Both');
+  });
+
+  it('DEFECT 5 — a figure without a provenance tag is refused', () => {
+    // The reference prints "~116 MW" bare. A number with no tier is a number
+    // a reader cannot check, in a document whose credibility rests on being
+    // checkable.
+    expect(untagged('~116 MW')).toBe(true);
+    expect(untagged('~116 MW [REPORTED]')).toBe(false);
+    expect(untagged('116 MW (CPUC Decision A.25-05-012, Dec 2025)')).toBe(false);
+  });
+
+  /**
+   * The callout and the bar are PACKED and scanned, not merely constructed.
+   *
+   * The first version of this asserted `callout(...)` was truthy and checked
+   * its fill against DECLARED_COLORS — and a mutation putting 888888 on the
+   * text inside it passed, because nothing ever rendered the thing. Building
+   * an object proves the object builds. Only the packed XML says what a reader
+   * gets.
+   */
+  async function packed(children: (Table | Paragraph)[]): Promise<string> {
+    const doc = new Document({ sections: [{ children }] });
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(doc));
+    return zip.file('word/document.xml')!.async('string');
+  }
+
+  it('the callout surfaces render as shaded single-cell tables', async () => {
+    for (const [tone, fill] of [
+      ['positive', PALETTE.calloutFill],
+      ['neutral', PALETTE.neutralFill],
+    ] as const) {
+      const xml = await packed([callout(['A line.'], tone)]);
+      expect(xml, `${tone} callout is not shaded ${fill}`).toContain(`w:fill="${fill}"`);
+      expect(xml).toContain('A line.');
+    }
+  });
+
+  it('the callout and the bar use no undeclared colour either', async () => {
+    // Same scan as the document, applied to the parts the document renderer
+    // never sees.
+    const xml = await packed([
+      callout(['Positive.'], 'positive'),
+      callout(['Neutral.'], 'neutral'),
+      sectionBar('Openers'),
+      ...classificationLine('internal'),
+    ]);
+    const used = [...xml.matchAll(/w:(?:val|fill|color)="([0-9A-Fa-f]{6})"/g)].map((m) =>
+      m[1].toUpperCase(),
+    );
+    const allowed = new Set([...DECLARED_COLORS.map((c) => c.toUpperCase()), 'FFFFFF']);
+    const drift = [...new Set(used)].filter((c) => !allowed.has(c));
+    expect(drift, `undeclared colours in the callout parts: ${drift.join(', ')}`).toEqual([]);
+    for (const grey of ['666666', '888888', '999999', 'DDDDDD']) {
+      expect(xml.toUpperCase(), `undeclared grey ${grey}`).not.toContain(grey);
+    }
+  });
+
+  it('text on the green surface is charcoal, and the accent is the edge', async () => {
+    // The never-light-text-on-green rule, at the one place green is a fill.
+    const xml = await packed([callout(['A line.'], 'positive')]);
+    expect(xml).toContain(`w:val="${PALETTE.charcoal}"`);
+    expect(xml).not.toContain(`w:val="${PALETTE.bloom}"`);
+    // Green appears, but as a border — the left edge of the box.
+    expect(xml).toContain(`w:color="${PALETTE.bloom}"`);
+  });
+
+  it('the section bar is white on charcoal at an exact height', async () => {
+    const xml = await packed([sectionBar('Openers')]);
+    expect(xml).toContain(`w:fill="${SECTION_BAR.fill}"`);
+    expect(xml).toContain(`w:val="${SECTION_BAR.text}"`);
+    expect(xml).toMatch(/<w:trHeight[^/]*w:hRule="exact"[^/]*\/>/);
+    expect(xml).toContain('OPENERS');
+  });
+
+  it('the classification header is internal-only, and says so exactly', () => {
+    expect(CLASSIFICATION_INTERNAL).toBe('CONFIDENTIAL — INTERNAL USE ONLY');
+    expect(classificationLine('internal')).toHaveLength(1);
+    // A champion-facing artifact must NOT carry it — stamping a document a
+    // customer is meant to receive tells them they are holding something they
+    // were not meant to see.
+    expect(classificationLine('champion-facing')).toHaveLength(0);
   });
 });

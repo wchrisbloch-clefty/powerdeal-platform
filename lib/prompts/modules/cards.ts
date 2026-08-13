@@ -1,6 +1,7 @@
 import { SYSTEM_PROMPT } from '../system';
 import type { ChatInput } from '@/lib/types';
 import type { UtilityContext } from '@/lib/utility/model';
+import { INLINE_SOURCE_RULE, RETURN_PATH_RULE } from '@/lib/provenance';
 import {
   dealBlock,
   economicsBlock,
@@ -101,6 +102,10 @@ STRUCTURE — these sections, in this order:
    the cost of waiting their number rather than ours.
 
 ${PROVENANCE_RULES}
+
+${INLINE_SOURCE_RULE}
+
+${RETURN_PATH_RULE}
 
 ACCOUNT RECORD:
 ${dealBlock(deal)}
@@ -235,6 +240,10 @@ STRUCTURE:
 ${utilityBlock(ctx.utility)}
 
 ${PROVENANCE_RULES}
+
+${INLINE_SOURCE_RULE}
+
+${RETURN_PATH_RULE}
 
 ACCOUNT RECORD:
 ${dealBlock(deal)}
