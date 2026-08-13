@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
-import { runSweep } from '@/lib/engine/sweep';
+import { runSweep, sweepError } from '@/lib/engine/sweep';
 import { isCronAuthorized } from '@/lib/cron-auth';
 import { recordAgentRun } from '@/lib/agent-runs';
 import type { Deal, UserSettings } from '@/lib/types';
@@ -72,18 +72,31 @@ export async function POST(request: NextRequest) {
 
     // Recorded whether or not it worked — an unrecorded failure is
     // indistinguishable from a job that never ran.
-    const failures = Object.values(results).filter(
+    //
+    // ⚠️ THE ERROR TEXT IS THE DIAGNOSIS, AND IT USED TO BE THROWN AWAY.
+    // This counted the users whose sweep reported errors and recorded
+    // "1 of 1 user sweeps reported errors" — true, and useless. runSweep
+    // already returns the real messages ("Reuters Energy: 404", "Store failed:
+    // ...", "No items returned"), and every one was discarded at exactly the
+    // point somebody would go looking. Ten consecutive failures produced ten
+    // identical, unactionable records.
+    //
+    // Deduplication and capping live inside sweepError, not here — a transform
+    // applied at the call site is a transform no test can reach, and the
+    // mutation that removed it from this line passed the suite.
+    const failing = Object.values(results).filter(
       (r) => (r as { errors?: string[] }).errors?.length,
-    ).length;
+    );
+    const messages = failing.flatMap((r) => (r as { errors?: string[] }).errors ?? []);
     const items = Object.values(results).reduce<number>(
       (n, r) => n + ((r as { new_items?: number }).new_items ?? 0),
       0,
     );
     await recordAgentRun('feed-sweep', {
-      ok: failures === 0,
+      ok: failing.length === 0,
       durationMs: Date.now() - startedAt,
       itemsProcessed: items,
-      error: failures > 0 ? `${failures} of ${users.length} user sweeps reported errors.` : null,
+      error: sweepError(failing.length, users.length, messages),
     });
 
     return NextResponse.json({ swept_users: users.length, results });

@@ -93,3 +93,22 @@ that reads as evidence.
 The same reasoning as rule 4. A check that has only ever seen the passing case
 is unproven, and a mutation that never ran is a check that has only ever seen
 the passing case.
+
+## 7. Assert against the packed output, never the constructed object
+
+Building an object proves the object builds. Only the packed file says what a
+reader gets.
+
+Found by a mutation: a callout was asserted with `expect(callout(...))` to be
+truthy and its fill checked against the declared palette, and a mutation that
+put an undeclared grey on the text INSIDE it passed — because nothing ever
+rendered the thing. The object was fine. The document would not have been.
+
+So every artifact assertion packs first: the DOCX through `Packer`, the PPTX
+through `pptx.write`, the PDF through Chromium, and then scans the bytes. If a
+helper is not reachable from the normal render path, pack it on its own rather
+than inspecting the value it returns.
+
+Same class as rule 4. A check that only ever sees the constructed object is a
+check that has only ever seen the passing case — the object is the input to the
+step that can actually go wrong, not the output anyone reads.

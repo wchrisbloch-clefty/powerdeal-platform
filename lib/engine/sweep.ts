@@ -247,3 +247,35 @@ function impactRank(row: Partial<FeedItem>): number {
   score += Math.min(2, row.deal_ids?.length ?? 0);
   return Math.max(1, Math.min(10, score));
 }
+
+
+/**
+ * The recorded failure, written so the next reader can act on it.
+ *
+ * Leads with the count for scanning, then the actual messages, because "1 of 1
+ * sweeps reported errors" is a fact about arithmetic and "Reuters Energy: 404"
+ * is a fact about the world.
+ */
+const MAX_REPORTED = 5;
+
+export function sweepError(
+  failing: number,
+  total: number,
+  messages: string[],
+): string | null {
+  if (failing === 0) return null;
+  const head = `${failing} of ${total} user sweeps reported errors`;
+  if (messages.length === 0) {
+    // Distinguishable from the ordinary case on purpose: a sweep that reported
+    // a failure with no message is itself a defect worth seeing.
+    return `${head} — and reported no message, which is its own bug.`;
+  }
+  // Deduplicated HERE, not at the call site. The same broken source across
+  // three users is one fact, and a transform applied by the caller is a
+  // transform no test can reach — the mutation that deleted it from the route
+  // passed the whole suite.
+  const unique = [...new Set(messages)];
+  const shown = unique.slice(0, MAX_REPORTED);
+  const rest = unique.length - shown.length;
+  return `${head}: ${shown.join(' · ')}${rest > 0 ? ` · (+${rest} more)` : ''}`;
+}
