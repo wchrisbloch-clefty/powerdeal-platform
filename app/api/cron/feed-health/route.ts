@@ -1,8 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { isCronAuthorized } from '@/lib/cron-auth';
-import {
-  storeFeedHealth, parseProbeBody, probeDiagnosis, type FeedHealthEntry,
-} from '@/lib/feed-health';
+import { storeFeedHealth, parseProbeBody, probeDiagnosis } from '@/lib/feed-health';
 import { withRunRecord } from '@/lib/agent-runs';
 
 export const dynamic = 'force-dynamic';
