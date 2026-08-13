@@ -1,11 +1,11 @@
 # Skills
 
-Nineteen skill files existed in the Claude project and none existed here. §6 of
-the system prompt names fifteen of them, so every domain call has been telling
-the model it can reach capabilities that are nowhere on disk — the same shape as
+Seventeen skill files existed in the Claude project and none existed here. §6 of
+the system prompt names fifteen of them, so every domain call was telling the
+model it could reach capabilities that were nowhere on disk — the same shape as
 the brain sitting at v3.1.8 while doctrine was at 3.1.10, one layer further down.
 
-This directory is where they land.
+All seventeen are here now.
 
 ## The convention
 
@@ -25,8 +25,11 @@ failure this repo has now hit twice.
 
 ## Adding a skill
 
-1. Paste the file into `skills/SKILL-<slug>.md`.
-2. Flip its `status` from `awaited` to `present` in `lib/skills/registry.ts`.
+1. Paste the file into `skills/SKILL-<slug>.md`, verbatim — trailing whitespace
+   included. In markdown two trailing spaces are a line break, so "tidying" the
+   paste edits the doctrine.
+2. Add it to `SKILLS` in `lib/skills/registry.ts` with `status: 'present'`, or
+   flip an existing `awaited` entry.
 3. Run the suite.
 
 Step 2 is not optional and not a formality. The suite pins the `awaited` set
@@ -66,22 +69,32 @@ puts it in the prompt, and the caller emits a header **before the model runs**
 halfway. A caveat the model was asked to write is a caveat that vanishes exactly
 when it matters.
 
+## Skills reference each other, and that resolves too
+
+The dependency tables inside the skill files name sibling capabilities. Reading
+all seventeen surfaced two that are **not skills**: `document-forge` and
+`market-watch`. Both are real — `POST /api/forge` and the `market-watch` task —
+so the references are correct and the category is wrong.
+
+They are declared in `PLATFORM_CAPABILITIES` rather than ignored, and every
+backticked slug-shaped identifier in every skill file must resolve to a skill or
+to one of them. Same defect class as §6, one layer down: names pointing at
+nothing, which nobody notices until a chain actually runs.
+
 ## Outstanding
 
-One skill is here. Sixteen are registered and awaited; see
-`lib/skills/registry.ts` for the list and for the six cases where §6's name and
-the file's slug differ.
+All seventeen skills are on disk and registered. `awaited` is now empty — which
+is exactly when its pin earns its keep: the eighteenth file to arrive fails the
+build until someone registers it.
+
+`stage-gate` and `contract-negotiator` are **resolved**. The two "versions" of
+each turned out to be byte-identical uploads of the same file — same MD5, no
+diff, no version to pick. `versionsPending` carries nothing today; the field
+stays because the next duplicate is a question of when.
 
 Two registered skills — `business-case-engine` and `meeting-prep` — are **not
 named in §6 at all**. The brain has no instruction to reach for either. That is
-a doctrine edit, not a code change.
+a doctrine edit, not a code change, and it is queued for v3.1.11.
 
-`stage-gate` and `contract-negotiator` each exist in two versions in the source
-project. Their registry entries carry `versionsPending: 2`; the diff gets flagged
-before either is committed. Two versions silently merged is a doctrine change
-nobody reviewed.
-
-The seven knowledge files §6 references (`competitive-matrix.md`,
-`ercot-market-primer.md`, `permitting-playbook.md`, `vertical-playbooks.md`,
-`objection-battlecards.md`, `reference-bundle.md`, `PowerBD.pdf`) are also
-absent, and pinned the same way.
+The seven knowledge files §6 references live in `knowledge/` — see that
+directory's README. All seven are absent and pinned the same way.

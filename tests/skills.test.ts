@@ -3,10 +3,14 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { POWERDEAL_VERSION } from '@/lib/brand';
 import {
-  KNOWLEDGE_FILES, SKILLS, frontmatterName, parseSection6Knowledge,
-  parseSection6Skills, resolveSection6Name, skillCoverage, skillFilename,
+  KNOWLEDGE, KNOWLEDGE_FILES, PLATFORM_CAPABILITIES, SKILLS, frontmatterName,
+  parseSection6Knowledge, parseSection6Skills, parseSkillReferences,
+  referenceResolves, resolveSection6Name, skillCoverage, skillFilename,
 } from '@/lib/skills/registry';
-import { loadSkill, skillBlock } from '@/lib/skills/load';
+import {
+  awaitedSkillReason, loadSkill, skillBlock, unavailableSkillBlock,
+} from '@/lib/skills/load';
+import { knowledgeBlock, loadKnowledge } from '@/lib/skills/knowledge';
 
 /**
  * §6 NAMES A CAPABILITY; A FILE HAS TO ANSWER TO IT.
@@ -133,20 +137,20 @@ describe('present skills resolve to a real file', () => {
   });
 });
 
-describe('awaited skills are pinned as hard as present ones', () => {
+describe('the directory and the registry cannot disagree', () => {
   const awaited = SKILLS.filter((s) => s.status === 'awaited');
-  const shouldNotExist = awaited.map((s) => skillFilename(s.slug));
 
   /**
-   * The set is pinned EXACTLY. When one of the fifteen outstanding skills lands
-   * in `skills/`, this fails until someone flips its status in the registry —
-   * which is the moment the frontmatter check, the loader and the §6 alias all
-   * start applying to it. A directory scan would have absorbed the new file
-   * silently and none of that would have run.
+   * The set is pinned EXACTLY, in both directions, and it is now EMPTY —
+   * all seventeen skills are on disk. That is exactly when this check earns
+   * its keep: the eighteenth skill to arrive fails here until someone
+   * registers it, which is the moment the frontmatter check, the loader and
+   * the §6 alias start applying to it. A directory scan would have absorbed
+   * it silently and none of that would have run.
    */
-  it('no awaited skill has a file on disk yet', async () => {
+  it('no awaited skill has a file on disk', async () => {
     const onDisk = await skillFilenames();
-    const surprises = shouldNotExist.filter((f) => onDisk.includes(f));
+    const surprises = awaited.map((s) => skillFilename(s.slug)).filter((f) => onDisk.includes(f));
     expect(
       surprises,
       `These landed in skills/ but are still marked "awaited". Flip their ` +
@@ -155,30 +159,56 @@ describe('awaited skills are pinned as hard as present ones', () => {
     ).toEqual([]);
   });
 
-  it('every markdown file in skills/ is a registered, present skill', async () => {
+  it('every SKILL- file on disk is a registered, present skill', async () => {
     const expected = SKILLS.filter((s) => s.status === 'present')
       .map((s) => skillFilename(s.slug))
       .sort();
     expect(await skillFilenames()).toEqual(expected);
   });
 
-  it.each(awaited)('$slug reports why it is unavailable, and never throws', (entry) => {
-    const loaded = loadSkill(entry.slug);
-    expect(loaded.ready).toBe(false);
-    expect(loaded.error).toContain(skillFilename(entry.slug));
+  it('all seventeen are accounted for', async () => {
+    expect(SKILLS).toHaveLength(17);
+    expect(await skillFilenames()).toHaveLength(17);
+    expect(awaited).toEqual([]);
+  });
+});
+
+/**
+ * THE DEGRADATION PATH, WITH NO LIVE CASE LEFT TO EXERCISE IT.
+ *
+ * Every skill is on disk, so nothing in normal operation reaches the
+ * unavailable branch any more. That is precisely why it is tested directly
+ * rather than through `loadSkill`: a degradation path with no live case is a
+ * path that rots until the day it is needed, and the day it is needed is the
+ * day a skill fails to sync and a rep carries a brief that reads complete.
+ *
+ * The functions are pure and exported for this reason and no other.
+ */
+describe('no hard gate — an unavailable skill degrades and says so', () => {
+  it('names the file and the one-line fix', () => {
+    const reason = awaitedSkillReason('war-room', 'SKILL-war-room.md');
+    expect(reason).toContain('SKILL-war-room.md');
+    expect(reason).toContain('registry.ts');
   });
 
-  /**
-   * NO HARD GATE. An unavailable skill degrades the output and says so; it does
-   * not refuse. Asserting the block is non-empty is the whole point — a loader
-   * that returned '' for a missing skill would produce a brief with no visible
-   * difference from a complete one.
-   */
-  it.each(awaited)('$slug still produces a block that names the gap', (entry) => {
-    const block = skillBlock(entry.slug);
+  it('produces a block that a reader cannot mistake for a complete brief', () => {
+    const block = unavailableSkillBlock('war-room', 'not synced');
     expect(block).toContain('NOT AVAILABLE');
-    expect(block).toContain(entry.slug);
+    expect(block).toContain('war-room');
+    expect(block).toContain('not synced');
+    // Generate anyway. A 503 ten minutes before a call is the worse outcome.
     expect(block.toLowerCase()).toContain('do not refuse');
+    expect(block.toLowerCase()).toContain('generate anyway');
+  });
+
+  it('says something even when the reason is missing', () => {
+    // A null reason must not render as "Reason: null" or vanish the notice.
+    expect(unavailableSkillBlock('war-room', null)).toContain('unknown');
+  });
+
+  it('a loaded skill never renders the unavailable notice', () => {
+    // The other direction, and the one that catches a branch inverted.
+    expect(skillBlock('war-room')).not.toContain('NOT AVAILABLE');
   });
 });
 
@@ -214,21 +244,142 @@ describe('knowledge files §6 names', () => {
   });
 
   /**
-   * None of the seven have landed. Pinned the same way the awaited skills are:
-   * when one arrives, this fails until it is moved out of the awaited list and
-   * given a loader, rather than sitting in a directory nothing reads.
+   * None of the seven have landed. Pinned the same way the skills were: when
+   * one arrives, this fails until its status flips — which is the moment the
+   * loader, the size check and the caveat start applying to it. A file sitting
+   * in a directory nothing reads is the same gap the skills spent two versions
+   * in, wearing a different hat.
+   *
+   * Scanned across three directories, not just `knowledge/`, because "dropped
+   * it next to the prompt" is the likeliest way one of these actually lands.
    */
   it('none are in the repo yet, and the registry says so', async () => {
     const dirs = ['knowledge', 'skills', 'prompts'];
-    const present: string[] = [];
+    const found: string[] = [];
     for (const dir of dirs) {
       const entries = await readdir(join(REPO, dir)).catch(() => [] as string[]);
-      for (const f of entries) if (KNOWLEDGE_FILES.includes(f)) present.push(`${dir}/${f}`);
+      for (const f of entries) if (KNOWLEDGE_FILES.includes(f)) found.push(`${dir}/${f}`);
     }
     expect(
-      present,
-      'A knowledge file §6 references has landed. Register it and give it a ' +
-        'loader — an unreferenced file in a directory is the gap this suite exists to catch.',
+      found,
+      'A knowledge file §6 references has landed. Flip its status to "present" ' +
+        'in lib/skills/registry.ts — an unread file in a directory is the gap ' +
+        'this suite exists to catch.',
     ).toEqual([]);
+  });
+
+  it('every entry declares a format, and only the PDF is binary', () => {
+    // The format field decides whether the loader reads bytes or text. A PDF
+    // read as UTF-8 returns mojibake rather than throwing, which a prompt
+    // would carry and a model would try to use.
+    expect(KNOWLEDGE.filter((k) => k.format === 'pdf').map((k) => k.filename)).toEqual([
+      'PowerBD.pdf',
+    ]);
+    for (const k of KNOWLEDGE) expect(['markdown', 'pdf']).toContain(k.format);
+  });
+
+  it('refuses a filename that is not registered', () => {
+    const loaded = loadKnowledge('made-up-primer.md');
+    expect(loaded.ready).toBe(false);
+    expect(loaded.error).toContain('not a registered knowledge file');
+  });
+
+  it.each(KNOWLEDGE)('$filename reports why it is unavailable, and never throws', (entry) => {
+    const loaded = loadKnowledge(entry.filename);
+    expect(loaded.ready).toBe(false);
+    expect(loaded.error).toContain(entry.filename);
+  });
+
+  it.each(KNOWLEDGE)('$filename still produces a block naming the gap', (entry) => {
+    const block = knowledgeBlock(entry.filename);
+    expect(block).toContain('NOT AVAILABLE');
+    expect(block).toContain(entry.filename);
+    // Proceed without it — but never reconstruct it from general knowledge.
+    expect(block).toContain('Do not');
+  });
+
+  /**
+   * The caveat is doctrine and it travels with the file, so it is asserted
+   * here rather than trusted to a paragraph of the prompt. `knowledgeBlock`
+   * prints it ABOVE the content when the file is present — a warning below the
+   * material is read by whoever already doubted it.
+   */
+  it('competitive-matrix carries its staleness caveat in the registry', () => {
+    const entry = KNOWLEDGE.find((k) => k.filename === 'competitive-matrix.md')!;
+    expect(entry.caveat).toBeTruthy();
+    expect(entry.caveat).toContain('four-tier');
+    expect(entry.caveat).toContain('as-is');
+    expect(loadKnowledge('competitive-matrix.md').caveat).toBe(entry.caveat);
+  });
+
+  it('no other entry invents a caveat it was not given', () => {
+    const withCaveat = KNOWLEDGE.filter((k) => k.caveat).map((k) => k.filename);
+    expect(withCaveat).toEqual(['competitive-matrix.md']);
+  });
+});
+
+/**
+ * SKILLS REFERENCE EACH OTHER, AND TWO OF THOSE NAMES RESOLVED TO NOTHING.
+ *
+ * The same defect class as §6, one layer down. §6 named skills that did not
+ * exist; the skill files name sibling capabilities in their dependency tables,
+ * and `document-forge` and `market-watch` are not skills — they are things the
+ * platform does. The references are correct and the category is wrong, which is
+ * the kind of thing nobody notices until a chain actually runs.
+ */
+describe('skill-to-skill references resolve', () => {
+  it('finds references, or this block proves nothing', async () => {
+    const text = await readFile(join(SKILLS_DIR, 'SKILL-meeting-prep.md'), 'utf-8');
+    const refs = parseSkillReferences(text);
+    expect(refs.length).toBeGreaterThan(3);
+    expect(refs).toContain('account-deep-dive');
+  });
+
+  it('matches slug-shaped names only', () => {
+    // Underscored Spine fields and single backticked words are prose, not
+    // capability references — matching them would bury the real signal.
+    expect(parseSkillReferences('use `war-room` and `next_move` and `stage`')).toEqual(['war-room']);
+    expect(parseSkillReferences('nothing here')).toEqual([]);
+  });
+
+  it('every reference in every skill file resolves', async () => {
+    const files = await skillFilenames();
+    const dangling: string[] = [];
+    for (const f of files) {
+      const text = await readFile(join(SKILLS_DIR, f), 'utf-8');
+      for (const ref of parseSkillReferences(text)) {
+        if (!referenceResolves(ref)) dangling.push(`${f} → ${ref}`);
+      }
+    }
+    expect(
+      dangling,
+      'A skill names a sibling capability that is neither a registered skill ' +
+        'nor a declared platform capability. Register it, or fix the reference.',
+    ).toEqual([]);
+  });
+
+  it('flags a dangling reference rather than passing quietly', () => {
+    // Both directions. A resolver that returned true for everything would make
+    // the check above vacuous.
+    expect(referenceResolves('war-room')).toBe(true);
+    expect(referenceResolves('document-forge')).toBe(true);
+    expect(referenceResolves('objection-handler')).toBe(false);
+  });
+
+  it('platform capabilities say what they actually resolve to', () => {
+    // A name with no destination is a note, not a registration.
+    expect(PLATFORM_CAPABILITIES.map((c) => c.name).sort()).toEqual([
+      'document-forge',
+      'market-watch',
+    ]);
+    for (const c of PLATFORM_CAPABILITIES) expect(c.resolvesTo.length).toBeGreaterThan(10);
+  });
+
+  it('a platform capability is not silently treated as a skill', () => {
+    // They resolve, but they are NOT in SKILLS — otherwise the §6 checks and
+    // the loader would start demanding files for them.
+    for (const c of PLATFORM_CAPABILITIES) {
+      expect(SKILLS.map((s) => s.slug)).not.toContain(c.name);
+    }
   });
 });

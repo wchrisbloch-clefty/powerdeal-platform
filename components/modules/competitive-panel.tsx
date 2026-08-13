@@ -58,6 +58,21 @@ export default function CompetitivePanel({
   const rest = rows.filter((r) => !r.topLevel);
   const restOn = rest.filter((r) => r.on).length;
 
+  /**
+   * The disclosure label, DERIVED from what is actually behind it.
+   *
+   * It was hardcoded "Tier 2 / Tier 3 / integrator" and was wrong twice: it
+   * used the retired enum name, which the tier rename removed precisely so one
+   * concept would not carry two names, and it advertised a tier that is not in
+   * this group at all — tier-1b sits at the top level. A label that names its
+   * contents by hand is a label that goes stale the first time the catalog
+   * moves, and nothing on the page says so.
+   */
+  const restTiers = useMemo(
+    () => [...new Set(rest.map((r) => r.tier))].map((t) => TIER_LABELS[t] ?? t),
+    [rest],
+  );
+
   async function toggle(row: PresenceRow) {
     if (!row.toggleable) return;
     setPending(row.key);
@@ -114,7 +129,7 @@ export default function CompetitivePanel({
           className="mt-2 flex min-h-tap-sm w-full items-center gap-1.5 rounded-sm px-1 text-xs text-text-dim hover:text-text"
         >
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          Tier 2 / Tier 3 / integrator
+          {restTiers.join(' · ')}
           {restOn > 0 ? (
             <span className="rounded-full bg-accent-bg px-1.5 text-2xs text-accent-dim">
               {restOn} on

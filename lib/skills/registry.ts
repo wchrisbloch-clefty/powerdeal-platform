@@ -73,110 +73,114 @@ export interface SkillEntry {
    * the choice has not been made. The diff gets flagged before anything is
    * committed — two versions silently merged is a doctrine change nobody
    * reviewed.
+   *
+   * Carried by nothing today: the two candidates, `stage-gate` and
+   * `contract-negotiator`, turned out to be byte-identical uploads of the same
+   * file. The field stays because the next duplicate is a question of when.
    */
   versionsPending?: number;
 }
 
 /**
- * The seventeen skills, in the order they were inventoried.
+ * All seventeen skills, in the order they were inventoried. Every one is on
+ * disk.
  *
- * Six of them are named differently in §6 than they are named as files. That is
- * recorded here rather than corrected in either direction, because correcting
- * it means either editing doctrine or renaming files the Claude project owns,
- * and both are the user's call. What the registry guarantees is that the two
- * names refer to the same artifact and that neither can change alone.
+ * Six are named differently in §6 than they are named as files. Recorded here
+ * rather than corrected in either direction: the slug is artifact identity,
+ * referenced by the filename, the frontmatter and the loader, while the §6 name
+ * is prose in one document. The registry guarantees the two refer to the same
+ * artifact and that neither can change alone; picking a winner is a doctrine
+ * edit (see docs/BACKLOG.md item 8).
  */
 export const SKILLS: readonly SkillEntry[] = [
   {
     slug: 'four-lever-calculator',
     section6Name: 'four-lever calculator',
-    status: 'awaited',
+    status: 'present',
     purpose: 'The four value levers, quantified against a specific account.',
   },
   {
     slug: 'permitting-analyzer',
     section6Name: 'permitting analyzer',
-    status: 'awaited',
+    status: 'present',
     purpose: 'Permit path, NSR/BACT exposure, the no-combustion advantage.',
   },
   {
     slug: 'deal-qualification',
     section6Name: 'qualification scorecard',
-    status: 'awaited',
+    status: 'present',
     purpose: 'MEDDPICC scorecard and the qualification verdict.',
   },
   {
     slug: 'discovery-call-prep',
     section6Name: 'discovery prep',
-    status: 'awaited',
+    status: 'present',
     purpose: 'The G0 first-contact prep. Narrower sibling of meeting-prep.',
   },
   {
     slug: 'account-deep-dive',
     section6Name: 'account deep-dive',
-    status: 'awaited',
+    status: 'present',
     purpose: 'Full account research pass — run first when context is thin.',
   },
   {
     slug: 'pro-forma',
     section6Name: 'pro forma check',
-    status: 'awaited',
+    status: 'present',
     purpose: 'Pro forma construction and sanity check.',
   },
   {
     slug: 'stage-gate',
     section6Name: 'stage-gate review',
-    status: 'awaited',
+    status: 'present',
     purpose: 'Gate advancement assessment, G0–G8.',
-    versionsPending: 2,
   },
   {
     slug: 'exec-briefing',
     section6Name: 'exec briefing',
-    status: 'awaited',
+    status: 'present',
     purpose: 'Executive-level brief, thesis first.',
   },
   {
     slug: 'war-room',
     section6Name: 'war room',
-    status: 'awaited',
+    status: 'present',
     purpose: 'Adversarial pressure test of a deal at risk.',
   },
   {
     slug: 'power-pulse',
     section6Name: 'power pulse',
-    status: 'awaited',
+    status: 'present',
     purpose: 'Market pulse read across the book.',
   },
   {
     slug: 'prospect-originator',
     section6Name: 'prospect originator',
-    status: 'awaited',
+    status: 'present',
     purpose: 'New-logo origination from a thesis or a territory.',
   },
   {
     slug: 'market-segmentation',
     section6Name: 'market segmentation',
-    status: 'awaited',
+    status: 'present',
     purpose: 'Segment definition and prioritisation.',
   },
   {
     slug: 'electrical-assessor',
     section6Name: 'electrical integration assessor',
-    status: 'awaited',
+    status: 'present',
     purpose: 'One-line, interconnection and protection assessment.',
   },
   {
     slug: 'contract-negotiator',
     section6Name: 'contract negotiator',
-    status: 'awaited',
+    status: 'present',
     purpose: 'Term sheet, redline strategy, concession map.',
-    versionsPending: 2,
   },
   {
     slug: 'account-strategy',
     section6Name: 'account strategy builder',
-    status: 'awaited',
+    status: 'present',
     purpose: 'Account plan and land-and-expand strategy.',
   },
   {
@@ -184,7 +188,7 @@ export const SKILLS: readonly SkillEntry[] = [
     // §6 does not name this one. The platform has a business-case task; the
     // brain has no instruction to reach for a business-case SKILL.
     section6Name: null,
-    status: 'awaited',
+    status: 'present',
     purpose: 'Champion-facing business case construction.',
   },
   {
@@ -197,16 +201,110 @@ export const SKILLS: readonly SkillEntry[] = [
   },
 ];
 
-/** The knowledge files §6 names. None have landed; all are pinned as awaited. */
-export const KNOWLEDGE_FILES: readonly string[] = [
-  'competitive-matrix.md',
-  'ercot-market-primer.md',
-  'permitting-playbook.md',
-  'vertical-playbooks.md',
-  'objection-battlecards.md',
-  'reference-bundle.md',
-  'PowerBD.pdf',
+/**
+ * ── THE KNOWLEDGE FILES ─────────────────────────────────────────
+ *
+ * WHERE THEY LIVE: `knowledge/` at the repo root, beside `prompts/` and
+ * `skills/`. Same rule, third directory — reference material is read verbatim
+ * from a committed file and never restated in code.
+ *
+ * They get their OWN directory rather than sharing `skills/` because they are a
+ * different kind of thing and the difference is load-bearing: a skill is a
+ * procedure the model executes, a knowledge file is material it consults. They
+ * have no frontmatter, no slug, and no `SKILL-` prefix, so every check that
+ * makes the skills directory safe would have to be special-cased to let them
+ * through — and a directory with two sets of rules is a directory where the
+ * weaker set wins by accident.
+ *
+ * PDF IS NOT MARKDOWN. `PowerBD.pdf` is binary. It is asserted for presence and
+ * size and never read as text into a prompt — a UTF-8 read of a PDF produces
+ * mojibake that looks like content, which is worse than a missing file.
+ */
+export interface KnowledgeEntry {
+  filename: string;
+  format: 'markdown' | 'pdf';
+  /** Same contract as SkillEntry.status, and pinned in both directions. */
+  status: 'present' | 'awaited';
+  /** Carried into any prompt that embeds the file. Doctrine, not commentary. */
+  caveat?: string;
+}
+
+/**
+ * The seven files §6 names. None have landed; all are pinned as awaited, so the
+ * first one to arrive fails the suite until it is registered deliberately.
+ */
+export const KNOWLEDGE: readonly KnowledgeEntry[] = [
+  {
+    filename: 'competitive-matrix.md',
+    format: 'markdown',
+    status: 'awaited',
+    // §6 already carries this caveat. Recorded here so it travels with the file
+    // rather than living only in a paragraph of the prompt: the matrix predates
+    // v3.1, and the tier it lacks was itself renamed since (integrator →
+    // tier-1b), so a reader consulting it cold gets two-generations-stale
+    // framing with nothing on the page saying so.
+    caveat:
+      'Predates v3.1 and has no fourth-tier entry. The four-tier set, the ' +
+      'vertical-aware surfacing rule and the Bloom-aligned rule all override ' +
+      'any framing in this file. Commit as-is — do not edit reference material ' +
+      'to match current doctrine, or the record of what it said is lost.',
+  },
+  { filename: 'ercot-market-primer.md', format: 'markdown', status: 'awaited' },
+  { filename: 'permitting-playbook.md', format: 'markdown', status: 'awaited' },
+  { filename: 'vertical-playbooks.md', format: 'markdown', status: 'awaited' },
+  { filename: 'objection-battlecards.md', format: 'markdown', status: 'awaited' },
+  { filename: 'reference-bundle.md', format: 'markdown', status: 'awaited' },
+  { filename: 'PowerBD.pdf', format: 'pdf', status: 'awaited' },
 ];
+
+/** Filenames only, for the §6 cross-check. */
+export const KNOWLEDGE_FILES: readonly string[] = KNOWLEDGE.map((k) => k.filename);
+
+/**
+ * ── PLATFORM CAPABILITIES ───────────────────────────────────────
+ *
+ * Names a skill file references as though they were sibling skills, which are
+ * actually things the PLATFORM does.
+ *
+ * Found by reading the seventeen files: `meeting-prep`'s dependency table
+ * chains to `document-forge` and `market-watch`, and neither is a skill, in §6
+ * or anywhere else. They are real capabilities — /api/forge and the
+ * market-watch task — so the reference is correct and the category is wrong.
+ *
+ * Declared rather than ignored so the cross-reference check below can resolve
+ * them. The alternative is an ignore list, and an ignore list absorbs the next
+ * genuinely dangling reference silently.
+ */
+export const PLATFORM_CAPABILITIES: readonly { name: string; resolvesTo: string }[] = [
+  { name: 'document-forge', resolvesTo: 'POST /api/forge — lib/forge/generate.ts, lib/forge/pdf.ts' },
+  { name: 'market-watch', resolvesTo: "the 'market-watch' task — lib/prompts/modules/market-watch.ts" },
+];
+
+/**
+ * Every sibling capability a skill file names, as backticked identifiers.
+ *
+ * THE SAME DEFECT CLASS AS §6, ONE LAYER DOWN. §6 named skills that did not
+ * exist; the skills name each other, and two of those names resolved to
+ * nothing. Nobody would have noticed until a chain ran.
+ *
+ * Matches only HYPHENATED lowercase identifiers. Single words are ordinary
+ * prose in backticks and underscored ones are Spine field names, so requiring
+ * a hyphen keeps this to things shaped like a slug. A future file that
+ * backticks some other hyphenated term will fail this check, and registering it
+ * is the deliberate act that keeps the check meaningful.
+ */
+export function parseSkillReferences(text: string): string[] {
+  const found = text.match(/`([a-z0-9]+(?:-[a-z0-9]+)+)`/g) ?? [];
+  return [...new Set(found.map((m) => m.slice(1, -1)))].sort();
+}
+
+/** Does this name resolve to a skill or to a declared platform capability? */
+export function referenceResolves(name: string): boolean {
+  return (
+    SKILLS.some((s) => s.slug === name) ||
+    PLATFORM_CAPABILITIES.some((c) => c.name === name)
+  );
+}
 
 const BY_SLUG = new Map(SKILLS.map((s) => [s.slug, s]));
 

@@ -351,7 +351,7 @@ is registered deliberately.
 
 ## 8. §6 names capabilities the repo cannot resolve — three separate gaps
 
-**Status:** open, needs a doctrine decision (not a code change)
+**Status:** 8a/8b queued for v3.1.11 (doctrine edit, user-owned) · 8c open
 **Found:** 2026-08-13, building the skill registry
 **Severity:** every domain call carries §6 into the system prompt
 
@@ -386,12 +386,43 @@ for either, so neither will be invoked by name however good the file is.
 `vertical-playbooks.md` · `objection-battlecards.md` · `reference-bundle.md` ·
 `PowerBD.pdf`
 
-Same gap as the skills were, one directory over. Pinned as absent by the suite;
-no loader exists yet because none has landed.
+They live in `knowledge/` at the repo root, beside `prompts/` and `skills/` —
+their own directory, because they have no frontmatter, no slug and no `SKILL-`
+prefix, and every check that makes `skills/` safe would need special-casing to
+let them through. A directory with two sets of rules is one where the weaker set
+wins by accident.
 
-### Also pending
+Registry (`KNOWLEDGE`) and loader (`lib/skills/knowledge.ts`) exist **before the
+files do**, deliberately: the gap is not "the files are missing", it is "doctrine
+references material nothing can reach", and a file dropped into a directory no
+code reads is that same gap wearing a different hat.
 
-`stage-gate` and `contract-negotiator` each exist in **two versions** in the
-source project. Their registry entries carry `versionsPending: 2`. The diff gets
-flagged before either is committed — two versions silently merged is a doctrine
-change nobody reviewed.
+`competitive-matrix.md` carries a binding caveat on its registry entry — it
+predates v3.1 and the tier it lacks has itself been renamed since
+(`integrator` → `tier-1b`), so a reader consulting it cold gets
+two-generations-stale framing. `knowledgeBlock()` prints the caveat **above** the
+content. Commit the file as-is; editing reference material to match current
+doctrine destroys the record of what it said.
+
+**Unproven until a file lands:** the loader's `present` path has never executed.
+The `awaited` path, the unregistered-filename path and both block formats are
+tested. Per checklist rule 4, treat the present path as unverified until the
+first knowledge file arrives and the suite exercises it.
+
+### 8d. RESOLVED — the duplicate skills were not duplicates
+
+`stage-gate` and `contract-negotiator` were each uploaded twice and both pairs
+are byte-identical. Same MD5, same byte count, no diff, no version to pick.
+`versionsPending` now carries nothing. The field stays on `SkillEntry` because
+the next genuine duplicate is a question of when.
+
+### 8e. Skill-to-skill references — a fourth layer, found reading the batch
+
+The dependency tables inside the skill files name sibling capabilities, and two
+of those names resolved to nothing: `document-forge` and `market-watch`. Both are
+real platform capabilities (`POST /api/forge`, the `market-watch` task), so the
+references are correct and the category is wrong.
+
+Declared in `PLATFORM_CAPABILITIES` rather than ignored, and asserted: every
+backticked slug-shaped identifier in every skill file must resolve to a skill or
+to a declared capability. Same defect class as §6, one layer further down.

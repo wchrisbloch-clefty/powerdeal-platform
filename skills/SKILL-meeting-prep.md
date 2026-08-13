@@ -14,10 +14,10 @@ description: >
 
 # MEETING PREP — Master Skill
 
-> **The rule:** Every meeting in a deal has a different person across the table with a different
-> primary fear, a different definition of "win," and a different way they'll kill the deal.
-> Prep is not generic — it's persona-specific, stage-aware, and account-calibrated.
-> A great first meeting with an engineer fails if you run it like a CFO meeting.
+> **The rule:** Every meeting in a deal has a different person across the table with a different 
+> primary fear, a different definition of "win," and a different way they'll kill the deal. 
+> Prep is not generic — it's persona-specific, stage-aware, and account-calibrated. 
+> A great first meeting with an engineer fails if you run it like a CFO meeting. 
 > Know who's in the room. Know what they need to say yes. Know what makes them say no.
 
 ---

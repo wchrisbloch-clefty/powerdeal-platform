@@ -46,21 +46,31 @@ export function loadSkill(slug: SkillSlug): LoadedSkill {
   return result;
 }
 
+/**
+ * Why an un-synced skill is unavailable, and what closes it.
+ *
+ * PURE, AND EXPORTED, BECAUSE THE AWAITED SET IS NOW EMPTY. All seventeen
+ * skills are on disk, so no test can reach this path through `loadSkill` any
+ * more — and a degradation path with no live case is a path that rots until the
+ * day it is needed. Testing it directly keeps it proven; deleting it would
+ * remove the only thing standing between a future un-synced skill and a brief
+ * that reads complete.
+ */
+export function awaitedSkillReason(slug: string, filename: string): string {
+  return (
+    `Skill "${slug}" has not been synced to the repo yet. ` +
+    `Paste it into skills/${filename} and set its status to "present" in ` +
+    `lib/skills/registry.ts.`
+  );
+}
+
 function read(
   slug: SkillSlug,
   filename: string,
   status: 'present' | 'awaited',
 ): LoadedSkill {
   if (status === 'awaited') {
-    return {
-      slug,
-      text: '',
-      ready: false,
-      error:
-        `Skill "${slug}" has not been synced to the repo yet. ` +
-        `Paste it into skills/${filename} and set its status to "present" in ` +
-        `lib/skills/registry.ts.`,
-    };
+    return { slug, text: '', ready: false, error: awaitedSkillReason(slug, filename) };
   }
 
   let text: string;
@@ -103,6 +113,31 @@ function read(
 }
 
 /**
+ * The stand-in when a skill cannot be loaded.
+ *
+ * PURE AND EXPORTED for the same reason as `awaitedSkillReason` — with every
+ * skill on disk, nothing in normal operation produces this string, so the only
+ * way it stays correct is a test that calls it directly.
+ *
+ * NO HARD GATE. This degrades the output; it does not refuse it. The system
+ * prompt still carries the methodology at lower resolution, and a rep with a
+ * worse brief ten minutes before a call is better off than a rep with a 503.
+ * What it must never do is return something a reader cannot distinguish from a
+ * complete brief.
+ */
+export function unavailableSkillBlock(slug: string, reason: string | null): string {
+  return [
+    `SKILL DOCTRINE — ${slug}: NOT AVAILABLE.`,
+    `Reason: ${reason ?? 'unknown'}`,
+    '',
+    'Generate anyway, from the methodology in the system prompt. Open the output',
+    'with one line stating that the detailed skill was unavailable and that the',
+    'brief runs on the base methodology, so the reader knows which they are',
+    'holding. Do not invent the missing structure and do not refuse.',
+  ].join('\n');
+}
+
+/**
  * The doctrine block a prompt module embeds, or the notice that stands in for
  * it. Never returns empty — the absence of a skill is information the output
  * carries, not information it drops.
@@ -116,13 +151,5 @@ export function skillBlock(slug: SkillSlug): string {
       loaded.text,
     ].join('\n');
   }
-  return [
-    `SKILL DOCTRINE — ${slug}: NOT AVAILABLE.`,
-    `Reason: ${loaded.error}`,
-    '',
-    'Generate anyway, from the methodology in the system prompt. Open the output',
-    'with one line stating that the detailed skill was unavailable and that the',
-    'brief runs on the base methodology, so the reader knows which they are',
-    'holding. Do not invent the missing structure and do not refuse.',
-  ].join('\n');
+  return unavailableSkillBlock(slug, loaded.error);
 }

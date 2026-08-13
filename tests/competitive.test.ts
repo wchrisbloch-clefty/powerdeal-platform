@@ -595,3 +595,50 @@ describe('schema.sql carries the table too', () => {
     expect(schema).toContain("'not-present'");
   });
 });
+
+/**
+ * THE COLLAPSED GROUP LABELS ITSELF.
+ *
+ * It was hardcoded "Tier 2 / Tier 3 / integrator" and was wrong twice: it used
+ * the enum name the tier rename retired — one concept, two names, which is the
+ * exact defect that rename removed — and it advertised a tier that is not in
+ * the group, because tier-1b sits at the top level.
+ *
+ * Nothing failed. A hand-written label describing a data structure has no
+ * mechanism that notices when the structure moves, which is why the label is
+ * now derived and why this asserts the derivation rather than the string.
+ */
+describe('the tier disclosure names what is actually behind it', () => {
+  const rows = presenceGrid({ utility: 'Oncor' }, []);
+  const restTiers = [...new Set(rows.filter((r) => !r.topLevel).map((r) => r.tier))];
+
+  it('the collapsed group holds only the situational tiers', () => {
+    expect([...restTiers].sort()).toEqual(['tier-2', 'tier-3']);
+  });
+
+  it('tier-1b is top-level, not hidden behind the disclosure', () => {
+    // Integrators are led with in the verticals where they show up. Burying
+    // them one click down is what the promotion to top level undid.
+    const onebs = rows.filter((r) => r.tier === 'tier-1b');
+    expect(onebs.length).toBeGreaterThan(0);
+    for (const r of onebs) expect(r.topLevel).toBe(true);
+  });
+
+  it('every tier in the group has a label, and none says "integrator"', () => {
+    for (const t of restTiers) {
+      expect(TIER_LABELS[t]).toBeTruthy();
+      // The concept survives in tier-1b's own label ("Tier 1B — integrators"),
+      // which is top-level and therefore not in this group.
+      expect(TIER_LABELS[t].toLowerCase()).not.toContain('integrator');
+    }
+  });
+
+  it('the panel derives the label instead of hardcoding it', async () => {
+    const src = await readFile('components/modules/competitive-panel.tsx', 'utf8');
+    // Asserted as the RENDER, not as the absence of the old string — the
+    // comment explaining this fix quotes that string, so a `not.toContain`
+    // would fail on the explanation rather than on the defect.
+    expect(src).toContain("{restTiers.join(' · ')}");
+    expect(src).toContain('rest.map((r) => r.tier)');
+  });
+});
