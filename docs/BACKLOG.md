@@ -264,12 +264,28 @@ presence, and state the change where the score is displayed so a deal that
 drops a point shows why.
 
 
-## 7. Meeting Prep generator — BLOCKED on SKILL-meeting-prep.md
+## 7. Meeting Prep generator — SHIPPED
 
-**Status:** blocked, not started
+**Status:** shipped 2026-08-13, same day it was raised
 **Found:** 2026-08-13
 **Severity:** the highest-value artifact type identified so far, and the
 intended default surface before a call
+
+### Unblocked
+
+`skills/SKILL-meeting-prep.md` landed. The generator is
+`lib/meeting-prep.ts` (pure) plus `lib/prompts/modules/meeting-prep.ts`, wired
+as the `meeting-prep` task on `/api/ai` and routed Claude-only as a domain task.
+
+The four catalogs are handed to the model **verbatim from the file** — nothing
+in `lib/` restates a persona, a landmine or the methodology matrix. What the
+code contributes is the part that is arithmetic and would otherwise be guessed:
+the clock, the walk-out split against live Spine fields, the opener
+preconditions, and the dating of intel. See `skills/README.md` for where skills
+live and how they load, and `tests/skills.test.ts` for the §6 resolution
+assertion that makes a rename fail in the suite rather than at runtime.
+
+### The original blocking analysis, kept
 
 ### Why it is blocked
 
@@ -321,8 +337,61 @@ classification header, the five defect assertions, and both platform-wide
 extractions are all done and independent of the skill file. See
 `lib/forge/theme.ts` and `lib/provenance.ts`.
 
-### To unblock
+### How it was unblocked
 
-Drop `SKILL-meeting-prep.md` into the repo. It is doctrine, so it belongs
-beside the system prompt under the same rule 6 that governs it: read verbatim
-from a committed file, never generated or inferred in code.
+`SKILL-meeting-prep.md` was dropped into `skills/`, beside `prompts/`, under the
+same rule 6 that governs the brain: read verbatim from a committed file, never
+generated or inferred in code.
+
+Sixteen of the seventeen inventoried skills are still absent and are pinned as
+`awaited` in `lib/skills/registry.ts` — a file arriving fails the suite until it
+is registered deliberately.
+
+---
+
+## 8. §6 names capabilities the repo cannot resolve — three separate gaps
+
+**Status:** open, needs a doctrine decision (not a code change)
+**Found:** 2026-08-13, building the skill registry
+**Severity:** every domain call carries §6 into the system prompt
+
+`lib/skills/registry.ts` now maps §6's prose names to real slugs, and
+`tests/skills.test.ts` fails the suite if either side drifts. That closes the
+*silent* part. Three things it cannot close, because each is doctrine:
+
+### 8a. Six names disagree between §6 and the files
+
+| §6 says | the file is called |
+|---|---|
+| qualification scorecard | `deal-qualification` |
+| discovery prep | `discovery-call-prep` |
+| pro forma check | `pro-forma` |
+| stage-gate review | `stage-gate` |
+| electrical integration assessor | `electrical-assessor` |
+| account strategy builder | `account-strategy` |
+
+The registry records both names and guarantees they refer to the same artifact.
+It does not pick a winner — that means either editing doctrine or renaming files
+the Claude project owns.
+
+### 8b. Two skills §6 does not name at all
+
+`business-case-engine` and `meeting-prep`. The brain has no instruction to reach
+for either, so neither will be invoked by name however good the file is.
+`meeting-prep` is the one shipped in item 7.
+
+### 8c. Seven knowledge files, none in the repo
+
+`competitive-matrix.md` · `ercot-market-primer.md` · `permitting-playbook.md` ·
+`vertical-playbooks.md` · `objection-battlecards.md` · `reference-bundle.md` ·
+`PowerBD.pdf`
+
+Same gap as the skills were, one directory over. Pinned as absent by the suite;
+no loader exists yet because none has landed.
+
+### Also pending
+
+`stage-gate` and `contract-negotiator` each exist in **two versions** in the
+source project. Their registry entries carry `versionsPending: 2`. The diff gets
+flagged before either is committed — two versions silently merged is a doctrine
+change nobody reviewed.

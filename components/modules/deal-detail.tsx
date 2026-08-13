@@ -28,6 +28,7 @@ import SignalCapture from './signal-capture';
 import LogOutcome from './log-outcome';
 import WinLossList from './win-loss-list';
 import CompetitivePanel from './competitive-panel';
+import MeetingPrepPanel from './meeting-prep-panel';
 import StageControl from './stage-control';
 import UtilityPanel from './utility-panel';
 import type { UtilityContext } from '@/lib/utility/model';
@@ -39,7 +40,7 @@ import { TERMINAL_STAGES } from '@/lib/types';
 import type { DealStage, WinLossEntry } from '@/lib/types';
 
 type Tab =
-  | 'intel' | 'signals' | 'market' | 'map' | 'competitive'
+  | 'intel' | 'signals' | 'market' | 'map' | 'competitive' | 'prep'
   | 'history' | 'outcome' | 'artifacts';
 
 const AI_ACTIONS: { task: TaskKind; label: string; icon: typeof FileText }[] = [
@@ -52,6 +53,24 @@ const AI_ACTIONS: { task: TaskKind; label: string; icon: typeof FileText }[] = [
   { task: 'qualify', label: 'Qualify / Re-qualify', icon: ShieldCheck },
   { task: 'intel', label: 'Strategic Read', icon: Radio },
 ];
+
+/**
+ * Tasks that produce output but are NOT one of the buttons above.
+ *
+ * Meeting prep is driven by a panel with four inputs, because running it from a
+ * bare button would produce a brief with no clock — and the clock is the part
+ * that makes a 30-minute intro a different document from a 90-minute deep-dive.
+ * Without this map the finished brief would be headed "Output" and download as
+ * a file nobody recognises a week later.
+ */
+const PANEL_TASK_LABELS: Partial<Record<TaskKind, string>> = {
+  'meeting-prep': 'Meeting Prep',
+};
+
+function taskLabel(task: TaskKind | null): string | undefined {
+  if (!task) return undefined;
+  return AI_ACTIONS.find((a) => a.task === task)?.label ?? PANEL_TASK_LABELS[task];
+}
 
 export default function DealDetail({
   deal,
@@ -145,6 +164,26 @@ export default function DealDetail({
       date: new Date().toISOString().slice(0, 10),
     });
     await ai.run({ task, dealId: deal.id, postureKey });
+  }
+
+  /**
+   * Generate a meeting brief.
+   *
+   * The four inputs are passed, never inferred. Length in particular changes
+   * the document rather than its tone — the agenda, the question count and the
+   * warnings are all computed from it server-side — so a default guessed here
+   * would silently produce the wrong meeting.
+   */
+  async function runMeetingPrep(input: {
+    meetingTypeKey?: string;
+    attendees?: string;
+    meetingMinutes?: number;
+    meetingDate?: string;
+  }) {
+    setActiveTask('meeting-prep');
+    setCard(null);
+    setExportError(null);
+    await ai.run({ task: 'meeting-prep', dealId: deal.id, ...input });
   }
 
   /**
@@ -534,6 +573,7 @@ export default function DealDetail({
                   ['market', `Market watch (${marketWatch.length})`],
                   ['map', 'MAP'],
                   ['competitive', 'Competitive'],
+                  ['prep', 'Meeting prep'],
                   ['outcome', `Outcome (${winLoss.length})`],
                   ['history', `Stage history (${transitions.length})`],
                   ['artifacts', `Artifacts (${deal.artifacts?.length ?? 0})`],
@@ -706,6 +746,14 @@ export default function DealDetail({
                 </>
               )}
 
+              {tab === 'prep' && (
+                <MeetingPrepPanel
+                  deal={deal}
+                  busy={ai.streaming}
+                  onGenerate={runMeetingPrep}
+                />
+              )}
+
               {tab === 'outcome' && <WinLossList entries={winLoss} />}
 
               {tab === 'artifacts' &&
@@ -744,7 +792,7 @@ export default function DealDetail({
               <p className="eyebrow mb-2">
                 {card
                   ? cardTitle({ company: deal.company }, card.kind, card.label)
-                  : AI_ACTIONS.find((a) => a.task === activeTask)?.label ?? 'Output'}
+                  : taskLabel(activeTask) ?? 'Output'}
               </p>
               <AiOutput
                 text={ai.text}
@@ -774,7 +822,7 @@ export default function DealDetail({
                           )
                         : exportDocx(
                             activeTask ?? 'output',
-                            AI_ACTIONS.find((a) => a.task === activeTask)?.label,
+                            taskLabel(activeTask),
                             ai.text,
                           )
                     }
@@ -803,7 +851,7 @@ export default function DealDetail({
                           )
                         : exportDocx(
                             activeTask ?? 'output',
-                            AI_ACTIONS.find((a) => a.task === activeTask)?.label,
+                            taskLabel(activeTask),
                             ai.text,
                             undefined,
                             'pdf',

@@ -17,6 +17,7 @@ import {
   buildBriefPrompt, buildQualifyPrompt, buildPlanPrompt, buildMapPrompt,
   buildOutreachPrompt, buildCampaignPrompt, buildIntelPrompt,
   buildPortfolioIntelPrompt, buildPersuadePrompt,
+  buildMeetingPrepPrompt, meetingPrepDegradedHeader,
 } from '@/lib/prompts/modules';
 import {
   getDeal, getDeals, getSignalsForDeal, getMarketWatchForDeal, getRecentSignals,
@@ -31,7 +32,7 @@ const TASKS = [
   'summarize', 'synthesize', 'ask', 'classify', 'market-watch', 'qualify',
   'brief', 'plan', 'map-gen', 'outreach', 'campaign', 'intel', 'persuade',
   'forge-doc', 'recap', 'business-case', 'objections',
-  'no-decision-card', 'pricing-defense-card',
+  'no-decision-card', 'pricing-defense-card', 'meeting-prep',
 ] as const;
 
 const Body = z.object({
@@ -42,6 +43,11 @@ const Body = z.object({
   audiencePersona: z.string().max(60).optional(),
   /** Names which competitor a pricing-defense card argues against. */
   postureKey: z.string().max(80).optional(),
+  /** Meeting prep: which router row, who is in the room, how long, when. */
+  meetingTypeKey: z.string().max(40).optional(),
+  attendees: z.string().max(1_000).optional(),
+  meetingMinutes: z.number().int().min(0).max(600).optional(),
+  meetingDate: z.string().max(40).optional(),
   /** Prior turns, for the chat surface. */
   history: z
     .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string() }))
@@ -164,6 +170,7 @@ async function buildInput(
   const needsDeal = [
     'brief', 'qualify', 'plan', 'map-gen', 'outreach', 'intel',
     'business-case', 'objections', 'no-decision-card', 'pricing-defense-card',
+    'meeting-prep',
   ].includes(task);
 
   if (needsDeal) {
@@ -213,6 +220,19 @@ async function buildInput(
       case 'intel': return buildIntelPrompt(ctx);
       case 'business-case': return buildBusinessCasePrompt(ctx);
       case 'objections': return buildObjectionsPrompt(ctx);
+      case 'meeting-prep':
+        return {
+          ...buildMeetingPrepPrompt({
+            ...ctx,
+            meetingTypeKey: body.meetingTypeKey,
+            attendees: body.attendees,
+            minutes: body.meetingMinutes,
+            meetingDate: body.meetingDate,
+          }),
+          // Emitted before the model is called, so a brief generated without
+          // the skill file says so even if generation dies halfway.
+          cardHeader: meetingPrepDegradedHeader(),
+        };
       case 'no-decision-card':
         return {
           ...buildNoDecisionCardPrompt({

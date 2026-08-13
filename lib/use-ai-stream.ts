@@ -22,6 +22,16 @@ export interface AiStreamRequest {
    * the page would say so.
    */
   postureKey?: string;
+  /**
+   * Meeting prep inputs. `meetingMinutes` is the one that changes the document
+   * rather than decorating it — a 30-minute intro and a 90-minute deep-dive get
+   * different agendas, different question counts and different warnings, and
+   * all three are computed server-side rather than asked for in prose.
+   */
+  meetingTypeKey?: string;
+  attendees?: string;
+  meetingMinutes?: number;
+  meetingDate?: string;
   history?: { role: 'user' | 'assistant'; content: string }[];
 }
 

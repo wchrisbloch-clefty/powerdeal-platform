@@ -1,8 +1,12 @@
 # Migration checklist
 
-Every migration in this directory must satisfy all five. They are not style
+Every migration in this directory must satisfy all nine. They are not style
 preferences — each one is here because its absence caused a real, silent
 failure in this project.
+
+Rules 4 and 6 through 9 generalise past migrations to anything this build ships;
+they are kept here because this is the file that gets read before something goes
+out.
 
 ## 1. Idempotent
 
@@ -125,3 +129,33 @@ what the platform actually runs.
 
 Related, and the same shape as rules 4 and 7: a green check that is not the
 check the deploy performs is a check that has only ever seen its own criteria.
+
+## 9. A health surface must not depend on the mechanism it reports on
+
+If a status endpoint reads its answer through the same write path, the same
+client, or the same table it exists to monitor, then the failure it is built to
+catch is the failure that silences it.
+
+`/api/agents/status` reported six idle jobs. The jobs were running. What had
+broken was the `app_state` write that records a run — and the status surface
+computed "idle" by reading `app_state`, so a total write failure and six jobs
+that genuinely had not run produced byte-identical output. The surface was not
+wrong about its inputs; it had no inputs left, and it said "idle" anyway.
+
+The fix has two halves, and the second is the rule:
+
+- **Fail the write loudly.** `supabase-js` RESOLVES with `{ error }` rather than
+  throwing, so `await` alone swallows it. Check `error` and throw.
+- **Report the mechanism separately from what it measures.** The write-failure
+  flag lives under its OWN key (`agent_runs_write_failure`, not the runs key),
+  so "we cannot record runs" and "no runs happened" are different readings on
+  the page. A surface that cannot distinguish them is reporting on itself.
+
+Applies to every health read, not just cron: a "brain ready" flag inferred from
+the same loader that failed, a skill-coverage count computed from a directory
+listing the loader could not read, a feed-health probe whose parser throws on
+the exact malformed body it exists to detect — each is this rule.
+
+The test that proves it is the negative one from rule 4: break the mechanism and
+confirm the surface says the mechanism is broken, rather than reporting a plausible
+number about the thing downstream of it.
