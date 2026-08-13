@@ -155,3 +155,56 @@ describe('the recap runs on the day the ritual is', () => {
     expect(prompt).toMatch(/Friday-recap ritual/i);
   });
 });
+
+describe('the health surface can tell "did not run" from "could not write it down"', () => {
+  it('a populated runs map is never suspicious', async () => {
+    const { bookkeepingLooksBroken } = await import('@/lib/agent-runs');
+    expect(
+      bookkeepingLooksBroken(
+        { 'stall-alert': { ok: true } as never },
+        { jobs: [], since: new Date().toISOString() },
+      ),
+    ).toBe(false);
+  });
+
+  it('empty runs BESIDE a recent alert is a broken write, not six idle jobs', async () => {
+    // The observed production state: an alert written today, a runs map that
+    // read empty, and six jobs reported as "never run" while running.
+    const { bookkeepingLooksBroken } = await import('@/lib/agent-runs');
+    expect(bookkeepingLooksBroken({}, { jobs: [], since: new Date().toISOString() })).toBe(true);
+  });
+
+  it('empty runs with NO alert is a genuinely fresh install', async () => {
+    const { bookkeepingLooksBroken } = await import('@/lib/agent-runs');
+    expect(bookkeepingLooksBroken({}, null)).toBe(false);
+  });
+
+  it('an ancient alert does not make an empty map suspicious forever', async () => {
+    const { bookkeepingLooksBroken } = await import('@/lib/agent-runs');
+    const old = new Date(Date.now() - 30 * 24 * 3600_000).toISOString();
+    expect(bookkeepingLooksBroken({}, { jobs: [], since: old })).toBe(false);
+  });
+
+  it('the write no longer discards the error supabase RESOLVES with', async () => {
+    // supabase-js returns { error } instead of throwing, so the old code fell
+    // straight through its own try/catch and carried on to syncAlert.
+    const src = await readFile('lib/agent-runs.ts', 'utf8');
+    expect(src).toContain('const { error } = await client');
+    expect(src).toContain('app_state write failed');
+  });
+
+  it('records the bookkeeping failure under a DIFFERENT key', async () => {
+    // Putting the evidence inside the thing that is broken is how this went
+    // unnoticed.
+    const src = await readFile('lib/agent-runs.ts', 'utf8');
+    expect(src).toContain("BOOKKEEPING_KEY = 'agent_runs_write_failure'");
+    expect(src).toContain('AGENT_RUNS_KEY');
+    expect(src).not.toContain("BOOKKEEPING_KEY = AGENT_RUNS_KEY");
+  });
+
+  it('the status route says the reading is untrustworthy, not just wrong', async () => {
+    const src = await readFile('app/api/agents/status/route.ts', 'utf8');
+    expect(src).toContain('NOT trustworthy');
+    expect(src).toContain('bookkeepingLooksBroken');
+  });
+});

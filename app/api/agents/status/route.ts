@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getAgentStatuses, getAgentAlert } from '@/lib/agent-runs';
+import {
+  getAgentStatuses, getAgentAlert, getBookkeepingFailure, getAgentRuns,
+  bookkeepingLooksBroken,
+} from '@/lib/agent-runs';
 import { isAdminConfigured } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -28,11 +31,29 @@ export async function GET() {
     });
   }
 
-  const [jobs, alert] = await Promise.all([getAgentStatuses(), getAgentAlert()]);
+  const [jobs, alert, runs, writeFailure] = await Promise.all([
+    getAgentStatuses(),
+    getAgentAlert(),
+    getAgentRuns(),
+    getBookkeepingFailure(),
+  ]);
+
+  // Six jobs reading "never run" at once, beside an alert written minutes ago,
+  // is not six idle jobs — it is one broken write, and reporting it as idle is
+  // the health surface becoming the outage it exists to report.
+  const bookkeeping = bookkeepingLooksBroken(runs, alert);
 
   return NextResponse.json({
     persistence: true,
     checkedAt: new Date().toISOString(),
+    bookkeeping: bookkeeping
+      ? {
+          ok: false,
+          note:
+            'Run records are empty while an alert was written recently. Job status below is NOT trustworthy — these jobs are probably running and failing to record it.',
+          lastWriteFailure: writeFailure,
+        }
+      : { ok: true, lastWriteFailure: writeFailure },
     summary: {
       total: jobs.length,
       ok: jobs.filter((j) => j.status === 'ok').length,

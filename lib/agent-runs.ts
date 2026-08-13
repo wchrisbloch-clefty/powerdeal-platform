@@ -152,17 +152,91 @@ export async function recordAgentRun(
 
     const merged: AgentRunMap = { ...runs, [jobId]: next };
 
-    await client
+    // ⚠️ THE RETURNED ERROR USED TO BE DISCARDED.
+    //
+    // supabase-js RESOLVES with `{ error }` rather than throwing, so a failed
+    // write fell straight through the try/catch below — nothing threw, the
+    // catch never fired, and execution carried on to syncAlert, which
+    // succeeded. The observable result was an alert key written today beside a
+    // runs key that read empty, and a health surface reporting six jobs as
+    // "never run" while they were demonstrably running.
+    //
+    // A health surface that cannot tell "did not run" from "could not write
+    // down that it ran" is the outage it is supposed to report.
+    const { error } = await client
       .from('app_state')
       .upsert(
         { key: AGENT_RUNS_KEY, value: merged, user_id: POWERDEAL_USER_ID },
         { onConflict: 'user_id,key' },
       );
+    if (error) throw new Error(`app_state write failed: ${error.message}`);
 
     await syncAlert(merged);
   } catch (err) {
+    // Still never rethrown — a job must not fail because its own bookkeeping
+    // failed. But it is no longer silent, and getAgentStatuses can now tell
+    // the two states apart.
     console.warn(`[agent-runs] could not record ${jobId}:`, (err as Error).message);
+    await noteBookkeepingFailure(jobId, (err as Error).message);
   }
+}
+
+/**
+ * The bookkeeping failure itself, recorded where it can still be read.
+ *
+ * Written to a SEPARATE key, because the whole problem is that the runs key
+ * could not be written — putting the evidence in the thing that is broken is
+ * how this went unnoticed for a day.
+ *
+ * Best-effort by construction: if this write fails too, there is nothing left
+ * to do but the console line above, and pretending otherwise would just add a
+ * second silent failure.
+ */
+const BOOKKEEPING_KEY = 'agent_runs_write_failure';
+
+export interface BookkeepingFailure {
+  jobId: string;
+  message: string;
+  at: string;
+}
+
+async function noteBookkeepingFailure(jobId: string, message: string): Promise<void> {
+  try {
+    const client = getAdminClient();
+    if (!client) return;
+    await client.from('app_state').upsert(
+      {
+        key: BOOKKEEPING_KEY,
+        value: { jobId, message, at: new Date().toISOString() } satisfies BookkeepingFailure,
+        user_id: POWERDEAL_USER_ID,
+      },
+      { onConflict: 'user_id,key' },
+    );
+  } catch {
+    // Deliberately empty. See above.
+  }
+}
+
+export async function getBookkeepingFailure(): Promise<BookkeepingFailure | null> {
+  return (await getAppState<BookkeepingFailure>(BOOKKEEPING_KEY)) ?? null;
+}
+
+/**
+ * Is "never run" believable?
+ *
+ * Six jobs reading never-run at once, beside an alert written minutes ago, is
+ * not six idle jobs — it is one broken write. The surface can notice that
+ * itself rather than waiting for somebody to compare two fields by eye.
+ */
+export function bookkeepingLooksBroken(
+  runs: AgentRunMap,
+  alert: AgentAlert | null,
+): boolean {
+  if (Object.keys(runs).length > 0) return false;
+  if (!alert || !alert.since) return false;
+  // The alert is written by the same code path as the runs map. If one is
+  // recent and the other is empty, the empty one is the failure.
+  return Date.now() - new Date(alert.since).getTime() < 7 * 24 * 60 * 60 * 1000;
 }
 
 export interface AgentAlert {

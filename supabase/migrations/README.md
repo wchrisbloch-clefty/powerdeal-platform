@@ -112,3 +112,16 @@ than inspecting the value it returns.
 Same class as rule 4. A check that only ever sees the constructed object is a
 check that has only ever seen the passing case — the object is the input to the
 step that can actually go wrong, not the output anyone reads.
+
+## 8. Run the gate that fails the build, not the one that is quickest
+
+`tsc --noEmit` passes on code that `next lint` rejects, and lint failure fails
+the Vercel build. An unused type-only import is the specific case that bit this
+build: tsc does not flag it, lint does, and it shipped red.
+
+Before pushing: `tsc`, then `lint`, then `build`, then the suite. The first
+three take under a minute together and the third is the only one that matches
+what the platform actually runs.
+
+Related, and the same shape as rules 4 and 7: a green check that is not the
+check the deploy performs is a check that has only ever seen its own criteria.
