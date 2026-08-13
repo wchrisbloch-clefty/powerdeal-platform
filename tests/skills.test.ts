@@ -316,6 +316,34 @@ describe('knowledge files §6 names', () => {
     const withCaveat = KNOWLEDGE.filter((k) => k.caveat).map((k) => k.filename);
     expect(withCaveat).toEqual(['competitive-matrix.md']);
   });
+
+  /**
+   * THE CAVEAT NOW EXISTS TWICE, AND THAT IS A RISK THIS CREATED.
+   *
+   * §6 already carries a note saying competitive-matrix predates v3.1 and is
+   * overridden by the four-tier set. The registry restates it operationally so
+   * the loader can print it above the content without reading the prompt.
+   *
+   * Two copies of a rule is two rules, and they diverge on the first edit —
+   * the entire argument of the last two commits. Since the second copy was
+   * judged worth having, it gets the same treatment §6's skill list gets: the
+   * prompt is PARSED, and the registry fails if doctrine moves out from under
+   * it. Resolving the duplication properly is a v3.1.11 question (BACKLOG 8c).
+   */
+  it('the registry caveat does not contradict §6', () => {
+    const note = promptText
+      .split('\n')
+      .find((l) => l.includes('competitive-matrix') && /predates/i.test(l));
+    expect(
+      note,
+      '§6 no longer carries the competitive-matrix staleness note. The registry ' +
+        'caveat is now a second, unbacked copy — reconcile them.',
+    ).toBeTruthy();
+    // Both must still say the four-tier set wins over whatever the file says.
+    expect(note!.toLowerCase()).toContain('four-tier');
+    expect(KNOWLEDGE.find((k) => k.filename === 'competitive-matrix.md')!.caveat!.toLowerCase())
+      .toContain('four-tier');
+  });
 });
 
 /**
