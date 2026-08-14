@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { sweepError } from '@/lib/engine/sweep';
 import { parseProbeBody, probeDiagnosis } from '@/lib/feed-health';
 
@@ -357,5 +357,101 @@ describe('every exit from the sweep records a run', () => {
       expect(id, `${c.path} has no known agent job id`).toBeTruthy();
       expect(src, `${id} is scheduled but not declared in AGENT_JOBS`).toContain(`'${id}'`);
     }
+  });
+});
+
+/**
+ * CODE EXPECTED A COLUMN THE DATABASE NEVER HAD.
+ *
+ * The sweep wrote `url_hash` and upserted on `(user_id, url_hash)`. The live
+ * table had neither. `schema.sql` declares both — the table was created from an
+ * earlier version of that file, and `create table if not exists` is a NO-OP on
+ * an existing table, so every column added afterwards was never applied.
+ *
+ * WHAT THIS CHECK DOES AND DOES NOT CATCH — worth being exact, because it
+ * looks like it closes the hole and does not.
+ *
+ * It compares the columns the sweep WRITES against `schema.sql`, so it catches
+ * the code-adds-a-column direction: someone writes a new field and forgets the
+ * schema. That is a real class and it had no coverage.
+ *
+ * It would NOT have caught this outage. `schema.sql` was correct all along; the
+ * LIVE DATABASE was behind it, and no test in this repo can see the live
+ * database. The only thing that surfaces that gap is a migration applied and
+ * verified against the real instance — which is why the checklist requires a
+ * verification query that returns rows, and why rule 1 exists at all.
+ */
+describe('every column the sweep writes exists in schema.sql', () => {
+  it('the feed_items write set is fully declared', async () => {
+    const src = await readFile('lib/engine/sweep.ts', 'utf8');
+    const schema = await readFile('supabase/schema.sql', 'utf8');
+
+    // The row literal returned by processItem is the write set.
+    const start = src.indexOf('  return {\n    title: item.title,');
+    expect(start, 'processItem row literal not found — the parse is stale').toBeGreaterThan(-1);
+    const body = src.slice(start, src.indexOf('\n  };', start));
+    const columns = [...body.matchAll(/^\s{4}([a-z_]+):/gm)].map((m) => m[1]);
+    expect(columns.length).toBeGreaterThan(15);
+    expect(columns).toContain('url_hash');
+
+    const table = schema.slice(
+      schema.indexOf('create table if not exists feed_items'),
+      schema.indexOf(');', schema.indexOf('create table if not exists feed_items')),
+    );
+    const missing = columns.filter((c) => !new RegExp(`^\\s+${c}\\s`, 'm').test(table));
+    expect(
+      missing,
+      'The sweep writes these and schema.sql does not declare them. Add the ' +
+        'column AND ship a migration — schema.sql alone never reaches an ' +
+        'existing table, because `create table if not exists` is a no-op.',
+    ).toEqual([]);
+  });
+
+  it('the upsert conflict target is a declared unique constraint', async () => {
+    const src = await readFile('lib/engine/sweep.ts', 'utf8');
+    const schema = await readFile('supabase/schema.sql', 'utf8');
+    const target = /onConflict:\s*'([^']+)'/.exec(src)?.[1];
+    expect(target, 'no onConflict found in the sweep').toBeTruthy();
+    // Postgres raises "no unique or exclusion constraint matching the ON
+    // CONFLICT specification" without it — the next error the sweep would
+    // have hit after the column was added.
+    const cols = target!.split(',').map((c) => c.trim());
+    expect(schema).toMatch(new RegExp(`unique\\s*\\(${cols.join(',\\s*')}\\)`, 'i'));
+  });
+
+  it('a migration exists for the column, not just a schema.sql edit', async () => {
+    const files = await readdir('supabase/migrations');
+    const sql = files.filter((f) => f.endsWith('.sql'));
+    const bodies = await Promise.all(
+      sql.map((f) => readFile(`supabase/migrations/${f}`, 'utf8')),
+    );
+    expect(
+      bodies.some((b) => /alter table feed_items add column if not exists url_hash/i.test(b)),
+      'schema.sql declaring a column does not put it in an existing database.',
+    ).toBe(true);
+  });
+});
+
+/**
+ * `skipped_cached: 46` AGAINST AN EMPTY TABLE.
+ *
+ * Nothing had ever been cached. 106 items were fetched, 60 taken by the
+ * maxItems cap, and the 46 the cap dropped were counted as "cached" — the
+ * number was true and its name was a lie, and it sent the investigation at
+ * dedupe instead of at the cap.
+ */
+describe('the sweep counts dedupe and the cap separately', () => {
+  it('reports over_cap as its own number', async () => {
+    const src = await readFile('lib/engine/sweep.ts', 'utf8');
+    expect(src).toContain('over_cap');
+    // skipped_cached must measure the dedupe set, not the post-slice one.
+    expect(src).toContain('result.skipped_cached = raw.length - unseen.length');
+    expect(src).toContain('result.over_cap = unseen.length - fresh.length');
+  });
+
+  it('surfaces a failed cache lookup instead of silently treating all as new', async () => {
+    const src = await readFile('lib/engine/sweep.ts', 'utf8');
+    expect(src).toContain('cacheError');
+    expect(src).toContain('Cache lookup failed');
   });
 });

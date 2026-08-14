@@ -307,3 +307,21 @@ Corollary, and the reason this is its own rule rather than a footnote: a guard
 built on the declaration will pass its own tests. It is internally consistent —
 it correctly does the wrong thing. Only a test that feeds it real mismatched
 bytes finds it, which is rule 4 pointed at the input rather than the output.
+
+## The runbook: triggering a Vercel cron by hand
+
+Vercel's **Cron Jobs** settings page has a **Run** button per job. That is the
+trigger path — no `curl`, no `CRON_SECRET`, no Deployment Protection bypass.
+Use it before waiting a day to learn whether a fix worked.
+
+Two Hobby-plan facts worth knowing when reading timestamps:
+
+- **2 cron jobs maximum** on Hobby. This project registers three, so confirm
+  all of them appear on that page rather than assuming registration succeeded.
+- **~1 hour flexible window.** A job scheduled `0 10 * * *` may fire anywhere in
+  that hour, so a run time that looks "wrong" by minutes is not evidence of a
+  fault.
+
+Crons are registered from the **last successful production deployment**. Eight
+consecutive failed deployments meant production kept running an older
+`vercel.json` — a fix can be merged, green, and still not scheduled.

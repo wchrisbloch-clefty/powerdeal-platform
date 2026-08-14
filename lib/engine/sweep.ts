@@ -24,6 +24,11 @@ import type { SourcePrefs } from '@/lib/types';
 export interface SweepResult {
   new_items: number;
   skipped_cached: number;
+  /**
+   * Items dropped by the maxItems cap, NOT by dedupe. Separate because folding
+   * them together made an empty table report 46 items as already-seen.
+   */
+  over_cap: number;
   accounts_hit: string[];
   peers_surfaced: string[];
   sources_fetched: number;
@@ -55,6 +60,7 @@ export async function runSweep(
   const result: SweepResult = {
     new_items: 0,
     skipped_cached: 0,
+    over_cap: 0,
     accounts_hit: [],
     peers_surfaced: [],
     sources_fetched: sources.length,
@@ -92,16 +98,33 @@ export async function runSweep(
   const cutoff = new Date(Date.now() - CACHE_TTL_HOURS * 3600_000).toISOString();
   const keys = raw.map((i) => i.key);
 
-  const { data: cached } = await supabase
+  const { data: cached, error: cacheError } = await supabase
     .from('feed_items')
     .select('url_hash')
     .eq('user_id', userId)
     .in('url_hash', keys)
     .gte('cached_at', cutoff);
 
+  // THE DEDUPE READ USED TO DISCARD ITS ERROR. supabase-js resolves with
+  // `{ error }`, so a failing lookup produced `cached = null`, an empty
+  // cachedKeys set, and a silent decision to treat every item as new. That is
+  // the benign direction — but a lookup that cannot run is not a lookup that
+  // found nothing, and the next reader deserves to know which happened.
+  if (cacheError) {
+    result.errors.push(`Cache lookup failed (treating all items as new): ${cacheError.message}`);
+  }
+
   const cachedKeys = new Set((cached ?? []).map((r) => r.url_hash as string));
-  const fresh = raw.filter((i) => !cachedKeys.has(i.key)).slice(0, maxItems);
-  result.skipped_cached = raw.length - fresh.length;
+  const unseen = raw.filter((i) => !cachedKeys.has(i.key));
+  const fresh = unseen.slice(0, maxItems);
+
+  // TWO DIFFERENT NUMBERS, PREVIOUSLY ONE. `skipped_cached` was
+  // `raw.length - fresh.length`, which folded the maxItems cap into the dedupe
+  // counter. A sweep against an EMPTY table reported "skipped_cached: 46" —
+  // nothing had ever been cached; 106 items were fetched and 60 taken. The
+  // count was true and its name was a lie, and it sent us looking at dedupe.
+  result.skipped_cached = raw.length - unseen.length;
+  result.over_cap = unseen.length - fresh.length;
 
   if (fresh.length === 0) return result;
 
