@@ -401,3 +401,47 @@ one step from an ignore list.
 Nothing in item 8. **Open elsewhere:** no prompt module embeds a knowledge file
 yet. The shelf is ~48k chars, ~12k tokens whole, so a module reaching for it
 should pull what it needs rather than all six.
+
+---
+
+## 9. `vertical-playbooks.md` wants splitting by vertical
+
+**Status:** logged, not built — CB's call
+**Found:** 2026-08-14, sizing the knowledge shelf for declared dependencies
+**Severity:** wasted context on every vertical-specific call, and irrelevant
+doctrine in front of the model
+
+One file carries all three playbooks — refining, data centers, industrial
+manufacturing — at 10,948 chars (~2,737 tokens), the second largest item on the
+shelf. Six of the seventeen skills declare it, and **not one of them needs more
+than one vertical at a time.** A defense call currently carries hyperscaler
+clean-energy clauses and refinery steam balance; an industrial call carries both
+of the others.
+
+### Why it is not urgent
+
+Declared dependencies (item 10 / the knowledge-declaration work) already cut the
+worst case from the whole shelf to what a skill names. This is the next cut
+after that, not a substitute for it.
+
+### What splitting looks like
+
+`vertical-refining.md` · `vertical-data-center.md` · `vertical-industrial.md`,
+each registered separately, and the declaration becomes vertical-aware — which
+is a real design question, because a skill's dependency list is static while the
+deal's vertical is runtime. Two options:
+
+- **Declare all three, select at load time** from `deal.vertical`. Keeps the
+  declaration static and auditable; selection is one deterministic lookup.
+- **Declare a family** (`vertical-*`) and resolve the member from the deal.
+  Shorter to write, but introduces a wildcard into the one place the build has
+  deliberately kept literal.
+
+The first is more consistent with everything else here. Worth deciding when the
+split happens rather than now.
+
+### Also noted
+
+`vertical-playbooks.md` covers three verticals; §2 names **four** (Defense is in
+the target market with no playbook). Splitting is the moment to notice whether
+Defense should have one, which is a content question, not a code one.
