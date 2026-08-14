@@ -39,12 +39,34 @@ skills spent two versions in.
 The `present` path was recorded as unproven for exactly one commit. Six files
 landed and it executes now.
 
-## PowerBD.pdf is never read as text
+## PowerBD.pdf is retired, not awaited — do not supply it
 
-`readFileSync(pdf, 'utf-8')` does not throw. It returns mojibake with a few
-legible strings in it — enough like content that a prompt would carry it and a
-model would try to use it. The loader checks presence and size for the PDF and
-nothing else. A caller that needs its contents needs a PDF extractor.
+It was opened. **It is not a PDF.** It is a ZIP with a `.pdf` extension holding
+25 page images and extracted text of "PowerDeal Strategist — System Prompt v1.0"
+— a screenshotted copy of the original system prompt, twelve versions stale:
+trusted-OEM identity, the pre-v3.1 stage-gate table, no Bloom alignment, no
+four-tier set, no relationship types.
+
+Loading it would put v1.0 doctrine in front of a v3.1.10 model with nothing on
+the page saying which wins. That is worse than absent, so it gets a status of its
+own: `retired`. An `awaited` entry is an invitation to go find the file; this one
+must never be supplied, and the refusal says why rather than reading as "not
+synced yet".
+
+**Six knowledge files is the correct set.** v3.1.11 removes the name from §6
+entirely; when it does, the suite requires the registry entry to be deleted.
+
+## The check is on the bytes, not the extension
+
+There is no `format` field. The extension is exactly what lied — a declared
+`format: 'pdf'` would have routed a ZIP to a PDF path, and a PDF parser fails on
+a ZIP with a confident error about PDF structure, which is the wrong answer to
+the wrong question.
+
+`looksBinary()` sniffs what was actually read: a NUL byte, or a wall of U+FFFD
+replacement characters. One verdict for a ZIP, a PDF, a JPEG or a truncated
+download — not text, keep it out of the prompt. It runs on every load, so it has
+no dead branch and no extension to trust.
 
 ## competitive-matrix.md carries a binding caveat
 
@@ -71,8 +93,7 @@ is why it lives here and not in the prompt.
 
 ## Status
 
-Six of seven are on disk. `PowerBD.pdf` has not been uploaded and stays
-`awaited` — it fails the build the moment it appears unregistered.
+Six on disk, and six is the final set. `PowerBD.pdf` is `retired` — see above.
 
 | File | Status | Chars |
 |---|---|---|
@@ -82,7 +103,7 @@ Six of seven are on disk. `PowerBD.pdf` has not been uploaded and stays
 | `vertical-playbooks.md` | present | 10,846 |
 | `objection-battlecards.md` | present | 9,718 |
 | `reference-bundle.md` | present | 15,803 |
-| `PowerBD.pdf` | **awaited** | — |
+| `PowerBD.pdf` | **retired** | — |
 
 The shelf is ~48k characters, roughly 12k tokens if every file were embedded at
 once. **No prompt module embeds one yet**, so nothing pays that cost today —

@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { POWERDEAL_VERSION } from '@/lib/brand';
 import {
-  KNOWLEDGE, KNOWLEDGE_FILES, PLATFORM_CAPABILITIES, SKILLS, frontmatterName,
+  KNOWLEDGE, KNOWLEDGE_FILES, PLATFORM_CAPABILITIES, RETIRED_KNOWLEDGE, SKILLS,
+  frontmatterName,
   parseKnowledgeCaveat, parseSection6Knowledge, parseSection6Skills, parseSkillReferences,
   referenceResolves, resolveSection6Name, skillCoverage, skillFilename,
 } from '@/lib/skills/registry';
 import {
   awaitedSkillReason, loadSkill, skillBlock, unavailableSkillBlock,
 } from '@/lib/skills/load';
-import { knowledgeBlock, loadKnowledge } from '@/lib/skills/knowledge';
+import {
+  clearKnowledgeCache, knowledgeBlock, loadKnowledge, looksBinary,
+} from '@/lib/skills/knowledge';
 
 /**
  * §6 NAMES A CAPABILITY; A FILE HAS TO ANSWER TO IT.
@@ -252,9 +255,38 @@ describe('knowledge files §6 names', () => {
    * Scanned across three directories, not just `knowledge/`, because "dropped
    * it next to the prompt" is the likeliest way one of these actually lands.
    */
-  it('an awaited knowledge file is nowhere in the repo', async () => {
-    const shouldNotExist = KNOWLEDGE.filter((k) => k.status === 'awaited').map((k) => k.filename);
-    expect(shouldNotExist, 'nothing awaited — this check proves nothing').not.toEqual([]);
+  /**
+   * THE STATE PIN — exact counts, one place, changed deliberately.
+   *
+   * Everything below is GUARDED rather than required, because the sets it
+   * describes legitimately empty out: `awaited` emptied when the sixth file
+   * landed, and `retired` empties when v3.1.11 drops PowerBD.pdf from §6.
+   * Guarded blocks alone would then assert nothing and say nothing about it
+   * (checklist rule 10), so this one assertion holds the whole shape and cannot
+   * go vacuous — an object comparison has no empty case.
+   *
+   * WHEN v3.1.11 LANDS: delete the PowerBD.pdf entry from KNOWLEDGE and set
+   * `retired: []` here. Those two edits are the whole cleanup, and the
+   * forcing function below stays red until both are done.
+   */
+  it('the shelf is in exactly the expected state', () => {
+    expect({
+      present: KNOWLEDGE.filter((k) => k.status === 'present').length,
+      awaited: KNOWLEDGE.filter((k) => k.status === 'awaited').length,
+      retired: RETIRED_KNOWLEDGE.map((k) => k.filename),
+    }).toEqual({ present: 6, awaited: 0, retired: ['PowerBD.pdf'] });
+  });
+
+  it.skipIf(KNOWLEDGE.every((k) => k.status === 'present'))(
+    'no file that must not exist is anywhere in the repo', async () => {
+    // Covers `awaited` AND `retired` — both mean "must not be on disk", for
+    // opposite reasons. Scoping this to `awaited` alone made it fire its own
+    // empty-set guard the moment PowerBD.pdf stopped being "coming" and became
+    // "never".
+    const shouldNotExist = KNOWLEDGE
+      .filter((k) => k.status !== 'present')
+      .map((k) => k.filename);
+    expect(shouldNotExist, 'nothing pinned absent — this check proves nothing').not.toEqual([]);
 
     const found: string[] = [];
     for (const dir of ['knowledge', 'skills', 'prompts']) {
@@ -267,7 +299,8 @@ describe('knowledge files §6 names', () => {
         'in lib/skills/registry.ts — an unread file in a directory is the gap ' +
         'this suite exists to catch.',
     ).toEqual([]);
-  });
+  },
+  );
 
   it('every markdown file in knowledge/ is a registered, present file', async () => {
     const expected = KNOWLEDGE.filter((k) => k.status === 'present')
@@ -279,14 +312,9 @@ describe('knowledge files §6 names', () => {
     expect(onDisk).toEqual(expected);
   });
 
-  it('every entry declares a format, and only the PDF is binary', () => {
-    // The format field decides whether the loader reads bytes or text. A PDF
-    // read as UTF-8 returns mojibake rather than throwing, which a prompt
-    // would carry and a model would try to use.
-    expect(KNOWLEDGE.filter((k) => k.format === 'pdf').map((k) => k.filename)).toEqual([
-      'PowerBD.pdf',
-    ]);
-    for (const k of KNOWLEDGE) expect(['markdown', 'pdf']).toContain(k.format);
+  it.each(RETIRED_KNOWLEDGE)('$filename records why, in enough detail to act on', (k) => {
+    expect(k.retiredReason, `${k.filename} is retired with no reason`).toBeTruthy();
+    expect(k.retiredReason!.length).toBeGreaterThan(80);
   });
 
   it('refuses a filename that is not registered', () => {
@@ -341,25 +369,106 @@ describe('knowledge files §6 names', () => {
     });
   });
 
-  describe('the one that has not', () => {
-    const awaited = KNOWLEDGE.filter((k) => k.status === 'awaited');
-
-    it('there is one, or the block below proves nothing', () => {
-      expect(awaited.length).toBeGreaterThan(0);
-    });
-
-    it.each(awaited)('$filename reports why it is unavailable, and never throws', (entry) => {
+  /**
+   * RETIRED IS NOT MISSING, AND MUST NOT READ AS MISSING.
+   *
+   * PowerBD.pdf was opened. It is not a PDF — a ZIP with a `.pdf` extension
+   * holding page images and extracted text of "PowerDeal Strategist — System
+   * Prompt v1.0", twelve versions stale. Supplying it would put v1.0 doctrine
+   * in front of a v3.1.10 model with nothing on the page saying which wins.
+   *
+   * An `awaited` entry invites somebody to go find the file. That is the wrong
+   * instruction here, which is why retirement is a separate status rather than
+   * a comment on an awaited one.
+   */
+  describe.skipIf(RETIRED_KNOWLEDGE.length === 0)('the retired one', () => {
+    it.each(RETIRED_KNOWLEDGE)('$filename never loads', (entry) => {
       const loaded = loadKnowledge(entry.filename);
       expect(loaded.ready).toBe(false);
-      expect(loaded.error).toContain(entry.filename);
+      expect(loaded.text).toBe('');
+      expect(loaded.error).toContain('RETIRED');
     });
 
-    it.each(awaited)('$filename still produces a block naming the gap', (entry) => {
-      const block = knowledgeBlock(entry.filename);
-      expect(block).toContain('NOT AVAILABLE');
-      expect(block).toContain(entry.filename);
-      // Proceed without it — but never reconstruct it from general knowledge.
-      expect(block).toContain('Do not');
+    it.each(RETIRED_KNOWLEDGE)('$filename carries its reason to whoever hits it', (entry) => {
+      const loaded = loadKnowledge(entry.filename);
+      // Not "go find it" — the refusal has to explain itself or someone will
+      // helpfully supply the thing.
+      expect(loaded.error).not.toContain('has not been synced');
+      expect(loaded.error).toContain('System Prompt v1.0');
+    });
+
+    it.each(RETIRED_KNOWLEDGE)('$filename is nowhere in the repo', async (entry) => {
+      for (const dir of ['knowledge', 'skills', 'prompts']) {
+        const entries = await readdir(join(REPO, dir)).catch(() => [] as string[]);
+        expect(entries, `${entry.filename} found in ${dir}/`).not.toContain(entry.filename);
+      }
+    });
+
+    /**
+     * THE FORCING FUNCTION.
+     *
+     * The entry exists only to keep §6's current mention resolving. v3.1.11
+     * removes the name; when it does, this fails until the entry is deleted.
+     * A retirement that outlives its reason is debt, and debt with a passing
+     * test is debt nobody finds.
+     *
+     * Verified satisfiable: with §6 edited, the entry deleted and the state pin
+     * updated, the suite goes green with this block skipped. A forcing function
+     * whose intended resolution does not clear it is a trap.
+     */
+    it.each(RETIRED_KNOWLEDGE)('$filename entry is deleted once §6 stops naming it', (entry) => {
+      expect(
+        parseSection6Knowledge(promptText),
+        `§6 no longer names ${entry.filename}. Delete its entry from KNOWLEDGE ` +
+          `in lib/skills/registry.ts and set retired: [] in the state pin above.`,
+      ).toContain(entry.filename);
+    });
+  });
+
+  /**
+   * THE EXTENSION WAS THE LIE, SO THE CHECK IS ON THE BYTES.
+   *
+   * A declared `format: 'pdf'` would have trusted the filename and routed the
+   * file to a PDF path — and a PDF parser fails on a ZIP with an error about
+   * PDF structure, which is a confident answer to the wrong question. Content
+   * sniffing gives one verdict for a ZIP, a PDF, a JPEG or a truncated
+   * download: not text, keep it out of the prompt.
+   */
+  describe('a binary file cannot reach a prompt', () => {
+    it('refuses a ZIP wearing a .md extension', async () => {
+      // PK\x03\x04 — the signature of the file that actually arrived.
+      const decoy = join(REPO, 'knowledge', 'ercot-market-primer.md');
+      const original = await readFile(decoy);
+      try {
+        await writeFile(decoy, Buffer.concat([
+          Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00]),
+          Buffer.alloc(4096, 0),
+        ]));
+        clearKnowledgeCache();
+        const loaded = loadKnowledge('ercot-market-primer.md');
+        expect(loaded.ready).toBe(false);
+        expect(loaded.error).toContain('not text');
+      } finally {
+        await writeFile(decoy, original);
+        clearKnowledgeCache();
+      }
+    });
+
+    it('judges the bytes in both directions', () => {
+      // A detector that returned true for everything would pass the test above
+      // and break all six real files.
+      expect(looksBinary('\u0000\u0000binary')).toBe(true);
+      expect(looksBinary('\uFFFD'.repeat(40))).toBe(true);
+      expect(looksBinary('# Competitive Matrix\n\nWärtsilä, 18–36 months.')).toBe(false);
+      // One bad glyph in a short string is 2% — a ratio-only test calls that
+      // binary, which is why the count floor is there too.
+      expect(looksBinary('a normal document with one \uFFFD glyph in it')).toBe(false);
+    });
+
+    it('accepts every real file, so the sniff is not just refusing everything', () => {
+      for (const k of KNOWLEDGE.filter((x) => x.status === 'present')) {
+        expect(loadKnowledge(k.filename).ready, `${k.filename} misread as binary`).toBe(true);
+      }
     });
   });
 

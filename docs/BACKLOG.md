@@ -380,32 +380,30 @@ the Claude project owns.
 for either, so neither will be invoked by name however good the file is.
 `meeting-prep` is the one shipped in item 7.
 
-### 8c. Knowledge files — six of seven landed
+### 8c. Knowledge files — six, and six is the final set
 
 `competitive-matrix.md` · `ercot-market-primer.md` · `permitting-playbook.md` ·
 `vertical-playbooks.md` · `objection-battlecards.md` · `reference-bundle.md` are
-in `knowledge/`, registered `present`, and load. **`PowerBD.pdf` was not
-uploaded** and stays pinned as absent.
+in `knowledge/`, registered `present`, and load.
 
-They live in their own directory beside `prompts/` and `skills/` because they
-have no frontmatter, no slug and no `SKILL-` prefix, and every check that makes
-`skills/` safe would need special-casing to let them through. A directory with
-two rule sets is one where the weaker set wins by accident.
+**PowerBD.pdf is RETIRED, not awaited.** It was opened: not a PDF at all but a
+ZIP with a `.pdf` extension holding page images and extracted text of "PowerDeal
+Strategist — System Prompt v1.0" — twelve versions stale. Supplying it would put
+v1.0 doctrine in front of a v3.1.10 model with nothing saying which wins. An
+`awaited` entry invites someone to go find the file, which is the wrong
+instruction, so retirement is its own status and the refusal explains itself.
 
-**The present path is now proven** — recorded as unverified for exactly one
-commit. First real load: six files, 48,034 chars total, caveat parsed and leading
-on `competitive-matrix.md`, `PowerBD.pdf` reporting its own absence with a
-406-char block.
+v3.1.11 removes the name from §6. A forcing function fails until the registry
+entry is then deleted — and the resolution was simulated end-to-end to confirm
+deleting it actually clears the suite (checklist rule 12).
 
-**§6 owns the caveat.** The `caveat` field is gone from `KnowledgeEntry`;
-`parseKnowledgeCaveat()` reads it from the shipped prompt. It existed as a stored
-copy for one commit, which was one too many — a rule in doctrine and restated in
-TypeScript is two rules that agree until the first edit. The earlier cross-check
-could only detect contradiction; parsing makes drift in emphasis impossible.
+**No `format` field.** The extension was the lie. `looksBinary()` sniffs the
+bytes actually read — NUL, or a wall of U+FFFD — giving one verdict for a ZIP, a
+PDF, a JPEG or a truncated download. It runs on every load, so no dead branch and
+no extension to trust.
 
 **Open:** no prompt module embeds a knowledge file yet. The shelf is ~12k tokens
-if loaded whole, so a module that reaches for it should pull what it needs rather
-than all six. Nothing pays that cost today.
+whole, so a module reaching for it should pull what it needs rather than all six.
 
 ### 8d. RESOLVED — the duplicate skills were not duplicates
 

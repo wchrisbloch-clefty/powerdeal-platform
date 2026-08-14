@@ -1,7 +1,37 @@
-import { readFileSync, statSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import { SYSTEM_PROMPT } from '@/lib/prompts/system';
 import { KNOWLEDGE, parseKnowledgeCaveat, type KnowledgeEntry } from './registry';
+
+/**
+ * DOES THIS LOOK LIKE TEXT?
+ *
+ * `readFileSync(binary, 'utf-8')` does not throw. It returns mojibake — a wall
+ * of U+FFFD replacement characters with a few legible strings in it — which is
+ * enough like content that a prompt would carry it and a model would try to use
+ * it.
+ *
+ * The check is on the BYTES ACTUALLY READ, not on the extension, because the
+ * extension is what lied. `PowerBD.pdf` was not a PDF: it was a ZIP with a
+ * `.pdf` name. A declared `format: 'pdf'` field would have trusted that name and
+ * routed it to a PDF path, and a PDF parser fails on a ZIP with an error about
+ * PDF structure — a misleading answer to the wrong question. Sniffing content
+ * gives the same verdict for a ZIP, a PDF, a JPEG or a truncated download: this
+ * is not text, do not put it in a prompt.
+ */
+export function looksBinary(text: string): boolean {
+  // A NUL byte never appears in text. The ZIP that arrived as PowerBD.pdf is
+  // caught here, before the ratio test is even reached.
+  if (text.includes('\u0000')) return true;
+
+  // A wall of replacement characters is a binary file read as UTF-8; one or two
+  // is a real document with a mis-encoded glyph. BOTH conditions, because
+  // either alone is wrong: a count alone flags a long document with scattered
+  // bad bytes, and a ratio alone flags a short string with a single glyph —
+  // 1 in 44 characters is 2%, which a ratio-only test calls binary.
+  const replacements = (text.match(/\uFFFD/g) ?? []).length;
+  return replacements > 16 && replacements / Math.max(text.length, 1) > 0.02;
+}
 
 /**
  * ═══════════════════════════════════════════════════════════════
@@ -26,7 +56,7 @@ const KNOWLEDGE_DIR = join(process.cwd(), 'knowledge');
 
 export interface LoadedKnowledge {
   filename: string;
-  /** Markdown text, verbatim. ALWAYS EMPTY for a PDF — see below. */
+  /** The file, verbatim. Empty when unavailable for any reason. */
   text: string;
   ready: boolean;
   error: string | null;
@@ -35,6 +65,20 @@ export interface LoadedKnowledge {
 }
 
 const cache = new Map<string, LoadedKnowledge>();
+
+/**
+ * Drop the memo so the next load re-reads from disk.
+ *
+ * Exists so the binary guard can be proven END TO END rather than only as a
+ * pure function — the guard's whole job is to stop a real file on disk reaching
+ * a prompt, and a check that only ever sees a constructed string has only ever
+ * seen the constructed object (checklist rule 7). Also the honest answer for
+ * any future hot-reload: a cache with no invalidation is a cache that serves a
+ * file somebody has already replaced.
+ */
+export function clearKnowledgeCache(): void {
+  cache.clear();
+}
 
 function entryFor(filename: string): KnowledgeEntry | undefined {
   return KNOWLEDGE.find((k) => k.filename === filename);
@@ -77,6 +121,23 @@ function read(filename: string): LoadedKnowledge {
     caveat: parseKnowledgeCaveat(SYSTEM_PROMPT, filename),
   };
 
+  /**
+   * RETIRED IS NOT MISSING. Never load, never go looking, whatever is on disk.
+   *
+   * An `awaited` file is one somebody should go find. A retired one is a file
+   * that would do harm if supplied, and the two must not read the same to
+   * whoever hits this — so the reason travels with the refusal.
+   */
+  if (entry.status === 'retired') {
+    return {
+      ...base,
+      ready: false,
+      error:
+        `Knowledge file "${filename}" is RETIRED and must never be loaded. ` +
+        (entry.retiredReason ?? 'No reason recorded.'),
+    };
+  }
+
   if (entry.status === 'awaited') {
     return {
       ...base,
@@ -90,31 +151,6 @@ function read(filename: string): LoadedKnowledge {
 
   const path = join(KNOWLEDGE_DIR, filename);
 
-  /**
-   * A PDF IS NEVER READ AS TEXT.
-   *
-   * `readFileSync(pdf, 'utf-8')` does not throw. It returns mojibake — a wall
-   * of replacement characters with a few legible strings in it — which looks
-   * enough like content that a prompt would carry it and a model would try to
-   * use it. Presence and size are the only honest checks here, and a caller
-   * that needs the contents needs a PDF extractor, not this function.
-   */
-  if (entry.format === 'pdf') {
-    try {
-      const bytes = statSync(path).size;
-      if (bytes < 1024) {
-        return { ...base, ready: false, error: `knowledge/${filename} is only ${bytes} bytes — truncated or a placeholder.` };
-      }
-      return { ...base, ready: true, error: null };
-    } catch (err) {
-      return {
-        ...base,
-        ready: false,
-        error: `Could not stat knowledge/${filename}: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
-  }
-
   let text: string;
   try {
     text = readFileSync(path, 'utf-8');
@@ -123,6 +159,18 @@ function read(filename: string): LoadedKnowledge {
       ...base,
       ready: false,
       error: `Could not read knowledge/${filename}: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  if (looksBinary(text)) {
+    return {
+      ...base,
+      ready: false,
+      error:
+        `knowledge/${filename} is not text — it read as binary. Whatever the ` +
+        `extension says, this file cannot go into a prompt. A UTF-8 read of a ` +
+        `binary returns mojibake rather than throwing, so this is the only ` +
+        `thing between it and a model.`,
     };
   }
 
@@ -165,12 +213,6 @@ export function knowledgeBlock(filename: string): string {
       '',
       `CAVEAT, BINDING, READ BEFORE THE CONTENT: ${loaded.caveat}`,
     );
-  }
-
-  if (!loaded.text) {
-    // A registered PDF: present and verified, but not text this can embed.
-    header.push('', '(Binary reference — present in the repo, not embedded here.)');
-    return header.join('\n');
   }
 
   return [...header, '', loaded.text].join('\n');

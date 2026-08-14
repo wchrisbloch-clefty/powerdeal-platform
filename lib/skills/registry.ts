@@ -216,15 +216,28 @@ export const SKILLS: readonly SkillEntry[] = [
  * through — and a directory with two sets of rules is a directory where the
  * weaker set wins by accident.
  *
- * PDF IS NOT MARKDOWN. `PowerBD.pdf` is binary. It is asserted for presence and
- * size and never read as text into a prompt — a UTF-8 read of a PDF produces
- * mojibake that looks like content, which is worse than a missing file.
+ * REFERENCE MATERIAL IS TEXT. There is no `format` field. The loader sniffs the
+ * bytes it actually read and refuses anything that is not text, which covers a
+ * PDF, a ZIP, an image, and the case that actually happened — a ZIP wearing a
+ * `.pdf` extension. A declared format would have trusted the extension, and the
+ * extension was the lie.
  */
 export interface KnowledgeEntry {
   filename: string;
-  format: 'markdown' | 'pdf';
-  /** Same contract as SkillEntry.status, and pinned in both directions. */
-  status: 'present' | 'awaited';
+  /**
+   * `present` — committed, must load.
+   * `awaited` — not synced yet, must NOT exist, will load once it does.
+   * `retired` — §6 still names it, but it must NEVER be loaded and never will
+   *             be. Not a missing file: a file that would do harm if supplied.
+   *
+   * All three are assertions, pinned in both directions.
+   */
+  status: 'present' | 'awaited' | 'retired';
+  /**
+   * Required when status is `retired`. Goes in front of anyone who tries to
+   * load it, so "why is this not here" never has to be reconstructed.
+   */
+  retiredReason?: string;
 }
 
 /**
@@ -242,7 +255,7 @@ export interface KnowledgeEntry {
  * knowledge/README.md, where instructions to a human belong.
  *
  * Matches a Note line that names the file. Returns null when §6 attaches no
- * caveat, which is the normal case for six of the seven.
+ * caveat, which is the normal case for all but one.
  */
 export function parseKnowledgeCaveat(
   promptText: string,
@@ -257,20 +270,48 @@ export function parseKnowledgeCaveat(
 }
 
 /**
- * The seven files §6 names. Six are on disk; PowerBD.pdf has not arrived and
- * stays pinned as absent, so it fails the suite the moment it lands unregistered.
+ * The files §6 names. SIX IS THE CORRECT SET.
+ *
+ * PowerBD.pdf is retired rather than awaited. It was opened: it is not a PDF at
+ * all but a ZIP with a `.pdf` extension, containing page images and extracted
+ * text of "PowerDeal Strategist — System Prompt v1.0" — a screenshotted copy of
+ * the original system prompt, twelve versions stale. Trusted-OEM identity, the
+ * pre-v3.1 stage-gate table, no Bloom alignment, no four-tier set, no
+ * relationship types.
+ *
+ * That makes it worse than absent, which is why it gets a status of its own.
+ * An `awaited` entry is an invitation to go find the file; supplying this one
+ * would put v1.0 doctrine in front of a v3.1.10 model with nothing on the page
+ * saying which wins.
+ *
+ * The entry stays only while §6 still names it. Once v3.1.11 drops the name,
+ * the suite REQUIRES this entry to be deleted — see the retired-entry check in
+ * tests/skills.test.ts. A retirement that outlives its reason is debt.
  */
 export const KNOWLEDGE: readonly KnowledgeEntry[] = [
-  { filename: 'competitive-matrix.md', format: 'markdown', status: 'present' },
-  { filename: 'ercot-market-primer.md', format: 'markdown', status: 'present' },
-  { filename: 'permitting-playbook.md', format: 'markdown', status: 'present' },
-  { filename: 'vertical-playbooks.md', format: 'markdown', status: 'present' },
-  { filename: 'objection-battlecards.md', format: 'markdown', status: 'present' },
-  { filename: 'reference-bundle.md', format: 'markdown', status: 'present' },
-  // Not uploaded. Six of seven arrived; this one is still outstanding and stays
-  // pinned as absent, which is the partial state the status field exists for.
-  { filename: 'PowerBD.pdf', format: 'pdf', status: 'awaited' },
+  { filename: 'competitive-matrix.md', status: 'present' },
+  { filename: 'ercot-market-primer.md', status: 'present' },
+  { filename: 'permitting-playbook.md', status: 'present' },
+  { filename: 'vertical-playbooks.md', status: 'present' },
+  { filename: 'objection-battlecards.md', status: 'present' },
+  { filename: 'reference-bundle.md', status: 'present' },
+  {
+    filename: 'PowerBD.pdf',
+    status: 'retired',
+    retiredReason:
+      'Not a PDF — a ZIP with a .pdf extension containing page images and ' +
+      'extracted text of "PowerDeal Strategist — System Prompt v1.0". Twelve ' +
+      'versions stale: trusted-OEM identity, pre-v3.1 stage-gate table, no ' +
+      'Bloom alignment, no four-tier set, no relationship types. Loading it ' +
+      'would put v1.0 doctrine in front of a v3.1.10 model with nothing to say ' +
+      'which wins. Being removed from §6 in v3.1.11.',
+  },
 ];
+
+/** Files that must never be loaded, whatever appears on disk. */
+export const RETIRED_KNOWLEDGE: readonly KnowledgeEntry[] = KNOWLEDGE.filter(
+  (k) => k.status === 'retired',
+);
 
 /** Filenames only, for the §6 cross-check. */
 export const KNOWLEDGE_FILES: readonly string[] = KNOWLEDGE.map((k) => k.filename);

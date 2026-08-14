@@ -1,10 +1,10 @@
 # Migration checklist
 
-Every migration in this directory must satisfy all eleven. They are not style
+Every migration in this directory must satisfy all thirteen. They are not style
 preferences — each one is here because its absence caused a real, silent
 failure in this project.
 
-Rules 4 and 6 through 11 generalise past migrations to anything this build ships;
+Rules 4 and 6 through 13 generalise past migrations to anything this build ships;
 they are kept here because this is the file that gets read before something goes
 out.
 
@@ -151,6 +151,12 @@ The fix has two halves, and the second is the rule:
   so "we cannot record runs" and "no runs happened" are different readings on
   the page. A surface that cannot distinguish them is reporting on itself.
 
+A monitoring fix is not in effect until it ships — the deployment-layer version
+of this rule. The eight deployments that failed on `vercel.json` (rule 11)
+included the `/api/agents/status` fix itself, so the surface that would have
+reported the problem was sitting in the unreleased pile with everything else.
+Nothing was watching, and the thing built to watch was the thing not running.
+
 Applies to every health read, not just cron: a "brain ready" flag inferred from
 the same loader that failed, a skill-coverage count computed from a directory
 listing the loader could not read, a feed-health probe whose parser throws on
@@ -228,3 +234,44 @@ What follows:
 - **Check the deployment state after pushing, not just the local gates.** Green
   local + stale production is a silent state, and it is the same shape as rule 9:
   the surface that reported success was not reading the thing that failed.
+
+## 12. A forcing function must be satisfiable — verify the resolution, not just the trigger
+
+A test that fails until somebody does X is only useful if doing X makes it pass.
+Verify both ends before shipping one.
+
+`PowerBD.pdf` is retired and its registry entry exists only while §6 still names
+it. A test fails once §6 drops the name, telling whoever reads it to delete the
+entry. The trigger worked on the first try. Then the *resolution* was simulated —
+§6 edited, entry deleted — and **four other tests went red**, because they
+assumed a retired entry existed. Following the instruction the suite gave would
+have produced a redder suite than ignoring it.
+
+That is a trap, not a forcing function. The fix was one explicit state pin
+holding the exact counts, with the detail blocks guarded (`describe.skipIf`)
+rather than requiring their sets to be non-empty — so the sets can empty out
+legitimately while one assertion still holds the shape and cannot go vacuous.
+
+So: simulate the end state, not just the trigger. Rule 4 asks whether the check
+can fail; this asks whether it can be made to pass again.
+
+## 13. Never `git checkout` a file with uncommitted work
+
+`git checkout <file>` reverts to HEAD and there is no undo. It has now destroyed
+uncommitted work in this project **twice** — once during mutation testing, once
+restoring after a simulated end-state run, taking a full set of new test blocks
+that then had to be rebuilt from scratch.
+
+Both times the intent was "undo my temporary edit", and both times the file also
+held work that was not temporary.
+
+Use a copy instead. Before any mutation or simulation:
+
+```sh
+cp <file> "$SCRATCH/<file>.bak"   # …mutate, test…
+cp "$SCRATCH/<file>.bak" <file>   # restore
+diff -q "$SCRATCH/<file>.bak" <file>   # and prove it
+```
+
+The `diff -q` matters as much as the restore — rule 6 says confirm a mutation
+applied, and this is the same claim in reverse: confirm it was undone.
