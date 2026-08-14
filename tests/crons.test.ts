@@ -278,3 +278,84 @@ describe('vercel.json is what the platform will accept', () => {
     }
   });
 });
+
+/**
+ * THE SWEEP HAD NO agent_runs KEY AT ALL — NOT A FAILURE COUNT, AN ABSENCE.
+ *
+ * A live query showed `agents:runs` holding an entry for every job except
+ * `feed-sweep`. That is not what a repeatedly-failing job looks like; a failing
+ * job climbs `consecutiveFailures`. An absence means the recording line was
+ * never reached.
+ *
+ * Two paths reached the return without it: the `!service` guard returned 503
+ * silently, and `runSweep` was awaited inside the loop with nothing around it,
+ * so any throw escaped the handler and jumped past `recordAgentRun`. The
+ * comment above that call claimed "recorded whether or not it worked" — true
+ * only of paths that got there.
+ *
+ * Checklist rule 9 again: a health surface that cannot distinguish "did not
+ * run" from "could not record that it ran" is the outage it exists to report.
+ */
+describe('every exit from the sweep records a run', () => {
+  it('the throwing path is caught rather than escaping the handler', async () => {
+    const src = await readFile('app/api/feed/sweep/route.ts', 'utf8');
+    // The loop is inside a try, and what it catches is carried to the record.
+    expect(src).toContain('let thrown: string | null = null');
+    expect(src).toContain('Sweep threw before completing');
+  });
+
+  it('the missing-service-key path records before it returns 503', async () => {
+    const src = await readFile('app/api/feed/sweep/route.ts', 'utf8');
+    const guard = src.indexOf('if (!service)');
+    expect(guard).toBeGreaterThan(-1);
+    const record = src.indexOf("recordAgentRun('feed-sweep'", guard);
+    // Anchored on the RETURN STATEMENT, not on the `status: 503` token.
+    // A first pass anchored on the token and a mutation that moved the record
+    // INTO the response literal still satisfied it — the record was textually
+    // earlier and semantically unreachable. Position checks are only as good
+    // as what they are positioned against.
+    const ret = src.indexOf('return NextResponse.json(', guard);
+    expect(record).toBeGreaterThan(guard);
+    expect(record).toBeLessThan(ret);
+    // And it has to be a completed statement, not spliced into the response.
+    expect(src.slice(record, ret)).toContain('});');
+  });
+
+  it('a settings read that errors is raised, not silently treated as zero users', async () => {
+    const src = await readFile('app/api/feed/sweep/route.ts', 'utf8');
+    // supabase-js resolves with { error } — an unchecked read makes a broken
+    // query indistinguishable from an empty table.
+    expect(src).toContain('settingsError');
+    expect(src).toContain('user_settings read failed');
+  });
+
+  it('zero users is recorded as a failure, not a green no-op', async () => {
+    const src = await readFile('app/api/feed/sweep/route.ts', 'utf8');
+    expect(src).toContain('No rows in user_settings');
+    expect(src).toContain('users.length === 0');
+  });
+
+  /**
+   * The sweep is a VERCEL cron; market-watch, stall-alert and ccus-sweep run
+   * on Supabase. Both runners write to the same `agents:runs` map, so the
+   * health surface reads one shape — but only the Vercel three appear here,
+   * and a job in neither place is a job nothing schedules.
+   */
+  it('every Vercel-scheduled job is one the status surface knows about', async () => {
+    const cfg = JSON.parse(await readFile('vercel.json', 'utf8')) as {
+      crons: { path: string }[];
+    };
+    const src = await readFile('lib/agent-runs.ts', 'utf8');
+    const idFor: Record<string, string> = {
+      '/api/feed/sweep': 'feed-sweep',
+      '/api/cron/recap': 'weekly-recap',
+      '/api/cron/feed-health': 'feed-health',
+    };
+    expect(cfg.crons.length).toBeGreaterThan(0);
+    for (const c of cfg.crons) {
+      const id = idFor[c.path];
+      expect(id, `${c.path} has no known agent job id`).toBeTruthy();
+      expect(src, `${id} is scheduled but not declared in AGENT_JOBS`).toContain(`'${id}'`);
+    }
+  });
+});

@@ -46,28 +46,63 @@ export async function POST(request: NextRequest) {
     // NOT scope to POWERDEAL_USER_ID — it iterates user_settings itself.
     const service = getAdminClient();
     if (!service) {
+      // RECORD THE REFUSAL. This path returned 503 and wrote nothing, so a
+      // missing service key and a job that never fired produced the same
+      // evidence: no `feed-sweep` entry at all. Every other job had one.
+      await recordAgentRun('feed-sweep', {
+        ok: false,
+        durationMs: Date.now() - startedAt,
+        itemsProcessed: 0,
+        error: 'SUPABASE_SERVICE_ROLE_KEY is not set — the scheduled sweep cannot run.',
+      });
       return NextResponse.json(
         { error: 'SUPABASE_SERVICE_ROLE_KEY is required for scheduled sweeps.' },
         { status: 503 },
       );
     }
 
-    const { data: settingsRows } = await service.from('user_settings').select('*');
-    const users = (settingsRows ?? []) as UserSettings[];
     const results: Record<string, unknown> = {};
+    let users: UserSettings[] = [];
+    /**
+     * ⚠️ A THROW USED TO SKIP THE RECORD ENTIRELY.
+     *
+     * `runSweep` was awaited inside the loop with nothing around it, so any
+     * throw — a Supabase read that rejects, a parser that dies on one feed —
+     * escaped the handler and jumped past `recordAgentRun` below. The comment
+     * there says "recorded whether or not it worked", and that was true only
+     * of paths that REACHED it.
+     *
+     * The observable result is the one we have: `agents:runs` holds an entry
+     * for every job except this one. Not a failure counter climbing — no key
+     * at all, which reads as "never scheduled" rather than "fails every time".
+     *
+     * Same class as the `app_state` write that resolved with `{ error }`:
+     * checklist rule 9, a health surface that cannot distinguish "did not run"
+     * from "could not record that it ran".
+     */
+    let thrown: string | null = null;
+    try {
+      const { data: settingsRows, error: settingsError } = await service
+        .from('user_settings')
+        .select('*');
+      if (settingsError) throw new Error(`user_settings read failed: ${settingsError.message}`);
+      users = (settingsRows ?? []) as UserSettings[];
 
-    for (const settings of users) {
-      const { data: deals } = await service
-        .from('deals')
-        .select('*')
-        .eq('user_id', settings.user_id);
+      for (const settings of users) {
+        const { data: deals } = await service
+          .from('deals')
+          .select('*')
+          .eq('user_id', settings.user_id);
 
-      results[settings.user_id] = await runSweep(
-        service,
-        settings.user_id,
-        (deals ?? []) as Deal[],
-        { sourcePrefs: settings.source_prefs },
-      );
+        results[settings.user_id] = await runSweep(
+          service,
+          settings.user_id,
+          (deals ?? []) as Deal[],
+          { sourcePrefs: settings.source_prefs },
+        );
+      }
+    } catch (err) {
+      thrown = err instanceof Error ? err.message : String(err);
     }
 
     // Recorded whether or not it worked — an unrecorded failure is
@@ -93,12 +128,30 @@ export async function POST(request: NextRequest) {
       0,
     );
     await recordAgentRun('feed-sweep', {
-      ok: failing.length === 0,
+      ok: thrown === null && failing.length === 0,
       durationMs: Date.now() - startedAt,
       itemsProcessed: items,
-      error: sweepError(failing.length, users.length, messages),
+      error: thrown
+        ? `Sweep threw before completing: ${thrown}`
+        : sweepError(failing.length, users.length, messages),
     });
 
+    // ZERO USERS IS NOT A SUCCESS. An empty `user_settings` table skipped the
+    // loop, reported no failures, and would have recorded ok:true with nothing
+    // swept — a green job that did nothing, which is the shape this build
+    // keeps finding.
+    if (thrown === null && users.length === 0) {
+      await recordAgentRun('feed-sweep', {
+        ok: false,
+        durationMs: Date.now() - startedAt,
+        itemsProcessed: 0,
+        error: 'No rows in user_settings — the sweep had nobody to sweep for.',
+      });
+    }
+
+    if (thrown) {
+      return NextResponse.json({ error: thrown, swept_users: users.length }, { status: 500 });
+    }
     return NextResponse.json({ swept_users: users.length, results });
   }
 
