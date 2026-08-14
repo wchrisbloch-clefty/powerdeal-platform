@@ -349,76 +349,55 @@ is registered deliberately.
 
 ---
 
-## 8. §6 names capabilities the repo cannot resolve — three separate gaps
+## 8. §6 / repo reconciliation — CLOSED by v3.1.11
 
-**Status:** 8a/8b queued for v3.1.11 (doctrine edit, user-owned) · 8c open
+**Status:** closed 2026-08-14
 **Found:** 2026-08-13, building the skill registry
-**Severity:** every domain call carries §6 into the system prompt
 
-`lib/skills/registry.ts` now maps §6's prose names to real slugs, and
-`tests/skills.test.ts` fails the suite if either side drifts. That closes the
-*silent* part. Three things it cannot close, because each is doctrine:
+All four gaps are shut, and every one was closed by a doctrine edit rather than
+a code workaround — the right direction, since §6 is prose in one file and the
+slugs are artifact identity referenced by filenames, frontmatter and the loader.
 
-### 8a. Six names disagree between §6 and the files
+### 8a. Six name disagreements — RESOLVED
 
-| §6 says | the file is called |
-|---|---|
-| qualification scorecard | `deal-qualification` |
-| discovery prep | `discovery-call-prep` |
-| pro forma check | `pro-forma` |
-| stage-gate review | `stage-gate` |
-| electrical integration assessor | `electrical-assessor` |
-| account strategy builder | `account-strategy` |
+§6 now names all seventeen skills by slug. The `section6Name` field is deleted:
+it recorded the six mismatches, and once doctrine adopted the slugs every value
+duplicated the slug beside it. The assertion became **set equality in both
+directions**, which is stricter than the alias map it replaced.
 
-The registry records both names and guarantees they refer to the same artifact.
-It does not pick a winner — that means either editing doctrine or renaming files
-the Claude project owns.
+### 8b. Two skills §6 never named — RESOLVED
 
-### 8b. Two skills §6 does not name at all
+`business-case-engine` and `meeting-prep` are in §6. Both were built and
+unreachable by name — the fifth instance in this build of a working thing
+nothing could call.
 
-`business-case-engine` and `meeting-prep`. The brain has no instruction to reach
-for either, so neither will be invoked by name however good the file is.
-`meeting-prep` is the one shipped in item 7.
+### 8c. Knowledge files — SIX, and six is final
 
-### 8c. Knowledge files — six, and six is the final set
+All six are in `knowledge/`, registered, and loading. `PowerBD.pdf` was removed
+from §6 rather than supplied: it is a ZIP wearing a `.pdf` extension holding a
+screenshotted copy of this prompt at v1.0, twelve versions stale.
 
-`competitive-matrix.md` · `ercot-market-primer.md` · `permitting-playbook.md` ·
-`vertical-playbooks.md` · `objection-battlecards.md` · `reference-bundle.md` are
-in `knowledge/`, registered `present`, and load.
+The forcing function worked end to end — §6 dropped the name, the state pin went
+red, the entry was deleted, green. Two edits, exactly as rule 12 requires.
 
-**PowerBD.pdf is RETIRED, not awaited.** It was opened: not a PDF at all but a
-ZIP with a `.pdf` extension holding page images and extracted text of "PowerDeal
-Strategist — System Prompt v1.0" — twelve versions stale. Supplying it would put
-v1.0 doctrine in front of a v3.1.10 model with nothing saying which wins. An
-`awaited` entry invites someone to go find the file, which is the wrong
-instruction, so retirement is its own status and the refusal explains itself.
+§6 also declares itself the canonical home of the competitive-matrix caveat, so
+`parseKnowledgeCaveat()` has doctrine backing rather than convention. The
+implementer parenthetical is stripped before display.
 
-v3.1.11 removes the name from §6. A forcing function fails until the registry
-entry is then deleted — and the resolution was simulated end-to-end to confirm
-deleting it actually clears the suite (checklist rule 12).
+### 8d. Duplicate skills — RESOLVED
 
-**No `format` field.** The extension was the lie. `looksBinary()` sniffs the
-bytes actually read — NUL, or a wall of U+FFFD — giving one verdict for a ZIP, a
-PDF, a JPEG or a truncated download. It runs on every load, so no dead branch and
-no extension to trust.
+Byte-identical uploads. `versionsPending` carries nothing; the field stays for
+the next real duplicate.
 
-**Open:** no prompt module embeds a knowledge file yet. The shelf is ~12k tokens
-whole, so a module reaching for it should pull what it needs rather than all six.
+### 8e. Skill-to-skill references — RESOLVED
 
-### 8d. RESOLVED — the duplicate skills were not duplicates
+`document-forge` and `market-watch` have their own §6 line, declared as Buckets
+3 and 5 and explicitly not skills. The registry cross-checks against that line
+rather than asserting the distinction on its own authority — a private list is
+one step from an ignore list.
 
-`stage-gate` and `contract-negotiator` were each uploaded twice and both pairs
-are byte-identical. Same MD5, same byte count, no diff, no version to pick.
-`versionsPending` now carries nothing. The field stays on `SkillEntry` because
-the next genuine duplicate is a question of when.
+### What is still open
 
-### 8e. Skill-to-skill references — a fourth layer, found reading the batch
-
-The dependency tables inside the skill files name sibling capabilities, and two
-of those names resolved to nothing: `document-forge` and `market-watch`. Both are
-real platform capabilities (`POST /api/forge`, the `market-watch` task), so the
-references are correct and the category is wrong.
-
-Declared in `PLATFORM_CAPABILITIES` rather than ignored, and asserted: every
-backticked slug-shaped identifier in every skill file must resolve to a skill or
-to a declared capability. Same defect class as §6, one layer further down.
+Nothing in item 8. **Open elsewhere:** no prompt module embeds a knowledge file
+yet. The shelf is ~48k chars, ~12k tokens whole, so a module reaching for it
+should pull what it needs rather than all six.

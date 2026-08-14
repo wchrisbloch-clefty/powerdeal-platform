@@ -39,7 +39,7 @@ skills spent two versions in.
 The `present` path was recorded as unproven for exactly one commit. Six files
 landed and it executes now.
 
-## PowerBD.pdf is retired, not awaited — do not supply it
+## PowerBD.pdf was removed from doctrine, not supplied
 
 It was opened. **It is not a PDF.** It is a ZIP with a `.pdf` extension holding
 25 page images and extracted text of "PowerDeal Strategist — System Prompt v1.0"
@@ -47,14 +47,14 @@ It was opened. **It is not a PDF.** It is a ZIP with a `.pdf` extension holding
 trusted-OEM identity, the pre-v3.1 stage-gate table, no Bloom alignment, no
 four-tier set, no relationship types.
 
-Loading it would put v1.0 doctrine in front of a v3.1.10 model with nothing on
-the page saying which wins. That is worse than absent, so it gets a status of its
-own: `retired`. An `awaited` entry is an invitation to go find the file; this one
-must never be supplied, and the refusal says why rather than reading as "not
-synced yet".
+Loading it would have put v1.0 doctrine in front of a current model with nothing
+on the page saying which wins — worse than absent. **v3.1.11 removed the name
+from §6 entirely**, a forcing function went red, and the registry entry was
+deleted with it. It survives only in the changelog, recording why.
 
-**Six knowledge files is the correct set.** v3.1.11 removes the name from §6
-entirely; when it does, the suite requires the registry entry to be deleted.
+**Six is the final set.** The `retired` status stays on the type and carries
+nothing; its formatter is tested directly, because a branch that only runs the
+day something goes wrong is a branch that rots until that day.
 
 ## The check is on the bytes, not the extension
 
@@ -75,12 +75,16 @@ aero turbines, microturbines, MCFC, grid/ERCOT and battery+solar. **There is no
 Tier 1B row.** The caveat is not a precaution, it is a true statement about what
 a reader would otherwise miss.
 
-**§6 owns the caveat text.** There is no `caveat` field on the registry entry —
-it held one for exactly one commit, and a rule written in doctrine and restated
-in TypeScript is two rules that agree until the first edit.
-`parseKnowledgeCaveat()` reads it from the shipped prompt, the same way the skill
-list is parsed rather than mirrored. Same discipline as the `tier-1b` and
-`Both` → `Multiple` renames: one concept, one authority.
+**§6 owns the caveat text, and v3.1.11 says so in the line itself:** *"This
+sentence is the canonical wording of that caveat; anything that displays it reads
+it from here rather than keeping a copy."* There is no `caveat` field on the
+registry entry — it held one for exactly one commit, and a rule written in
+doctrine and restated in TypeScript is two rules that agree until the first edit.
+
+That trailing parenthetical is **stripped** before display: it addresses whoever
+writes the display code, not the model reading a competitive matrix. A mutation
+that removed the strip was caught by nothing until an assertion was added for
+it — `toContain` never breaks when a sentence is added.
 
 `knowledgeBlock()` prints it **above** the content, not below. Same logic as the
 inline-source rule: a warning printed after the material is read by the reader
@@ -93,7 +97,7 @@ is why it lives here and not in the prompt.
 
 ## Status
 
-Six on disk, and six is the final set. `PowerBD.pdf` is `retired` — see above.
+Six on disk, six in §6, and six is the final set.
 
 | File | Status | Chars |
 |---|---|---|
@@ -103,7 +107,6 @@ Six on disk, and six is the final set. `PowerBD.pdf` is `retired` — see above.
 | `vertical-playbooks.md` | present | 10,846 |
 | `objection-battlecards.md` | present | 9,718 |
 | `reference-bundle.md` | present | 15,803 |
-| `PowerBD.pdf` | **retired** | — |
 
 The shelf is ~48k characters, roughly 12k tokens if every file were embedded at
 once. **No prompt module embeds one yet**, so nothing pays that cost today —

@@ -1,10 +1,10 @@
 # Migration checklist
 
-Every migration in this directory must satisfy all thirteen. They are not style
+Every migration in this directory must satisfy all fourteen. They are not style
 preferences — each one is here because its absence caused a real, silent
 failure in this project.
 
-Rules 4 and 6 through 13 generalise past migrations to anything this build ships;
+Rules 4 and 6 through 14 generalise past migrations to anything this build ships;
 they are kept here because this is the file that gets read before something goes
 out.
 
@@ -275,3 +275,35 @@ diff -q "$SCRATCH/<file>.bak" <file>   # and prove it
 
 The `diff -q` matters as much as the restore — rule 6 says confirm a mutation
 applied, and this is the same claim in reverse: confirm it was undone.
+
+## 14. Never trust a declared type over the bytes
+
+A `format`, `contentType`, `encoding` or file extension is a **claim about**
+the data, made by whoever named it. The data itself is the data. When the two
+disagree, the declaration is the one that is wrong — and a declaration is
+believed silently, which is what makes it dangerous.
+
+`PowerBD.pdf` was not a PDF. It was a ZIP with a `.pdf` extension holding page
+images of a twelve-versions-stale copy of the system prompt. The registry had a
+`format: 'pdf'` field, and it would have routed the file to a PDF path where a
+PDF parser fails on a ZIP with a confident error **about PDF structure** — a
+precise answer to the wrong question, which is worse than no answer, because it
+sends the reader looking at the wrong layer.
+
+The field is gone. `looksBinary()` sniffs what was actually read — a NUL byte,
+or a wall of U+FFFD replacement characters — and returns one verdict for a ZIP,
+a PDF, a JPEG or a truncated download: not text, keep it out of the prompt. It
+runs on every load, so there is no dead branch and nothing to trust.
+
+Generalises past files. Any time code branches on a *declared* property when the
+*actual* property is available, prefer the actual one:
+
+- Content type from a header vs. the body you received
+- A `type` discriminator on a record vs. the fields present on it
+- An `Accept` header vs. what the client can actually render
+- A schema version field vs. the shape of the payload
+
+Corollary, and the reason this is its own rule rather than a footnote: a guard
+built on the declaration will pass its own tests. It is internally consistent —
+it correctly does the wrong thing. Only a test that feeds it real mismatched
+bytes finds it, which is rule 4 pointed at the input rather than the output.

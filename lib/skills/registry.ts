@@ -53,12 +53,6 @@ export type SkillSlug =
 export interface SkillEntry {
   slug: SkillSlug;
   /**
-   * The name §6 uses, verbatim and lowercased, or null when §6 does not name
-   * this skill at all. Null is a DOCTRINE GAP, not a spare field: a skill the
-   * brain has never heard of will not be invoked by the brain.
-   */
-  section6Name: string | null;
-  /**
    * `present` — the file is committed and must be readable.
    * `awaited`  — the file has not landed yet and must NOT be readable.
    *
@@ -82,119 +76,100 @@ export interface SkillEntry {
 }
 
 /**
- * All seventeen skills, in the order they were inventoried. Every one is on
- * disk.
+ * All seventeen skills. Every one is on disk, and §6 names every one BY SLUG.
  *
- * Six are named differently in §6 than they are named as files. Recorded here
- * rather than corrected in either direction: the slug is artifact identity,
- * referenced by the filename, the frontmatter and the loader, while the §6 name
- * is prose in one document. The registry guarantees the two refer to the same
- * artifact and that neither can change alone; picking a winner is a doctrine
- * edit (see docs/BACKLOG.md item 8).
+ * There is no `section6Name` field any more. It existed to record six cases
+ * where §6's prose name and the file's slug disagreed — v3.1.11 resolved that
+ * by rewriting §6 to the slugs, so the alias map became seventeen entries each
+ * mapping a name to itself. A field whose every value equals another field is
+ * not a mapping, it is noise that can drift.
+ *
+ * The assertion it supported got STRONGER, not weaker: §6's skill list must now
+ * equal this slug set exactly, in both directions.
  */
 export const SKILLS: readonly SkillEntry[] = [
   {
     slug: 'four-lever-calculator',
-    section6Name: 'four-lever calculator',
     status: 'present',
     purpose: 'The four value levers, quantified against a specific account.',
   },
   {
     slug: 'permitting-analyzer',
-    section6Name: 'permitting analyzer',
     status: 'present',
     purpose: 'Permit path, NSR/BACT exposure, the no-combustion advantage.',
   },
   {
     slug: 'deal-qualification',
-    section6Name: 'qualification scorecard',
     status: 'present',
     purpose: 'MEDDPICC scorecard and the qualification verdict.',
   },
   {
     slug: 'discovery-call-prep',
-    section6Name: 'discovery prep',
     status: 'present',
     purpose: 'The G0 first-contact prep. Narrower sibling of meeting-prep.',
   },
   {
     slug: 'account-deep-dive',
-    section6Name: 'account deep-dive',
     status: 'present',
     purpose: 'Full account research pass — run first when context is thin.',
   },
   {
     slug: 'pro-forma',
-    section6Name: 'pro forma check',
     status: 'present',
     purpose: 'Pro forma construction and sanity check.',
   },
   {
     slug: 'stage-gate',
-    section6Name: 'stage-gate review',
     status: 'present',
     purpose: 'Gate advancement assessment, G0–G8.',
   },
   {
     slug: 'exec-briefing',
-    section6Name: 'exec briefing',
     status: 'present',
     purpose: 'Executive-level brief, thesis first.',
   },
   {
     slug: 'war-room',
-    section6Name: 'war room',
     status: 'present',
     purpose: 'Adversarial pressure test of a deal at risk.',
   },
   {
     slug: 'power-pulse',
-    section6Name: 'power pulse',
     status: 'present',
     purpose: 'Market pulse read across the book.',
   },
   {
     slug: 'prospect-originator',
-    section6Name: 'prospect originator',
     status: 'present',
     purpose: 'New-logo origination from a thesis or a territory.',
   },
   {
     slug: 'market-segmentation',
-    section6Name: 'market segmentation',
     status: 'present',
     purpose: 'Segment definition and prioritisation.',
   },
   {
     slug: 'electrical-assessor',
-    section6Name: 'electrical integration assessor',
     status: 'present',
     purpose: 'One-line, interconnection and protection assessment.',
   },
   {
     slug: 'contract-negotiator',
-    section6Name: 'contract negotiator',
     status: 'present',
     purpose: 'Term sheet, redline strategy, concession map.',
   },
   {
     slug: 'account-strategy',
-    section6Name: 'account strategy builder',
     status: 'present',
     purpose: 'Account plan and land-and-expand strategy.',
   },
   {
     slug: 'business-case-engine',
-    // §6 does not name this one. The platform has a business-case task; the
-    // brain has no instruction to reach for a business-case SKILL.
-    section6Name: null,
     status: 'present',
     purpose: 'Champion-facing business case construction.',
   },
   {
     slug: 'meeting-prep',
-    // §6 does not name this one either — and it is the first skill to land.
-    section6Name: null,
     status: 'present',
     purpose:
       'Persona-specific, stage-aware meeting prep. 13 personas, 16 meeting types.',
@@ -241,52 +216,19 @@ export interface KnowledgeEntry {
 }
 
 /**
- * A caveat §6 attaches to a reference file, parsed from the shipped prompt.
+ * The six files §6 names. SIX IS THE FINAL SET.
  *
- * §6 OWNS THIS. There is no `caveat` field on the entry above, deliberately —
- * it held one for exactly one commit and that was one copy too many. A caveat
- * stored here and also written in §6 is two rules that agree until the first
- * edit, which is the argument this entire registry exists to make. Same
- * discipline as the tier-1b rename and the Both → Multiple rename: one concept,
- * one authority, and the code reads it rather than restating it.
+ * PowerBD.pdf is gone from both — v3.1.11 removed it from §6 and this entry
+ * went with it, which is exactly what the forcing function existed to compel.
+ * It was never a missing file: it was a ZIP wearing a `.pdf` extension holding
+ * a screenshotted copy of this prompt at v1.0, twelve versions stale. Deleting
+ * the name was the right fix; a `retired` entry pointing at a name doctrine no
+ * longer uses would have been debt with a passing test.
  *
- * The repo's own PROCEDURE — commit reference material as-is, never edit it to
- * match current doctrine — is not doctrine and does not live here. It is in
- * knowledge/README.md, where instructions to a human belong.
- *
- * Matches a Note line that names the file. Returns null when §6 attaches no
- * caveat, which is the normal case for all but one.
- */
-export function parseKnowledgeCaveat(
-  promptText: string,
-  filename: string,
-): string | null {
-  const stem = filename.replace(/\.[^.]+$/, '');
-  const line = promptText
-    .split('\n')
-    .find((l) => /^\s*\**Note:\**/i.test(l) && l.includes(stem));
-  if (!line) return null;
-  return line.replace(/^\s*\**Note:\**\s*/i, '').trim() || null;
-}
-
-/**
- * The files §6 names. SIX IS THE CORRECT SET.
- *
- * PowerBD.pdf is retired rather than awaited. It was opened: it is not a PDF at
- * all but a ZIP with a `.pdf` extension, containing page images and extracted
- * text of "PowerDeal Strategist — System Prompt v1.0" — a screenshotted copy of
- * the original system prompt, twelve versions stale. Trusted-OEM identity, the
- * pre-v3.1 stage-gate table, no Bloom alignment, no four-tier set, no
- * relationship types.
- *
- * That makes it worse than absent, which is why it gets a status of its own.
- * An `awaited` entry is an invitation to go find the file; supplying this one
- * would put v1.0 doctrine in front of a v3.1.10 model with nothing on the page
- * saying which wins.
- *
- * The entry stays only while §6 still names it. Once v3.1.11 drops the name,
- * the suite REQUIRES this entry to be deleted — see the retired-entry check in
- * tests/skills.test.ts. A retirement that outlives its reason is debt.
+ * The `retired` status stays on the type. Nothing carries it today, and the
+ * formatting for it is tested directly (see `retiredKnowledgeReason`) precisely
+ * because it has no live case — a branch that only runs the day something goes
+ * wrong is a branch that rots until that day.
  */
 export const KNOWLEDGE: readonly KnowledgeEntry[] = [
   { filename: 'competitive-matrix.md', status: 'present' },
@@ -295,20 +237,15 @@ export const KNOWLEDGE: readonly KnowledgeEntry[] = [
   { filename: 'vertical-playbooks.md', status: 'present' },
   { filename: 'objection-battlecards.md', status: 'present' },
   { filename: 'reference-bundle.md', status: 'present' },
-  {
-    filename: 'PowerBD.pdf',
-    status: 'retired',
-    retiredReason:
-      'Not a PDF — a ZIP with a .pdf extension containing page images and ' +
-      'extracted text of "PowerDeal Strategist — System Prompt v1.0". Twelve ' +
-      'versions stale: trusted-OEM identity, pre-v3.1 stage-gate table, no ' +
-      'Bloom alignment, no four-tier set, no relationship types. Loading it ' +
-      'would put v1.0 doctrine in front of a v3.1.10 model with nothing to say ' +
-      'which wins. Being removed from §6 in v3.1.11.',
-  },
 ];
 
-/** Files that must never be loaded, whatever appears on disk. */
+/**
+ * Files that must never be loaded, whatever appears on disk.
+ *
+ * Empty today. The `describe.skipIf` blocks that exercise it are guarded, and
+ * the shelf's state pin in tests/skills.test.ts holds the exact counts so an
+ * empty set is an asserted fact rather than a silence (checklist rule 10).
+ */
 export const RETIRED_KNOWLEDGE: readonly KnowledgeEntry[] = KNOWLEDGE.filter(
   (k) => k.status === 'retired',
 );
@@ -323,13 +260,15 @@ export const KNOWLEDGE_FILES: readonly string[] = KNOWLEDGE.map((k) => k.filenam
  * actually things the PLATFORM does.
  *
  * Found by reading the seventeen files: `meeting-prep`'s dependency table
- * chains to `document-forge` and `market-watch`, and neither is a skill, in §6
+ * chains to `document-forge` and `market-watch`, and neither was a skill, in §6
  * or anywhere else. They are real capabilities — /api/forge and the
- * market-watch task — so the reference is correct and the category is wrong.
+ * market-watch task — so the reference was correct and the category was wrong.
  *
- * Declared rather than ignored so the cross-reference check below can resolve
- * them. The alternative is an ignore list, and an ignore list absorbs the next
- * genuinely dangling reference silently.
+ * v3.1.11 GAVE THEM THEIR OWN §6 LINE, which is the fix that matters: the
+ * distinction is now declared in doctrine rather than inferred here. This list
+ * is checked against that line in both directions, so it is a cross-reference
+ * to an authority rather than a private ignore list — and an ignore list is
+ * what would have absorbed the next genuinely dangling reference silently.
  */
 export const PLATFORM_CAPABILITIES: readonly { name: string; resolvesTo: string }[] = [
   { name: 'document-forge', resolvesTo: 'POST /api/forge — lib/forge/generate.ts, lib/forge/pdf.ts' },
@@ -364,87 +303,15 @@ export function referenceResolves(name: string): boolean {
 
 const BY_SLUG = new Map(SKILLS.map((s) => [s.slug, s]));
 
-/**
- * §6 name → registry entry. Lowercased and whitespace-collapsed on both sides,
- * because the difference between "four-lever calculator" and "Four-Lever
- * Calculator" is not a difference anyone intends.
- */
-const BY_SECTION_6 = new Map(
-  SKILLS.filter((s) => s.section6Name).map((s) => [normalise(s.section6Name!), s]),
-);
-
-function normalise(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
 export function skill(slug: SkillSlug): SkillEntry {
   const found = BY_SLUG.get(slug);
   if (!found) throw new Error(`Unknown skill slug: ${slug}`);
   return found;
 }
 
-/** Resolve a name as §6 writes it. Undefined means doctrine names a ghost. */
-export function resolveSection6Name(name: string): SkillEntry | undefined {
-  return BY_SECTION_6.get(normalise(name));
-}
-
 /** The filename a slug maps to, relative to `skills/`. */
 export function skillFilename(slug: SkillSlug): string {
   return `SKILL-${slug}.md`;
-}
-
-/**
- * Pull the skill names out of §6 of the system prompt.
- *
- * PARSED, NEVER COPIED. A hardcoded second copy of the list agrees with the
- * prompt file until the first edit to either, and then agrees with nothing —
- * the exact failure mode that let `integrator` survive in code after doctrine
- * had renamed it. This reads the shipped line, so renaming a skill in the
- * markdown fails the suite instead of failing in front of a customer.
- *
- * Returns [] when the line is absent, which the caller must treat as a failure
- * rather than as "no skills declared" — an empty list would otherwise satisfy
- * "every name resolves" vacuously, and a vacuous pass is the silent-direction
- * defect this whole registry exists to prevent.
- */
-export function parseSection6Skills(promptText: string): string[] {
-  const line = promptText
-    .split('\n')
-    .find((l) => /^\s*Skills\s*\(natural language\)\s*:/i.test(l));
-  if (!line) return [];
-
-  return line
-    .replace(/^\s*Skills\s*\(natural language\)\s*:/i, '')
-    .split(',')
-    .map(clean)
-    .filter(Boolean);
-}
-
-/**
- * Strip §6's decoration without eating the content.
- *
- * The trailing period is the sentence ending; a period INSIDE the token is a
- * file extension. Removing every dot turned `PowerBD.pdf` into `PowerBDpdf` —
- * a name that would never match a file and, in a comparison against a list this
- * same function had produced, would have matched itself perfectly. Only the
- * cross-check against the hand-written registry caught it.
- */
-function clean(raw: string): string {
-  return raw.replace(/[`*]/g, '').trim().replace(/\.$/, '');
-}
-
-/** Pull the knowledge filenames out of the "Reference by name:" line of §6. */
-export function parseSection6Knowledge(promptText: string): string[] {
-  const line = promptText
-    .split('\n')
-    .find((l) => /^\s*Reference by name\s*:/i.test(l));
-  if (!line) return [];
-
-  return line
-    .replace(/^\s*Reference by name\s*:/i, '')
-    .split('·')
-    .map(clean)
-    .filter(Boolean);
 }
 
 /**
@@ -466,6 +333,91 @@ export function frontmatterName(text: string): string | null {
   return line.replace(/^name\s*:/i, '').trim().replace(/^['"]|['"]$/g, '');
 }
 
+/**
+ * ── PARSING §6 ──────────────────────────────────────────────────
+ *
+ * PARSED, NEVER COPIED. A hardcoded second copy of any of these lists agrees
+ * with the prompt until the first edit to either, and then agrees with nothing
+ * — the exact failure mode that let `integrator` survive in code after doctrine
+ * had renamed it.
+ *
+ * v3.1.11 restructured §6 into three labelled lines and BACKTICKS EVERY NAME on
+ * all three. So the parser extracts backticked tokens rather than splitting on
+ * punctuation, which is both simpler and stricter: it cannot be confused by a
+ * separator change, a sentence period, or the ` (Bucket 3)` annotations the
+ * capabilities line carries after each slug.
+ *
+ * This RETIRES the trailing-dot handling, and it is worth being precise about
+ * why, because the earlier reasoning was right for the earlier format. Under
+ * v3.1.10 the skills line was bare prose split on commas, so a trailing period
+ * had to be stripped from the last item — and stripping every dot instead
+ * turned `PowerBD.pdf` into `PowerBDpdf`. Backtick extraction never sees the
+ * period at all: it sits outside the closing backtick. The class of bug is
+ * gone rather than guarded against, which is the better outcome.
+ *
+ * Every parser returns [] when its line is absent, and every caller must treat
+ * that as a failure rather than as "nothing declared" — an empty list satisfies
+ * "everything resolves" vacuously, and a vacuous pass is the silent-direction
+ * defect this registry exists to prevent.
+ */
+function backtickedOn(promptText: string, label: RegExp): string[] {
+  const line = promptText.split('\n').find((l) => label.test(l));
+  if (!line) return [];
+  return (line.match(/`([^`]+)`/g) ?? []).map((m) => m.slice(1, -1).trim()).filter(Boolean);
+}
+
+/** The seventeen slugs §6 tells the brain it can invoke. */
+export function parseSection6Skills(promptText: string): string[] {
+  return backtickedOn(promptText, /^\s*\*\*Skills\*\*\s*—\s*invoke by slug\s*:/i);
+}
+
+/** The reference files §6 tells the brain it can consult. */
+export function parseSection6Knowledge(promptText: string): string[] {
+  return backtickedOn(promptText, /^\s*\*\*Knowledge files\*\*\s*—\s*reference by name\s*:/i);
+}
+
+/**
+ * Capabilities §6 names that are NOT skills.
+ *
+ * They appear on their own line precisely so nothing has to infer the
+ * distinction from context. The skill files reference them in the same slug
+ * form, so they must resolve — but they must never be treated as skills, or
+ * the loader would start demanding `SKILL-document-forge.md`.
+ */
+export function parseSection6Capabilities(promptText: string): string[] {
+  return backtickedOn(promptText, /^\s*\*\*Platform capabilities\*\*/i);
+}
+
+/**
+ * A caveat §6 attaches to a reference file, parsed from the shipped prompt.
+ *
+ * §6 OWNS THIS, and v3.1.11 says so in the line itself: "This sentence is the
+ * canonical wording of that caveat; anything that displays it reads it from
+ * here rather than keeping a copy." The registry held a copy for exactly one
+ * commit and that was one too many.
+ *
+ * The trailing italic parenthetical is STRIPPED. It is doctrine addressed to
+ * whoever implements the display, not to the model reading the file — printing
+ * "anything that displays it reads it from here" above a competitive matrix
+ * would be an instruction to nobody in the room.
+ */
+export function parseKnowledgeCaveat(
+  promptText: string,
+  filename: string,
+): string | null {
+  const stem = filename.replace(/\.[^.]+$/, '');
+  const line = promptText
+    .split('\n')
+    .find((l) => /^\s*\**Note:\**/i.test(l) && l.includes(stem));
+  if (!line) return null;
+
+  const body = line
+    .replace(/^\s*\**Note:\**\s*/i, '')
+    .replace(/\s*\*\([^)]*\)\*\s*$/, '')
+    .trim();
+  return body || null;
+}
+
 export interface SkillCoverage {
   total: number;
   present: number;
@@ -484,16 +436,22 @@ export interface SkillCoverage {
  * Takes the prompt TEXT rather than reading it, so this stays pure and the
  * caller decides where the bytes come from. It also means the health surface
  * can be handed a prompt it loaded itself rather than depending on the loader
- * it is reporting on.
+ * it is reporting on (checklist rule 9).
+ *
+ * Both directions, and both are live: §6 naming a slug the registry lacks, and
+ * the registry holding a slug §6 never names. v3.1.11 emptied the second set —
+ * `business-case-engine` and `meeting-prep` were the two entries in it, both
+ * built and unreachable by name until doctrine caught up.
  */
 export function skillCoverage(promptText: string): SkillCoverage {
   const named = parseSection6Skills(promptText);
+  const slugs = new Set<string>(SKILLS.map((s) => s.slug));
   return {
     total: SKILLS.length,
     present: SKILLS.filter((s) => s.status === 'present').length,
     awaited: SKILLS.filter((s) => s.status === 'awaited').length,
-    unresolved: named.filter((n) => !resolveSection6Name(n)),
-    unnamedInSection6: SKILLS.filter((s) => !s.section6Name).map((s) => s.slug),
+    unresolved: named.filter((n) => !slugs.has(n)),
+    unnamedInSection6: SKILLS.filter((s) => !named.includes(s.slug)).map((s) => s.slug),
     versionsPending: SKILLS.filter((s) => s.versionsPending).map((s) => s.slug),
   };
 }

@@ -1,11 +1,12 @@
 # Skills
 
-Seventeen skill files existed in the Claude project and none existed here. §6 of
-the system prompt names fifteen of them, so every domain call was telling the
-model it could reach capabilities that were nowhere on disk — the same shape as
-the brain sitting at v3.1.8 while doctrine was at 3.1.10, one layer further down.
+Seventeen skill files existed in the Claude project and none existed here. §6
+named fifteen of them, in prose that matched six of the filenames — so every
+domain call was telling the model it could reach capabilities that were nowhere
+on disk, under names that would not have resolved anyway.
 
-All seventeen are here now.
+All seventeen are here, and **v3.1.11 rewrote §6 to the slugs**, so doctrine and
+the filesystem now use one vocabulary.
 
 ## The convention
 
@@ -14,7 +15,7 @@ All seventeen are here now.
 | Location | `skills/` at the repo root, beside `prompts/` |
 | Filename | `SKILL-<slug>.md` |
 | Frontmatter | must declare `name: <slug>`, matching the filename |
-| Registry | `lib/skills/registry.ts` — every slug, its §6 name, its status |
+| Registry | `lib/skills/registry.ts` — every slug and its status |
 | Loader | `lib/skills/load.ts` — server-only, reads the file verbatim |
 
 The content rule is the brain's rule (GLOBAL RULE 6), one layer down: **a skill
@@ -42,11 +43,16 @@ absorbed the new file silently and none of those would have run.
 
 `tests/skills.test.ts`, in both directions:
 
-- Every name §6 lists resolves to a registry entry — **parsed from the shipped
-  prompt file, never a second hardcoded copy.** Rename a skill in the markdown
-  and the suite fails, rather than the model failing in front of a customer.
-- Every registry entry that claims a §6 name still has one — so deleting a name
-  from §6 fails too, instead of the remaining names all quietly still resolving.
+- §6's skill list and the registry's slug set are **equal**, in both directions
+  — parsed from the shipped prompt, never a second hardcoded copy. Rename a
+  skill in the markdown and the suite fails; delete one and it fails too.
+  There is no `section6Name` field any more: it recorded six prose/slug
+  disagreements, and once v3.1.11 adopted the slugs every value duplicated the
+  slug beside it. Set equality is stricter than the alias map it replaced.
+- The `**Platform capabilities**` line matches `PLATFORM_CAPABILITIES`, and none
+  of those names appears on the skills line. `document-forge` and `market-watch`
+  are Buckets 3 and 5 — the skill dependency tables reference them in slug form,
+  so they must resolve, but the loader must never demand a file for them.
 - Every `present` skill has a readable file whose frontmatter declares its own
   slug. Filename and frontmatter are two independent claims about which skill a
   file is; a file copied from a sibling and renamed carries the wrong one.
@@ -76,10 +82,15 @@ all seventeen surfaced two that are **not skills**: `document-forge` and
 `market-watch`. Both are real — `POST /api/forge` and the `market-watch` task —
 so the references are correct and the category is wrong.
 
-They are declared in `PLATFORM_CAPABILITIES` rather than ignored, and every
-backticked slug-shaped identifier in every skill file must resolve to a skill or
-to one of them. Same defect class as §6, one layer down: names pointing at
-nothing, which nobody notices until a chain actually runs.
+They are declared in `PLATFORM_CAPABILITIES`, and every backticked slug-shaped
+identifier in every skill file must resolve to a skill or to one of them. Same
+defect class as §6, one layer down: names pointing at nothing, which nobody
+notices until a chain actually runs.
+
+**v3.1.11 gave them their own §6 line**, which is the fix that matters — the
+distinction is declared in doctrine rather than asserted here on the registry's
+own authority. A private list is one step from an ignore list, and an ignore
+list absorbs the next genuinely dangling reference silently.
 
 ## Outstanding
 
@@ -92,10 +103,10 @@ each turned out to be byte-identical uploads of the same file — same MD5, no
 diff, no version to pick. `versionsPending` carries nothing today; the field
 stays because the next duplicate is a question of when.
 
-Two registered skills — `business-case-engine` and `meeting-prep` — are **not
-named in §6 at all**. The brain has no instruction to reach for either. That is
-a doctrine edit, not a code change, and it is queued for v3.1.11.
+`business-case-engine` and `meeting-prep` are **named in §6 now**. Both were
+built and unreachable by name until v3.1.11 added them — the fifth instance in
+this build of a working thing nothing could call.
 
-The seven knowledge files §6 references live in `knowledge/` — see that
-directory's README. Six are on disk; `PowerBD.pdf` has not been uploaded and is
-pinned the same way.
+The six knowledge files §6 references live in `knowledge/` — see that
+directory's README. `PowerBD.pdf` was removed from doctrine entirely rather than
+supplied; six is the final set.

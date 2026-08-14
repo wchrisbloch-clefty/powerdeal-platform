@@ -64,6 +64,26 @@ export interface LoadedKnowledge {
   caveat: string | null;
 }
 
+/**
+ * Why a retired file will never load.
+ *
+ * PURE AND EXPORTED BECAUSE NOTHING CARRIES THE STATUS ANY MORE. PowerBD.pdf
+ * was the only one, and v3.1.11 removed it from §6 so its entry went too. The
+ * branch is unreachable in normal operation, which is exactly when it starts to
+ * rot — so it is tested directly rather than through `loadKnowledge`
+ * (checklist rule 10, same treatment as `awaitedSkillReason`).
+ *
+ * RETIRED IS NOT MISSING. An `awaited` file is one somebody should go find. A
+ * retired one would do harm if supplied, and the two must not read the same to
+ * whoever hits this — so the reason travels with the refusal.
+ */
+export function retiredKnowledgeReason(filename: string, reason?: string): string {
+  return (
+    `Knowledge file "${filename}" is RETIRED and must never be loaded. ` +
+    (reason ?? 'No reason recorded.')
+  );
+}
+
 const cache = new Map<string, LoadedKnowledge>();
 
 /**
@@ -129,13 +149,7 @@ function read(filename: string): LoadedKnowledge {
    * whoever hits this — so the reason travels with the refusal.
    */
   if (entry.status === 'retired') {
-    return {
-      ...base,
-      ready: false,
-      error:
-        `Knowledge file "${filename}" is RETIRED and must never be loaded. ` +
-        (entry.retiredReason ?? 'No reason recorded.'),
-    };
+    return { ...base, ready: false, error: retiredKnowledgeReason(filename, entry.retiredReason) };
   }
 
   if (entry.status === 'awaited') {

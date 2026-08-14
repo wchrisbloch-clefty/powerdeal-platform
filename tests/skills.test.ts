@@ -4,15 +4,16 @@ import { join } from 'node:path';
 import { POWERDEAL_VERSION } from '@/lib/brand';
 import {
   KNOWLEDGE, KNOWLEDGE_FILES, PLATFORM_CAPABILITIES, RETIRED_KNOWLEDGE, SKILLS,
-  frontmatterName,
-  parseKnowledgeCaveat, parseSection6Knowledge, parseSection6Skills, parseSkillReferences,
-  referenceResolves, resolveSection6Name, skillCoverage, skillFilename,
+  frontmatterName, parseKnowledgeCaveat, parseSection6Capabilities,
+  parseSection6Knowledge, parseSection6Skills, parseSkillReferences,
+  referenceResolves, skillCoverage, skillFilename,
 } from '@/lib/skills/registry';
 import {
   awaitedSkillReason, loadSkill, skillBlock, unavailableSkillBlock,
 } from '@/lib/skills/load';
 import {
   clearKnowledgeCache, knowledgeBlock, loadKnowledge, looksBinary,
+  retiredKnowledgeReason,
 } from '@/lib/skills/knowledge';
 
 /**
@@ -53,65 +54,133 @@ async function skillFilenames(): Promise<string[]> {
 
 describe('§6 parsing', () => {
   /**
-   * The guard against a VACUOUS PASS. If the parser silently returned nothing,
-   * "every §6 name resolves" would be true of the empty set and this whole file
-   * would go green while doctrine named fifteen ghosts.
+   * The guard against a VACUOUS PASS. If a parser silently returned nothing,
+   * "everything resolves" would be true of the empty set and this whole file
+   * would go green while doctrine named ghosts.
    */
-  it('finds the skills line and returns names, not an empty list', () => {
-    const names = parseSection6Skills(promptText);
-    expect(names.length).toBeGreaterThan(10);
-    expect(names).toContain('four-lever calculator');
+  it('finds all three lines and returns names, not empty lists', () => {
+    expect(parseSection6Skills(promptText).length).toBe(17);
+    expect(parseSection6Knowledge(promptText).length).toBe(6);
+    expect(parseSection6Capabilities(promptText).length).toBe(2);
   });
 
-  it('returns an empty list when the line is absent — so callers can tell', () => {
+  it('returns an empty list when a line is absent — so callers can tell', () => {
     expect(parseSection6Skills('## 6. KNOWLEDGE FILES\nnothing here\n')).toEqual([]);
     expect(parseSection6Knowledge('nothing here')).toEqual([]);
-  });
-
-  it('strips the formatting §6 actually uses', () => {
-    const names = parseSection6Skills('Skills (natural language): war room, `power pulse`, exec briefing.');
-    expect(names).toEqual(['war room', 'power pulse', 'exec briefing']);
-  });
-});
-
-describe('every name in §6 resolves to a registered skill', () => {
-  const named = parseSection6Skills(promptText);
-
-  it.each(named)('§6 names "%s"', (name) => {
-    const entry = resolveSection6Name(name);
-    expect(
-      entry,
-      `§6 names "${name}" and no registry entry claims it. Either the prompt ` +
-        `renamed a skill or lib/skills/registry.ts is behind it.`,
-    ).toBeDefined();
+    expect(parseSection6Capabilities('nothing here')).toEqual([]);
   });
 
   /**
-   * The other direction. Without this, deleting a name from §6 breaks nothing
-   * — the remaining names all still resolve — and the registry keeps claiming
-   * an alias doctrine no longer uses.
+   * v3.1.11 backticks every name on all three lines, so the parser extracts
+   * backticked tokens rather than splitting on punctuation. That is stricter
+   * AND simpler: no separator to track, no sentence period to strip, and the
+   * ` (Bucket 3)` annotations on the capabilities line fall away for free.
+   *
+   * It also RETIRES the trailing-dot bug rather than guarding against it. Under
+   * the old comma-split format a trailing period had to be stripped, and
+   * stripping every dot turned `PowerBD.pdf` into `PowerBDpdf`. Backtick
+   * extraction never sees the period — it is outside the closing backtick.
    */
-  it.each(SKILLS.filter((s) => s.section6Name))(
-    'registry claims §6 name for $slug and §6 still has it',
-    (entry) => {
-      expect(
-        named.map((n) => n.toLowerCase()),
-        `registry says §6 names "${entry.section6Name}" for ${entry.slug}, but §6 does not.`,
-      ).toContain(entry.section6Name!.toLowerCase());
-    },
-  );
+  it('takes the token, not the punctuation around it', () => {
+    const line = '**Skills** — invoke by slug: `war-room` · `power-pulse` · `pro-forma`.';
+    expect(parseSection6Skills(line)).toEqual(['war-room', 'power-pulse', 'pro-forma']);
+  });
 
-  it('reports unresolved names rather than throwing on them', () => {
+  it('keeps a dot inside a name and drops the sentence period', () => {
+    // The exact shape that broke before: last item is a filename, and the
+    // sentence ends right after it.
+    const line = '**Knowledge files** — reference by name: `a-primer.md` · `reference-bundle.md`.';
+    expect(parseSection6Knowledge(line)).toEqual(['a-primer.md', 'reference-bundle.md']);
+  });
+
+  it('ignores the bucket annotations on the capabilities line', () => {
+    const line = '**Platform capabilities** — not skills: `document-forge` (Bucket 3) · `market-watch` (Bucket 5).';
+    expect(parseSection6Capabilities(line)).toEqual(['document-forge', 'market-watch']);
+  });
+});
+
+/**
+ * §6 AND THE REGISTRY NAME THE SAME SEVENTEEN THINGS.
+ *
+ * v3.1.11 rewrote §6 to slugs, so this is now a set equality rather than an
+ * alias lookup. The `section6Name` field is gone with it: it existed to record
+ * six prose/slug disagreements, and once doctrine adopted the slugs every value
+ * equalled the slug beside it. A field whose every value duplicates another
+ * field is not a mapping, it is a second copy waiting to drift.
+ *
+ * The check got stronger, not weaker. An alias map tolerated a §6 entry the
+ * registry did not claim as long as some other entry claimed it; set equality
+ * does not.
+ */
+describe('§6 and the registry name the same seventeen skills', () => {
+  const named = parseSection6Skills(promptText);
+  const slugs = SKILLS.map((s) => s.slug);
+
+  it('exactly, in both directions', () => {
+    expect([...named].sort()).toEqual([...slugs].sort());
+  });
+
+  it.each(named)('§6 names "%s" and the registry has it', (name) => {
+    expect(
+      slugs,
+      `§6 names "${name}" and no registry entry claims it. Either the prompt ` +
+        `renamed a skill or lib/skills/registry.ts is behind it.`,
+    ).toContain(name);
+  });
+
+  it.each(SKILLS)('$slug is still named in §6', (entry) => {
+    // The other direction. Without this, deleting a name from §6 breaks
+    // nothing — the remaining names all still resolve — and a built skill goes
+    // quietly unreachable, which is exactly what happened to
+    // business-case-engine and meeting-prep until v3.1.11.
+    expect(
+      named,
+      `${entry.slug} is registered and built, but §6 no longer names it — the ` +
+        `brain has no instruction to reach for it.`,
+    ).toContain(entry.slug);
+  });
+
+  it('reports coverage rather than throwing on a gap', () => {
     const coverage = skillCoverage(promptText);
     expect(coverage.unresolved).toEqual([]);
+    expect(coverage.unnamedInSection6).toEqual([]);
     expect(coverage.total).toBe(SKILLS.length);
     expect(coverage.present + coverage.awaited).toBe(SKILLS.length);
   });
 
   it('flags a §6 rename as unresolved instead of passing quietly', () => {
-    const renamed = promptText.replace('four-lever calculator', 'four lever calc');
+    const renamed = promptText.replace('`four-lever-calculator`', '`four-lever-calc`');
     expect(renamed).not.toBe(promptText); // the mutation actually applied
-    expect(skillCoverage(renamed).unresolved).toContain('four lever calc');
+    const coverage = skillCoverage(renamed);
+    expect(coverage.unresolved).toContain('four-lever-calc');
+    expect(coverage.unnamedInSection6).toContain('four-lever-calculator');
+  });
+});
+
+/**
+ * CAPABILITIES ARE NAMED IN §6 NOW, ON THEIR OWN LINE.
+ *
+ * The skill dependency tables reference `document-forge` and `market-watch` in
+ * slug form, and neither is a skill. Before v3.1.11 the registry asserted that
+ * distinction on its own authority — a private list, which is one step from an
+ * ignore list. Doctrine now declares it, so this checks against the source.
+ */
+describe('platform capabilities are doctrine, not a local exception list', () => {
+  const named = parseSection6Capabilities(promptText);
+
+  it('§6 and the registry agree exactly', () => {
+    expect([...named].sort()).toEqual([...PLATFORM_CAPABILITIES.map((c) => c.name)].sort());
+  });
+
+  it('none of them is registered as a skill', () => {
+    // If one were, the loader would start demanding SKILL-document-forge.md.
+    for (const name of named) expect(SKILLS.map((s) => s.slug)).not.toContain(name);
+  });
+
+  it('§6 keeps them off the skills line', () => {
+    // The whole point of the separate line: a capability must never be read as
+    // something the brain can invoke as a skill.
+    for (const name of named) expect(parseSection6Skills(promptText)).not.toContain(name);
   });
 });
 
@@ -265,16 +334,16 @@ describe('knowledge files §6 names', () => {
    * (checklist rule 10), so this one assertion holds the whole shape and cannot
    * go vacuous — an object comparison has no empty case.
    *
-   * WHEN v3.1.11 LANDS: delete the PowerBD.pdf entry from KNOWLEDGE and set
-   * `retired: []` here. Those two edits are the whole cleanup, and the
-   * forcing function below stays red until both are done.
+   * v3.1.11 LANDED. §6 dropped PowerBD.pdf, this went red, the entry was
+   * deleted and `retired` is now `[]` — the forcing function did its whole job
+   * and cost two edits, which is what rule 12 asks of one.
    */
   it('the shelf is in exactly the expected state', () => {
     expect({
       present: KNOWLEDGE.filter((k) => k.status === 'present').length,
       awaited: KNOWLEDGE.filter((k) => k.status === 'awaited').length,
       retired: RETIRED_KNOWLEDGE.map((k) => k.filename),
-    }).toEqual({ present: 6, awaited: 0, retired: ['PowerBD.pdf'] });
+    }).toEqual({ present: 6, awaited: 0, retired: [] });
   });
 
   it.skipIf(KNOWLEDGE.every((k) => k.status === 'present'))(
@@ -381,7 +450,35 @@ describe('knowledge files §6 names', () => {
    * instruction here, which is why retirement is a separate status rather than
    * a comment on an awaited one.
    */
-  describe.skipIf(RETIRED_KNOWLEDGE.length === 0)('the retired one', () => {
+  /**
+   * NOTHING IS RETIRED ANY MORE, SO THE PATH IS TESTED DIRECTLY.
+   *
+   * PowerBD.pdf was the only one and v3.1.11 removed its name from §6, so the
+   * entry went too. The loader's retired branch is now unreachable in normal
+   * operation — which is exactly when it starts to rot, so the formatter is
+   * pure, exported and called here (checklist rule 10, same treatment as
+   * `awaitedSkillReason`).
+   */
+  describe('retired is not missing, and must not read as missing', () => {
+    it('carries the reason, not an invitation to go find the file', () => {
+      const reason = retiredKnowledgeReason(
+        'PowerBD.pdf',
+        'Not a PDF — a ZIP holding System Prompt v1.0, twelve versions stale.',
+      );
+      expect(reason).toContain('RETIRED');
+      expect(reason).toContain('never be loaded');
+      expect(reason).toContain('System Prompt v1.0');
+      // The distinction that matters: an awaited file is one somebody should
+      // go find. A retired one must never be supplied.
+      expect(reason).not.toContain('has not been synced');
+    });
+
+    it('says something even with no reason recorded', () => {
+      expect(retiredKnowledgeReason('x.md')).toContain('No reason recorded');
+    });
+  });
+
+  describe.skipIf(RETIRED_KNOWLEDGE.length === 0)('any entry still retired', () => {
     it.each(RETIRED_KNOWLEDGE)('$filename never loads', (entry) => {
       const loaded = loadKnowledge(entry.filename);
       expect(loaded.ready).toBe(false);
@@ -494,6 +591,35 @@ describe('knowledge files §6 names', () => {
     expect(caveat!.toLowerCase()).toContain('predates');
     // Nothing between doctrine and the loader.
     expect(loadKnowledge('competitive-matrix.md').caveat).toBe(caveat);
+  });
+
+  /**
+   * THE IMPLEMENTER NOTE IS STRIPPED.
+   *
+   * v3.1.11 ends the caveat line with an italic parenthetical: "This sentence
+   * is the canonical wording of that caveat; anything that displays it reads it
+   * from here rather than keeping a copy." That is doctrine addressed to
+   * whoever writes the display code — printing it above a competitive matrix
+   * would be an instruction to nobody in the room.
+   *
+   * Found by a mutation that removed the strip and was caught by nothing: the
+   * caveat assertions checked what the text CONTAINS, and adding a sentence
+   * never breaks a `toContain`. Both ends now.
+   */
+  it('strips the implementer parenthetical from the caveat', () => {
+    const caveat = parseKnowledgeCaveat(promptText, 'competitive-matrix.md')!;
+    expect(caveat).toContain('stale framing in it.');
+    expect(caveat).not.toContain('canonical wording');
+    expect(caveat).not.toContain('keeping a copy');
+    expect(caveat.endsWith('.')).toBe(true);
+  });
+
+  it('keeps a caveat that has no parenthetical intact', () => {
+    // The other direction — the strip must not eat ordinary trailing text.
+    const doc = '**Note:** widget-guide is stale — ignore its framing.';
+    expect(parseKnowledgeCaveat(doc, 'widget-guide.md')).toBe(
+      'widget-guide is stale — ignore its framing.',
+    );
   });
 
   it('returns null for a file §6 attaches no caveat to', () => {

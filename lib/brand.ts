@@ -14,7 +14,7 @@ export const BRAND = {
   charcoal: '#3E3E3E', // Bloom charcoal
 } as const;
 
-export const POWERDEAL_VERSION = '3.1.10';
+export const POWERDEAL_VERSION = '3.1.11';
 export const APP_NAME = 'PowerDeal';
 export const APP_TAGLINE =
   'AI-augmented BD platform for behind-the-meter power sales';
