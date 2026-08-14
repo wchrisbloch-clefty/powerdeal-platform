@@ -7,7 +7,6 @@
       "schedule": "0 10 * * *"
     },
     {
-      "_comment": "Fridays, not Mondays. The recap is wired to a Friday ritual and v3.1.10 says so in as many words — 'Connects to CB's Friday-recap ritual.' It shipped as '0 12 * * 1', which is Monday, so every recap since has arrived three days after the week it describes and two days after Market Watch swept for it. 17:00 UTC is late morning US Central, after the Friday 13:00 UTC market-watch sweep has material to read.",
       "path": "/api/cron/recap",
       "schedule": "0 17 * * 5"
     },

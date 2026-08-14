@@ -1,10 +1,10 @@
 # Migration checklist
 
-Every migration in this directory must satisfy all ten. They are not style
+Every migration in this directory must satisfy all eleven. They are not style
 preferences — each one is here because its absence caused a real, silent
 failure in this project.
 
-Rules 4 and 6 through 10 generalise past migrations to anything this build ships;
+Rules 4 and 6 through 11 generalise past migrations to anything this build ships;
 they are kept here because this is the file that gets read before something goes
 out.
 
@@ -190,3 +190,41 @@ Two things follow:
 
 Watch the test COUNT across a commit that changes fixture data. A drop with no
 deletions in the diff is this rule firing.
+
+## 11. Some gates do not exist locally — encode them as tests
+
+Rule 8 says run the gate that fails the build. This is the sharper case: for
+some failures **there is no local gate to run**, and the only defence is a test
+that encodes what the platform accepts.
+
+Eight consecutive deployments failed on one line. A `_comment` key was added
+inside `crons[1]` of `vercel.json` to carry the reasoning for moving the recap
+to Friday — JSON has no comments, so it went in as a property. Vercel's schema
+sets `additionalProperties: false`:
+
+```
+Error: Invalid vercel.json - `crons[1]` should NOT have additional
+property `_comment`. Please remove it.
+```
+
+`tsc`, `next lint`, `next build` and the full suite passed on every one of those
+eight commits. None of them reads that file's schema. The rejection happens
+**before the build starts**, so there were no build logs in the usual sense and
+nothing locally could have gone red.
+
+The cost was not a red build — it was eight commits of finished work, including
+the `/api/agents/status` fix, sitting unreleased while every local signal said
+green. Vercel keeps the last good deployment live on failure, so production
+quietly served an older commit and the app looked fine.
+
+What follows:
+
+- **Config the platform parses is code, and gets a test.** `vercel.json` now has
+  one asserting the top-level key set and that every cron object carries exactly
+  `path` and `schedule`. Mutation-proven by reinserting the exact `_comment`.
+- **Never put prose in a config file the platform validates.** JSON has no
+  comments for a reason. Reasoning belongs in the test that asserts the value —
+  a better home anyway, because a test fails when the reasoning stops being true.
+- **Check the deployment state after pushing, not just the local gates.** Green
+  local + stale production is a silent state, and it is the same shape as rule 9:
+  the surface that reported success was not reading the thing that failed.

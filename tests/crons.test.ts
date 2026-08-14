@@ -208,3 +208,73 @@ describe('the health surface can tell "did not run" from "could not write it dow
     expect(src).toContain('bookkeepingLooksBroken');
   });
 });
+
+/**
+ * VERCEL VALIDATES vercel.json BEFORE THE BUILD, AND NOTHING LOCAL DOES.
+ *
+ * Eight consecutive deployments failed on one line. A `_comment` key was added
+ * inside `crons[1]` to carry the reasoning for moving the recap to Friday —
+ * JSON has no comments, so it went in as a property. Vercel's schema sets
+ * additionalProperties: false and rejected the deployment:
+ *
+ *     Error: Invalid vercel.json - `crons[1]` should NOT have additional
+ *     property `_comment`. Please remove it.
+ *
+ * `tsc`, `next lint`, `next build` and the whole suite passed on every one of
+ * those eight commits. None of them reads this file's schema. The failure was
+ * invisible locally and total remotely — the platform never got as far as
+ * building, so the agents/status fix sat unreleased for eight commits while
+ * every local gate reported green.
+ *
+ * Checklist rule 8 said run the gate that fails the build. This is the sharper
+ * version: SOME gates do not exist locally at all, and for those the only
+ * defence is a test that encodes what the platform accepts.
+ *
+ * The rationale that was in `_comment` lives above, in the tests that assert
+ * the schedule. A test is a better home for reasoning than a config file — it
+ * fails when the reasoning stops being true.
+ */
+describe('vercel.json is what the platform will accept', () => {
+  const TOP_LEVEL = new Set(['$schema', 'framework', 'crons', 'buildCommand',
+    'devCommand', 'installCommand', 'outputDirectory', 'regions', 'redirects',
+    'rewrites', 'headers', 'functions', 'images', 'cleanUrls', 'trailingSlash']);
+  /** Vercel's cron object takes exactly these two. Nothing else. */
+  const CRON_KEYS = new Set(['path', 'schedule']);
+
+  it('carries no key Vercel would reject at the top level', async () => {
+    const cfg = JSON.parse(await readFile('vercel.json', 'utf8')) as Record<string, unknown>;
+    const unknown = Object.keys(cfg).filter((k) => !TOP_LEVEL.has(k));
+    expect(
+      unknown,
+      'Vercel rejects unknown top-level properties in vercel.json before the ' +
+        'build runs. No local gate catches it.',
+    ).toEqual([]);
+  });
+
+  it('every cron entry has exactly path and schedule', async () => {
+    const cfg = JSON.parse(await readFile('vercel.json', 'utf8')) as {
+      crons: Record<string, unknown>[];
+    };
+    expect(cfg.crons.length, 'no crons — this check proves nothing').toBeGreaterThan(0);
+
+    for (const [i, cron] of cfg.crons.entries()) {
+      const extra = Object.keys(cron).filter((k) => !CRON_KEYS.has(k));
+      expect(
+        extra,
+        `crons[${i}] carries ${extra.join(', ')} — Vercel rejects the whole ` +
+          `deployment for this. JSON has no comments; put the reasoning in a test.`,
+      ).toEqual([]);
+      expect(Object.keys(cron).sort()).toEqual(['path', 'schedule']);
+    }
+  });
+
+  it('every schedule is five cron fields', async () => {
+    const cfg = JSON.parse(await readFile('vercel.json', 'utf8')) as {
+      crons: { path: string; schedule: string }[];
+    };
+    for (const c of cfg.crons) {
+      expect(c.schedule.trim().split(/\s+/), `${c.path} schedule is malformed`).toHaveLength(5);
+      expect(c.path.startsWith('/'), `${c.path} is not a rooted path`).toBe(true);
+    }
+  });
+});

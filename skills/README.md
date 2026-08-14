@@ -97,4 +97,5 @@ named in §6 at all**. The brain has no instruction to reach for either. That is
 a doctrine edit, not a code change, and it is queued for v3.1.11.
 
 The seven knowledge files §6 references live in `knowledge/` — see that
-directory's README. All seven are absent and pinned the same way.
+directory's README. Six are on disk; `PowerBD.pdf` has not been uploaded and is
+pinned the same way.
