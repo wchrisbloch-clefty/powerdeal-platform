@@ -1,5 +1,6 @@
 ---
 name: market-segmentation
+knowledge: [vertical-playbooks.md, ercot-market-primer.md, permitting-playbook.md]
 description: >
   Analyze a market segment, geography, or emerging opportunity to determine focus and resource
   allocation. Triggers on: "segment this market", "where should we focus", "new markets",

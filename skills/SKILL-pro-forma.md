@@ -1,5 +1,6 @@
 ---
 name: pro-forma
+knowledge: [reference-bundle.md, ercot-market-primer.md]
 description: >
   Build or validate the financial pro forma for a deal. Triggers on: "check the economics",
   "sanity check", "pro forma", "does the math work", "build the financial model", "what's the

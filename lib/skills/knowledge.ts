@@ -1,7 +1,12 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { SYSTEM_PROMPT } from '@/lib/prompts/system';
-import { KNOWLEDGE, parseKnowledgeCaveat, type KnowledgeEntry } from './registry';
+import {
+  KNOWLEDGE, knowledgeIsLoadable, parseKnowledgeCaveat, parseSkillKnowledge,
+  type KnowledgeEntry,
+} from './registry';
+import { loadSkill } from './load';
+import type { SkillSlug } from './registry';
 
 /**
  * DOES THIS LOOK LIKE TEXT?
@@ -230,4 +235,102 @@ export function knowledgeBlock(filename: string): string {
   }
 
   return [...header, '', loaded.text].join('\n');
+}
+
+
+/**
+ * ── DECLARED DEPENDENCIES ───────────────────────────────────────
+ *
+ * The knowledge a skill named, read from the skill file itself.
+ *
+ * A TASK LOADS ONLY WHAT ITS SKILL DECLARES. Callers pass a SLUG, never a
+ * filename — there is no way to reach a knowledge file except through a skill
+ * that names it, which is what makes selection auditable. Read the frontmatter
+ * and you know exactly what a call will carry.
+ *
+ * Never throws. A skill whose file cannot be read, or whose declaration is
+ * missing, degrades to a named gap rather than a refusal — the suite pins the
+ * declaration on all seventeen, so the runtime path is a backstop, not a plan.
+ */
+export interface DeclaredKnowledge {
+  slug: SkillSlug;
+  /** Filenames the skill declared, in declaration order. */
+  files: string[];
+  /** Declared but not loadable — a typo, or a file that never landed. */
+  unresolved: string[];
+  /** Null when the skill file itself could not be read or has no key. */
+  declared: boolean;
+  error: string | null;
+}
+
+export function knowledgeForSkill(slug: SkillSlug): DeclaredKnowledge {
+  const skill = loadSkill(slug);
+  if (!skill.ready) {
+    return {
+      slug,
+      files: [],
+      unresolved: [],
+      declared: false,
+      error: `Cannot read the declaration: ${skill.error}`,
+    };
+  }
+
+  const declared = parseSkillKnowledge(skill.text);
+  if (declared === null) {
+    return {
+      slug,
+      files: [],
+      unresolved: [],
+      declared: false,
+      error:
+        `skills/SKILL-${slug}.md declares no \`knowledge:\` key. Absent is not ` +
+        `the same as none — add \`knowledge: []\` if the skill genuinely reasons ` +
+        `over no reference material.`,
+    };
+  }
+
+  const unresolved = declared.filter((f) => !knowledgeIsLoadable(f));
+  return {
+    slug,
+    files: declared.filter((f) => knowledgeIsLoadable(f)),
+    unresolved,
+    declared: true,
+    error: unresolved.length
+      ? `Declares ${unresolved.join(', ')}, which ${unresolved.length === 1 ? 'is' : 'are'} not a loadable knowledge file.`
+      : null,
+  };
+}
+
+/**
+ * The reference shelf for one skill, ready to embed — or the reason it is thin.
+ *
+ * Returns '' when a skill declares nothing, which is a legitimate answer for
+ * `stage-gate` and `business-case-engine` and must not be confused with a
+ * failure. Anything that went wrong is stated instead of dropped.
+ */
+export function knowledgeBlocksForSkill(slug: SkillSlug): string {
+  const d = knowledgeForSkill(slug);
+
+  if (!d.declared) {
+    return [
+      `REFERENCE SHELF — unavailable for ${slug}.`,
+      `Reason: ${d.error}`,
+      '',
+      'Proceed on the methodology in the system prompt. Say once, in the output,',
+      'that the reference material could not be resolved.',
+    ].join('\n');
+  }
+
+  const blocks = d.files.map((f) => knowledgeBlock(f));
+  if (d.unresolved.length) {
+    blocks.push(
+      [
+        `KNOWLEDGE FILE — ${d.unresolved.join(', ')}: DECLARED BUT NOT AVAILABLE.`,
+        `Reason: ${d.error}`,
+        '',
+        'Proceed without it and say so once in the output.',
+      ].join('\n'),
+    );
+  }
+  return blocks.join('\n\n---\n\n');
 }

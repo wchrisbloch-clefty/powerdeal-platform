@@ -334,6 +334,51 @@ export function frontmatterName(text: string): string | null {
 }
 
 /**
+ * The knowledge files a skill DECLARES it reasons over.
+ *
+ * DECLARED, NEVER RETRIEVED. Which doctrine a model sees is chosen by a list a
+ * human wrote and a test checks, not by similarity scoring at request time.
+ * Nondeterministic selection of doctrine is the failure class this build spent
+ * itself removing — an unpredictable shelf is worse than a large one, because a
+ * large one is at least the same every time.
+ *
+ * DECLARED IN THE SKILL FILE, NOT THE REGISTRY. Skills are doctrine and their
+ * dependencies are doctrine. A registry-side list would be a code claim about
+ * doctrine — the self-authorized assertion that §6's capabilities line closed.
+ *
+ * THE RULE FOR AGGREGATORS: a skill declares what its OWN prose reasons over,
+ * never the union of what its dependencies would need. Inheritance through a
+ * chain is an optimization, not a contract — declaring `[]` and betting on being
+ * chained fails silently and empty, which is the `business-case-engine` failure
+ * again. Declaring and being chained anyway costs duplicate tokens, which is
+ * cheap and visible.
+ *
+ * ABSENT IS NOT EMPTY. `null` means nobody decided; `[]` means somebody decided
+ * none. If absent could mean none, a new skill would silently reach nothing —
+ * so the key is required on all seventeen and the suite fails without it.
+ */
+export function parseSkillKnowledge(text: string): string[] | null {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+  if (!match) return null;
+  const line = match[1].split('\n').find((l) => /^knowledge\s*:/i.test(l));
+  if (!line) return null;
+
+  const body = line.replace(/^knowledge\s*:/i, '').trim();
+  const inner = /^\[(.*)\]$/.exec(body);
+  if (!inner) return null;
+
+  return inner[1]
+    .split(',')
+    .map((f) => f.trim().replace(/^['"]|['"]$/g, ''))
+    .filter(Boolean);
+}
+
+/** Is this a registered knowledge file that can actually be loaded? */
+export function knowledgeIsLoadable(filename: string): boolean {
+  return KNOWLEDGE.some((k) => k.filename === filename && k.status === 'present');
+}
+
+/**
  * ── PARSING §6 ──────────────────────────────────────────────────
  *
  * PARSED, NEVER COPIED. A hardcoded second copy of any of these lists agrees

@@ -1,5 +1,6 @@
 ---
 name: discovery-call-prep
+knowledge: [vertical-playbooks.md, objection-battlecards.md, permitting-playbook.md]
 description: >
   Prepare a complete G0 discovery call brief for a named account before first or second contact.
   Triggers on: "prep for [account]", "discovery prep", "call prep", "getting ready for [company]",

@@ -1,5 +1,6 @@
 ---
 name: business-case-engine
+knowledge: []
 description: >
   Cross-cutting operating layer that governs HOW every written deliverable is built and HOW
   champions/committees are developed — not a standalone trigger, but a set of rules that

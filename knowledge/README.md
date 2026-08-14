@@ -108,7 +108,28 @@ Six on disk, six in §6, and six is the final set.
 | `objection-battlecards.md` | present | 9,718 |
 | `reference-bundle.md` | present | 15,803 |
 
-The shelf is ~48k characters, roughly 12k tokens if every file were embedded at
-once. **No prompt module embeds one yet**, so nothing pays that cost today —
-but any module that reaches for the whole shelf should pull the files it needs
-rather than all six.
+## Nothing loads the whole shelf
+
+Each skill **declares** the files its own prose reasons over, in its frontmatter
+(`knowledge: [...]` — see `skills/README.md`). `knowledgeBlocksForSkill(slug)`
+returns exactly that, and callers pass a slug, never a filename: there is no way
+to reach a knowledge file except through a skill that names it.
+
+Declared, never retrieved. No similarity scoring picks the doctrine a model sees.
+
+| | files | ~tokens |
+|---|---|---|
+| Whole shelf, loaded blind | 6 | 12,115 |
+| Heaviest declared call (`four-lever-calculator`, `prospect-originator`) | 4 | 8,351 |
+| Median call | — | 4,377 |
+| `permitting-analyzer` | 1 | 928 |
+| `stage-gate`, `business-case-engine` | 0 | 0 |
+
+`four-lever-calculator` is both the heaviest and, by its own description, "the
+primary deal-advancing tool — use it early and often." That is the strongest
+argument for BACKLOG item 9: splitting `vertical-playbooks.md` by vertical would
+take it under 6k without touching anything else.
+
+Every file is declared by at least one skill, asserted in both directions — a
+registered file nothing names is material the platform carries and can never
+show a model, which is §6 naming a ghost, inverted.

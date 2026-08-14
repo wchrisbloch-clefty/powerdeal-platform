@@ -1,5 +1,6 @@
 ---
 name: contract-negotiator
+knowledge: [reference-bundle.md, objection-battlecards.md]
 description: >
   Develop negotiation strategy for a specific commercial term or full term sheet. Triggers on:
   "negotiate this term", "contract strategy", "term sheet review", "they're pushing back on

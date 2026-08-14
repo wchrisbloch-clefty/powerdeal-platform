@@ -1,5 +1,6 @@
 ---
 name: electrical-assessor
+knowledge: [reference-bundle.md]
 description: >
   Assess electrical integration feasibility, identify site constraints, and prepare the BD/AE
   to speak credibly with the utilities superintendent and reliability engineer. Triggers on:

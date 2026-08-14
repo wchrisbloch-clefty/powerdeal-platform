@@ -1,5 +1,6 @@
 ---
 name: power-pulse
+knowledge: [ercot-market-primer.md, competitive-matrix.md, permitting-playbook.md]
 description: >
   Generate a weekly market intelligence brief covering ERCOT conditions, policy changes,
   competitor moves, and account-specific signals. Triggers on: "power pulse", "weekly brief",

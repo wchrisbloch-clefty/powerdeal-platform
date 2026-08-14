@@ -1,5 +1,6 @@
 ---
 name: account-deep-dive
+knowledge: [vertical-playbooks.md]
 description: >
   Build a comprehensive account intelligence brief for a named prospect or customer. Triggers on:
   "deep dive on [account]", "account analysis", "what do we know about [company]", "account intel",

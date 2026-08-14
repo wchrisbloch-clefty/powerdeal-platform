@@ -1,5 +1,6 @@
 ---
 name: prospect-originator
+knowledge: [reference-bundle.md, vertical-playbooks.md, ercot-market-primer.md, permitting-playbook.md]
 description: >
   Generate a targeted prospect list and origination strategy for a given vertical, geography,
   or trigger condition. Triggers on: "find prospects", "originate", "pipeline generation",
@@ -51,7 +52,7 @@ Run web searches based on the trigger type:
 
 ## Step 3 — Score Each Prospect
 
-For each identified prospect, apply the ICP scoring rubric (from deal-qualification skill):
+For each identified prospect, apply the ICP scoring rubric (from the `deal-qualification` skill):
 
 | Company | Vertical | MW Est. | Grid Pain | Permit Pressure | ESG Driver | Fin. Capacity | ICP Score |
 |---|---|---|---|---|---|---|---|

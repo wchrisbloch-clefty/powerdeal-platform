@@ -14,7 +14,7 @@ the filesystem now use one vocabulary.
 |---|---|
 | Location | `skills/` at the repo root, beside `prompts/` |
 | Filename | `SKILL-<slug>.md` |
-| Frontmatter | must declare `name: <slug>`, matching the filename |
+| Frontmatter | must declare `name: <slug>` matching the filename, and `knowledge: [...]` |
 | Registry | `lib/skills/registry.ts` — every slug and its status |
 | Loader | `lib/skills/load.ts` — server-only, reads the file verbatim |
 
@@ -29,9 +29,19 @@ failure this repo has now hit twice.
 1. Paste the file into `skills/SKILL-<slug>.md`, verbatim — trailing whitespace
    included. In markdown two trailing spaces are a line break, so "tidying" the
    paste edits the doctrine.
-2. Add it to `SKILLS` in `lib/skills/registry.ts` with `status: 'present'`, or
+2. Add a `knowledge:` line to the frontmatter, directly under `name:`. See
+   **Declaring knowledge** below. It is required; there is no default.
+3. Add it to `SKILLS` in `lib/skills/registry.ts` with `status: 'present'`, or
    flip an existing `awaited` entry.
-3. Run the suite.
+4. Run the suite.
+
+**Cross-references are backticked.** Any mention of another skill, a platform
+capability, or a knowledge file inside a skill file goes in backticks:
+`` `deal-qualification` ``, `` `document-forge` ``, `` `competitive-matrix.md` ``.
+The suite resolves every backticked slug-shaped token and would otherwise have
+to guess which hyphenated prose is a reference — a check that fires on ordinary
+phrases gets an ignore list bolted on within a week, and the precision is the
+feature.
 
 Step 2 is not optional and not a formality. The suite pins the `awaited` set
 *exactly*, so a file arriving in step 1 **fails the build** until step 2 happens.
@@ -61,6 +71,48 @@ absorbed the new file silently and none of those would have run.
 - The parser returns a non-empty list. Without that, "every §6 name resolves"
   would be true of the empty set and the whole file would go green while
   doctrine named fifteen ghosts.
+
+## Declaring knowledge
+
+Every skill declares the reference files its own prose reasons over:
+
+```yaml
+---
+name: war-room
+knowledge: [competitive-matrix.md, objection-battlecards.md, permitting-playbook.md]
+description: >
+  ...
+---
+```
+
+**Declared, never retrieved.** No semantic search decides which doctrine a model
+sees. Selection is a list a human wrote and a test checks — read the frontmatter
+and you know exactly what a call carries. Nondeterministic doctrine selection is
+the failure class this build spent itself removing, and an unpredictable shelf is
+worse than a large one, because a large one is at least the same every time.
+
+**Absent is not empty.** No key means nobody decided; `knowledge: []` means
+somebody decided none. `stage-gate` and `business-case-engine` declare `[]` — the
+second is inherited-only by design and says so in its own text. The key is
+required on all seventeen and the suite fails without it.
+
+**Declare what you reason over, not the union of what your dependencies need.**
+`account-strategy` synthesizes across verticals and competitive position, so it
+declares those two and lets its children carry their own — ~4k tokens instead of
+~12k. Inheritance through a chain is an optimization, not a contract: declaring
+`[]` and betting on being chained fails silently and empty, which is the
+`business-case-engine` failure again. Declaring and being chained anyway costs
+duplicate tokens, which is cheap and visible.
+
+**A task can only reach knowledge through a skill that names it.** Callers pass a
+slug to `knowledgeBlocksForSkill()`, never a filename.
+
+### If you re-sync a skill from the Claude project
+
+`knowledge:` was added on this side, so a fresh paste **will drop it**. That is
+real drift risk and it is why the required-key assertion exists: a re-sync that
+loses the declaration fails the build instead of quietly emptying a shelf. Carry
+the line back into the project copy so the two stay in step.
 
 ## No hard gate
 

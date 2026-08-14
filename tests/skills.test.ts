@@ -4,16 +4,17 @@ import { join } from 'node:path';
 import { POWERDEAL_VERSION } from '@/lib/brand';
 import {
   KNOWLEDGE, KNOWLEDGE_FILES, PLATFORM_CAPABILITIES, RETIRED_KNOWLEDGE, SKILLS,
-  frontmatterName, parseKnowledgeCaveat, parseSection6Capabilities,
-  parseSection6Knowledge, parseSection6Skills, parseSkillReferences,
-  referenceResolves, skillCoverage, skillFilename,
+  frontmatterName, knowledgeIsLoadable, parseKnowledgeCaveat,
+  parseSection6Capabilities, parseSection6Knowledge, parseSection6Skills,
+  parseSkillKnowledge, parseSkillReferences, referenceResolves, skillCoverage,
+  skillFilename,
 } from '@/lib/skills/registry';
 import {
   awaitedSkillReason, loadSkill, skillBlock, unavailableSkillBlock,
 } from '@/lib/skills/load';
 import {
-  clearKnowledgeCache, knowledgeBlock, loadKnowledge, looksBinary,
-  retiredKnowledgeReason,
+  clearKnowledgeCache, knowledgeBlock, knowledgeBlocksForSkill,
+  knowledgeForSkill, loadKnowledge, looksBinary, retiredKnowledgeReason,
 } from '@/lib/skills/knowledge';
 
 /**
@@ -704,5 +705,153 @@ describe('skill-to-skill references resolve', () => {
     for (const c of PLATFORM_CAPABILITIES) {
       expect(SKILLS.map((s) => s.slug)).not.toContain(c.name);
     }
+  });
+});
+
+
+// ── Declared knowledge dependencies ─────────────────────────────
+
+/**
+ * DECLARED, NEVER RETRIEVED.
+ *
+ * Which doctrine a model sees is chosen by a list a human wrote and a test
+ * checks, not by similarity scoring at request time. Nondeterministic selection
+ * of doctrine is the failure class this build spent itself removing — an
+ * unpredictable shelf is worse than a large one, because a large one is at
+ * least the same every time.
+ *
+ * The declaration lives in the SKILL FILE, because skills are doctrine and
+ * their dependencies are doctrine. A registry-side list would be a code claim
+ * about doctrine — the self-authorized assertion §6's capabilities line closed.
+ */
+describe('every skill declares the knowledge it reasons over', () => {
+  it('all seventeen carry the key', async () => {
+    const missing: string[] = [];
+    for (const entry of SKILLS) {
+      const text = await readFile(join(SKILLS_DIR, skillFilename(entry.slug)), 'utf-8');
+      if (parseSkillKnowledge(text) === null) missing.push(entry.slug);
+    }
+    expect(
+      missing,
+      'ABSENT IS NOT EMPTY. A skill with no `knowledge:` key has had no ' +
+        'decision made about it; `knowledge: []` is a decision. If absent could ' +
+        'mean none, a new skill would silently reach nothing.',
+    ).toEqual([]);
+  });
+
+  it.each(SKILLS)('$slug declares only loadable files', (entry) => {
+    const d = knowledgeForSkill(entry.slug);
+    expect(d.declared, `${entry.slug} has no declaration`).toBe(true);
+    expect(
+      d.unresolved,
+      `${entry.slug} declares a file that is not a registered, present ` +
+        `knowledge file — a typo, or a file that never landed.`,
+    ).toEqual([]);
+    expect(d.error).toBeNull();
+  });
+
+  /**
+   * THE OTHER DIRECTION, and the one that catches an unreachable file.
+   *
+   * A knowledge file nothing declares is material the platform carries and can
+   * never show a model — §6 naming a ghost, inverted. It was how
+   * `business-case-engine` and `meeting-prep` sat built and uncallable.
+   */
+  it('every knowledge file is declared by at least one skill', () => {
+    const declared = new Set(SKILLS.flatMap((s) => knowledgeForSkill(s.slug).files));
+    const orphans = KNOWLEDGE.filter((k) => k.status === 'present')
+      .map((k) => k.filename)
+      .filter((f) => !declared.has(f));
+    expect(
+      orphans,
+      'These are registered and loadable but no skill names them, so nothing ' +
+        'can ever put them in front of a model.',
+    ).toEqual([]);
+  });
+
+  it('the aggregators declare what they reason over, not the union', () => {
+    // A skill declares what its OWN prose needs. account-strategy synthesizes
+    // across verticals and competitive position; it does not re-declare the
+    // financial and permitting sources its children carry.
+    expect(knowledgeForSkill('account-strategy').files.sort()).toEqual([
+      'competitive-matrix.md',
+      'vertical-playbooks.md',
+    ]);
+    // Inheritance is an optimization, not a contract — but `[]` is still the
+    // right answer for a skill that genuinely reasons over no reference
+    // material, and business-case-engine says so in its own frontmatter.
+    expect(knowledgeForSkill('business-case-engine').files).toEqual([]);
+    expect(knowledgeForSkill('stage-gate').files).toEqual([]);
+  });
+
+  it('the war room is armed, and not with our own numbers', () => {
+    const files = knowledgeForSkill('war-room').files.sort();
+    // A Tier-1-competitor advisor without the matrix is a strawman, which makes
+    // the exercise feel rigorous while proving nothing.
+    expect(files).toEqual([
+      'competitive-matrix.md',
+      'objection-battlecards.md',
+      'permitting-playbook.md',
+    ]);
+    // The skeptical CFO attacks the numbers in the deal record. Handing it our
+    // own financial defaults lets it validate against our assumptions instead.
+    expect(files).not.toContain('reference-bundle.md');
+  });
+
+  it('a task can only reach knowledge through a skill that names it', () => {
+    // The whole auditability claim: read the frontmatter, know what the call
+    // carries. permitting-analyzer gets the playbook and nothing else.
+    const block = knowledgeBlocksForSkill('permitting-analyzer');
+    expect(block).toContain('permitting-playbook.md');
+    expect(block).toContain('HGB (Houston-Galveston-Brazoria)');
+    for (const other of ['reference-bundle.md', 'vertical-playbooks.md', 'competitive-matrix.md']) {
+      expect(block, `permitting-analyzer leaked ${other}`).not.toContain(other);
+    }
+  });
+
+  it('a skill that declares nothing gets an empty shelf, not an error', () => {
+    // `''` is a legitimate answer and must not read as a failure.
+    expect(knowledgeBlocksForSkill('stage-gate')).toBe('');
+  });
+
+  it('embeds each declared file verbatim, caveat included', () => {
+    const block = knowledgeBlocksForSkill('war-room');
+    expect(block).toContain(loadKnowledge('competitive-matrix.md').text);
+    expect(block).toContain('CAVEAT, BINDING');
+  });
+
+  it('reports a bad declaration instead of dropping it', () => {
+    // Both directions on the resolver — a name that is not loadable must be
+    // named in the output, never silently skipped.
+    expect(knowledgeIsLoadable('competitive-matrix.md')).toBe(true);
+    expect(knowledgeIsLoadable('made-up.md')).toBe(false);
+  });
+
+  it('parses the declaration in both directions', () => {
+    const fm = (v: string) => `---\nname: x\n${v}\ndescription: y\n---\n# T`;
+    expect(parseSkillKnowledge(fm('knowledge: [a.md, b.md]'))).toEqual(['a.md', 'b.md']);
+    expect(parseSkillKnowledge(fm('knowledge: []'))).toEqual([]);
+    // Absent is null, NOT [] — the distinction the whole design rests on.
+    expect(parseSkillKnowledge('---\nname: x\n---\n')).toBeNull();
+    expect(parseSkillKnowledge('# no frontmatter')).toBeNull();
+    // Malformed is null too: a half-written key must not read as "none".
+    expect(parseSkillKnowledge(fm('knowledge: a.md, b.md'))).toBeNull();
+  });
+
+  /**
+   * THE RE-SYNC RISK THIS CREATES, AND WHY IT IS ACCEPTABLE.
+   *
+   * The skill files are synced by hand from the Claude project. `knowledge:`
+   * was added here, so re-pasting a skill from the project would drop it —
+   * doctrine drift in the direction this build exists to prevent.
+   *
+   * It is safe because the required-key assertion above turns that into a
+   * failed build rather than a silently empty shelf. The convention is in
+   * skills/README.md so the declaration travels back to the project.
+   */
+  it('the add procedure tells a syncer to carry the declaration', async () => {
+    const readme = await readFile(join(SKILLS_DIR, 'README.md'), 'utf-8');
+    expect(readme).toContain('knowledge:');
+    expect(readme.toLowerCase()).toContain('backtick');
   });
 });

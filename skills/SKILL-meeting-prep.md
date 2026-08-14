@@ -1,5 +1,6 @@
 ---
 name: meeting-prep
+knowledge: [objection-battlecards.md, vertical-playbooks.md, permitting-playbook.md, competitive-matrix.md]
 description: >
   Generate a complete, persona-specific, stage-aware meeting prep brief for any meeting
   in an onsite power deal. Triggers on: "meeting prep for [account]", "prep me for [meeting type]",

@@ -1,5 +1,6 @@
 ---
 name: permitting-analyzer
+knowledge: [permitting-playbook.md]
 description: >
   Analyze permitting pathway, non-attainment zone implications, and SOFC permitting advantage
   for a specific account and geography. Triggers on: "permitting pathway", "can we permit this",

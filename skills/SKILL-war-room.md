@@ -1,5 +1,6 @@
 ---
 name: war-room
+knowledge: [competitive-matrix.md, objection-battlecards.md, permitting-playbook.md]
 description: >
   Run a structured adversarial pressure test on a deal, account, or strategy decision using a
   five-advisor council. Triggers on: "war room this", "pressure test", "stress test this deal",

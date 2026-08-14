@@ -1,5 +1,6 @@
 ---
 name: stage-gate
+knowledge: []
 description: >
   Review an active deal's stage-gate status, identify blockers, and define the five moves
   ahead. Triggers on: "stage-gate review", "where are we on [deal]", "deal status", "what's
