@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'fs';
 import { join } from 'path';
-import { KNOWLEDGE, type KnowledgeEntry } from './registry';
+import { SYSTEM_PROMPT } from '@/lib/prompts/system';
+import { KNOWLEDGE, parseKnowledgeCaveat, type KnowledgeEntry } from './registry';
 
 /**
  * ═══════════════════════════════════════════════════════════════
@@ -62,7 +63,19 @@ function read(filename: string): LoadedKnowledge {
     };
   }
 
-  const base = { filename, text: '', caveat: entry.caveat ?? null };
+  /**
+   * The caveat comes from §6, not from a field on the entry.
+   *
+   * It lived on the entry for one commit, which was one copy too many: a rule
+   * written in doctrine and restated in TypeScript is two rules that agree
+   * until the first edit. §6 is the authority and this reads it, the same way
+   * the skill list is parsed rather than mirrored.
+   */
+  const base = {
+    filename,
+    text: '',
+    caveat: parseKnowledgeCaveat(SYSTEM_PROMPT, filename),
+  };
 
   if (entry.status === 'awaited') {
     return {

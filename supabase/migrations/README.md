@@ -1,10 +1,10 @@
 # Migration checklist
 
-Every migration in this directory must satisfy all nine. They are not style
+Every migration in this directory must satisfy all ten. They are not style
 preferences — each one is here because its absence caused a real, silent
 failure in this project.
 
-Rules 4 and 6 through 9 generalise past migrations to anything this build ships;
+Rules 4 and 6 through 10 generalise past migrations to anything this build ships;
 they are kept here because this is the file that gets read before something goes
 out.
 
@@ -159,3 +159,34 @@ the exact malformed body it exists to detect — each is this rule.
 The test that proves it is the negative one from rule 4: break the mechanism and
 confirm the surface says the mechanism is broken, rather than reporting a plausible
 number about the thing downstream of it.
+
+## 10. A parameterized test over an empty set is a test that cannot fail
+
+`it.each([])` registers zero tests. The suite reports green, the count goes
+*down* by however many assertions just vanished, and nothing anywhere says a
+check stopped running.
+
+Found when the last outstanding skill file landed. Seventeen skills were
+`awaited`; the suite ran two `it.each(awaited)` blocks proving the no-hard-gate
+degradation path — that an unavailable skill still produces a block naming its
+own absence. All seventeen arrived, `awaited` became `[]`, and both blocks
+silently stopped asserting anything. The degradation path lost its coverage at
+the exact moment it lost its live case, which is the moment it becomes most
+likely to rot unnoticed.
+
+Rule 4 wearing a different mask: a check that has only ever seen the passing
+case is unproven, and a check that no longer runs at all has seen nothing.
+
+Two things follow:
+
+- **Guard every `it.each`.** A sibling assertion that the array is non-empty,
+  with a message saying what the block would otherwise prove. One line, and it
+  is the only thing standing between a shrinking data set and silent coverage
+  loss.
+- **When a branch loses its last live case, test it directly.** Extract the pure
+  part and call it. `awaitedSkillReason()` and `unavailableSkillBlock()` are
+  exported for this reason and no other — production never reaches them now,
+  and they still have to be right the day something fails to sync.
+
+Watch the test COUNT across a commit that changes fixture data. A drop with no
+deletions in the diff is this rule firing.

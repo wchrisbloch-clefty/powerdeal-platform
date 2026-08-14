@@ -225,35 +225,50 @@ export interface KnowledgeEntry {
   format: 'markdown' | 'pdf';
   /** Same contract as SkillEntry.status, and pinned in both directions. */
   status: 'present' | 'awaited';
-  /** Carried into any prompt that embeds the file. Doctrine, not commentary. */
-  caveat?: string;
 }
 
 /**
- * The seven files §6 names. None have landed; all are pinned as awaited, so the
- * first one to arrive fails the suite until it is registered deliberately.
+ * A caveat §6 attaches to a reference file, parsed from the shipped prompt.
+ *
+ * §6 OWNS THIS. There is no `caveat` field on the entry above, deliberately —
+ * it held one for exactly one commit and that was one copy too many. A caveat
+ * stored here and also written in §6 is two rules that agree until the first
+ * edit, which is the argument this entire registry exists to make. Same
+ * discipline as the tier-1b rename and the Both → Multiple rename: one concept,
+ * one authority, and the code reads it rather than restating it.
+ *
+ * The repo's own PROCEDURE — commit reference material as-is, never edit it to
+ * match current doctrine — is not doctrine and does not live here. It is in
+ * knowledge/README.md, where instructions to a human belong.
+ *
+ * Matches a Note line that names the file. Returns null when §6 attaches no
+ * caveat, which is the normal case for six of the seven.
+ */
+export function parseKnowledgeCaveat(
+  promptText: string,
+  filename: string,
+): string | null {
+  const stem = filename.replace(/\.[^.]+$/, '');
+  const line = promptText
+    .split('\n')
+    .find((l) => /^\s*\**Note:\**/i.test(l) && l.includes(stem));
+  if (!line) return null;
+  return line.replace(/^\s*\**Note:\**\s*/i, '').trim() || null;
+}
+
+/**
+ * The seven files §6 names. Six are on disk; PowerBD.pdf has not arrived and
+ * stays pinned as absent, so it fails the suite the moment it lands unregistered.
  */
 export const KNOWLEDGE: readonly KnowledgeEntry[] = [
-  {
-    filename: 'competitive-matrix.md',
-    format: 'markdown',
-    status: 'awaited',
-    // §6 already carries this caveat. Recorded here so it travels with the file
-    // rather than living only in a paragraph of the prompt: the matrix predates
-    // v3.1, and the tier it lacks was itself renamed since (integrator →
-    // tier-1b), so a reader consulting it cold gets two-generations-stale
-    // framing with nothing on the page saying so.
-    caveat:
-      'Predates v3.1 and has no fourth-tier entry. The four-tier set, the ' +
-      'vertical-aware surfacing rule and the Bloom-aligned rule all override ' +
-      'any framing in this file. Commit as-is — do not edit reference material ' +
-      'to match current doctrine, or the record of what it said is lost.',
-  },
-  { filename: 'ercot-market-primer.md', format: 'markdown', status: 'awaited' },
-  { filename: 'permitting-playbook.md', format: 'markdown', status: 'awaited' },
-  { filename: 'vertical-playbooks.md', format: 'markdown', status: 'awaited' },
-  { filename: 'objection-battlecards.md', format: 'markdown', status: 'awaited' },
-  { filename: 'reference-bundle.md', format: 'markdown', status: 'awaited' },
+  { filename: 'competitive-matrix.md', format: 'markdown', status: 'present' },
+  { filename: 'ercot-market-primer.md', format: 'markdown', status: 'present' },
+  { filename: 'permitting-playbook.md', format: 'markdown', status: 'present' },
+  { filename: 'vertical-playbooks.md', format: 'markdown', status: 'present' },
+  { filename: 'objection-battlecards.md', format: 'markdown', status: 'present' },
+  { filename: 'reference-bundle.md', format: 'markdown', status: 'present' },
+  // Not uploaded. Six of seven arrived; this one is still outstanding and stays
+  // pinned as absent, which is the partial state the status field exists for.
   { filename: 'PowerBD.pdf', format: 'pdf', status: 'awaited' },
 ];
 

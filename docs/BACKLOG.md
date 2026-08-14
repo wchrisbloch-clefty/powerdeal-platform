@@ -380,34 +380,32 @@ the Claude project owns.
 for either, so neither will be invoked by name however good the file is.
 `meeting-prep` is the one shipped in item 7.
 
-### 8c. Seven knowledge files, none in the repo
+### 8c. Knowledge files — six of seven landed
 
 `competitive-matrix.md` · `ercot-market-primer.md` · `permitting-playbook.md` ·
-`vertical-playbooks.md` · `objection-battlecards.md` · `reference-bundle.md` ·
-`PowerBD.pdf`
+`vertical-playbooks.md` · `objection-battlecards.md` · `reference-bundle.md` are
+in `knowledge/`, registered `present`, and load. **`PowerBD.pdf` was not
+uploaded** and stays pinned as absent.
 
-They live in `knowledge/` at the repo root, beside `prompts/` and `skills/` —
-their own directory, because they have no frontmatter, no slug and no `SKILL-`
-prefix, and every check that makes `skills/` safe would need special-casing to
-let them through. A directory with two sets of rules is one where the weaker set
-wins by accident.
+They live in their own directory beside `prompts/` and `skills/` because they
+have no frontmatter, no slug and no `SKILL-` prefix, and every check that makes
+`skills/` safe would need special-casing to let them through. A directory with
+two rule sets is one where the weaker set wins by accident.
 
-Registry (`KNOWLEDGE`) and loader (`lib/skills/knowledge.ts`) exist **before the
-files do**, deliberately: the gap is not "the files are missing", it is "doctrine
-references material nothing can reach", and a file dropped into a directory no
-code reads is that same gap wearing a different hat.
+**The present path is now proven** — recorded as unverified for exactly one
+commit. First real load: six files, 48,034 chars total, caveat parsed and leading
+on `competitive-matrix.md`, `PowerBD.pdf` reporting its own absence with a
+406-char block.
 
-`competitive-matrix.md` carries a binding caveat on its registry entry — it
-predates v3.1 and the tier it lacks has itself been renamed since
-(`integrator` → `tier-1b`), so a reader consulting it cold gets
-two-generations-stale framing. `knowledgeBlock()` prints the caveat **above** the
-content. Commit the file as-is; editing reference material to match current
-doctrine destroys the record of what it said.
+**§6 owns the caveat.** The `caveat` field is gone from `KnowledgeEntry`;
+`parseKnowledgeCaveat()` reads it from the shipped prompt. It existed as a stored
+copy for one commit, which was one too many — a rule in doctrine and restated in
+TypeScript is two rules that agree until the first edit. The earlier cross-check
+could only detect contradiction; parsing makes drift in emphasis impossible.
 
-**Unproven until a file lands:** the loader's `present` path has never executed.
-The `awaited` path, the unregistered-filename path and both block formats are
-tested. Per checklist rule 4, treat the present path as unverified until the
-first knowledge file arrives and the suite exercises it.
+**Open:** no prompt module embeds a knowledge file yet. The shelf is ~12k tokens
+if loaded whole, so a module that reaches for it should pull what it needs rather
+than all six. Nothing pays that cost today.
 
 ### 8d. RESOLVED — the duplicate skills were not duplicates
 

@@ -29,12 +29,15 @@ Same procedure as `skills/`, and step 2 is required for the same reason: the
 until someone registers it. That failure is the point — it is the moment the
 loader, the size check and the caveat start applying to that file.
 
-## The loader exists before the files do
+## The loader existed before the files did
 
-Deliberately. The gap being closed is not "the files are missing" — it is
+Deliberately. The gap being closed was not "the files are missing" — it was
 "doctrine references material nothing can reach". A file sitting in a directory
 no code reads is that same gap wearing a different hat, and it is the gap the
 skills spent two versions in.
+
+The `present` path was recorded as unproven for exactly one commit. Six files
+landed and it executes now.
 
 ## PowerBD.pdf is never read as text
 
@@ -45,19 +48,43 @@ nothing else. A caller that needs its contents needs a PDF extractor.
 
 ## competitive-matrix.md carries a binding caveat
 
-It predates v3.1 and has no fourth-tier entry — and the tier it lacks has itself
-been renamed since (`integrator` → `tier-1b`), so a reader consulting it cold
-gets two-generations-stale framing with nothing on the page saying so.
+Confirmed on the first real load: the file's Quick Reference table covers recips,
+aero turbines, microturbines, MCFC, grid/ERCOT and battery+solar. **There is no
+Tier 1B row.** The caveat is not a precaution, it is a true statement about what
+a reader would otherwise miss.
 
-The caveat is stored on the registry entry and `knowledgeBlock()` prints it
-**above** the content, not below. Same logic as the inline-source rule: a warning
-printed after the material is read by the reader who already doubted it, and the
-reader who needs it is the one who did not.
+**§6 owns the caveat text.** There is no `caveat` field on the registry entry —
+it held one for exactly one commit, and a rule written in doctrine and restated
+in TypeScript is two rules that agree until the first edit.
+`parseKnowledgeCaveat()` reads it from the shipped prompt, the same way the skill
+list is parsed rather than mirrored. Same discipline as the `tier-1b` and
+`Both` → `Multiple` renames: one concept, one authority.
 
-**Commit the file as-is.** Do not edit reference material to match current
-doctrine — that destroys the record of what it actually said, which is the only
-reason to keep a superseded document at all.
+`knowledgeBlock()` prints it **above** the content, not below. Same logic as the
+inline-source rule: a warning printed after the material is read by the reader
+who already doubted it, and the reader who needs it is the one who did not.
+
+**Commit reference material as-is.** Do not edit it to match current doctrine —
+that destroys the record of what it actually said, which is the only reason to
+keep a superseded document at all. This is repo procedure, not doctrine, which
+is why it lives here and not in the prompt.
 
 ## Status
 
-All seven are `awaited`. None have landed.
+Six of seven are on disk. `PowerBD.pdf` has not been uploaded and stays
+`awaited` — it fails the build the moment it appears unregistered.
+
+| File | Status | Chars |
+|---|---|---|
+| `competitive-matrix.md` | present | 5,291 |
+| `ercot-market-primer.md` | present | 2,756 |
+| `permitting-playbook.md` | present | 3,620 |
+| `vertical-playbooks.md` | present | 10,846 |
+| `objection-battlecards.md` | present | 9,718 |
+| `reference-bundle.md` | present | 15,803 |
+| `PowerBD.pdf` | **awaited** | — |
+
+The shelf is ~48k characters, roughly 12k tokens if every file were embedded at
+once. **No prompt module embeds one yet**, so nothing pays that cost today —
+but any module that reaches for the whole shelf should pull the files it needs
+rather than all six.

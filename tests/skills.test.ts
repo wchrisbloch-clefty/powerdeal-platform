@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { POWERDEAL_VERSION } from '@/lib/brand';
 import {
   KNOWLEDGE, KNOWLEDGE_FILES, PLATFORM_CAPABILITIES, SKILLS, frontmatterName,
-  parseSection6Knowledge, parseSection6Skills, parseSkillReferences,
+  parseKnowledgeCaveat, parseSection6Knowledge, parseSection6Skills, parseSkillReferences,
   referenceResolves, resolveSection6Name, skillCoverage, skillFilename,
 } from '@/lib/skills/registry';
 import {
@@ -244,21 +244,22 @@ describe('knowledge files §6 names', () => {
   });
 
   /**
-   * None of the seven have landed. Pinned the same way the skills were: when
-   * one arrives, this fails until its status flips — which is the moment the
-   * loader, the size check and the caveat start applying to it. A file sitting
-   * in a directory nothing reads is the same gap the skills spent two versions
-   * in, wearing a different hat.
+   * Pinned in both directions, exactly as the skills are. Six have landed and
+   * are registered; PowerBD.pdf has not, and the moment it appears anywhere
+   * this fails until its status flips — which is the moment the size check and
+   * the caveat lookup start applying to it.
    *
    * Scanned across three directories, not just `knowledge/`, because "dropped
    * it next to the prompt" is the likeliest way one of these actually lands.
    */
-  it('none are in the repo yet, and the registry says so', async () => {
-    const dirs = ['knowledge', 'skills', 'prompts'];
+  it('an awaited knowledge file is nowhere in the repo', async () => {
+    const shouldNotExist = KNOWLEDGE.filter((k) => k.status === 'awaited').map((k) => k.filename);
+    expect(shouldNotExist, 'nothing awaited — this check proves nothing').not.toEqual([]);
+
     const found: string[] = [];
-    for (const dir of dirs) {
+    for (const dir of ['knowledge', 'skills', 'prompts']) {
       const entries = await readdir(join(REPO, dir)).catch(() => [] as string[]);
-      for (const f of entries) if (KNOWLEDGE_FILES.includes(f)) found.push(`${dir}/${f}`);
+      for (const f of entries) if (shouldNotExist.includes(f)) found.push(`${dir}/${f}`);
     }
     expect(
       found,
@@ -266,6 +267,16 @@ describe('knowledge files §6 names', () => {
         'in lib/skills/registry.ts — an unread file in a directory is the gap ' +
         'this suite exists to catch.',
     ).toEqual([]);
+  });
+
+  it('every markdown file in knowledge/ is a registered, present file', async () => {
+    const expected = KNOWLEDGE.filter((k) => k.status === 'present')
+      .map((k) => k.filename)
+      .sort();
+    const onDisk = (await readdir(join(REPO, 'knowledge')))
+      .filter((f) => f !== 'README.md')
+      .sort();
+    expect(onDisk).toEqual(expected);
   });
 
   it('every entry declares a format, and only the PDF is binary', () => {
@@ -284,65 +295,114 @@ describe('knowledge files §6 names', () => {
     expect(loaded.error).toContain('not a registered knowledge file');
   });
 
-  it.each(KNOWLEDGE)('$filename reports why it is unavailable, and never throws', (entry) => {
-    const loaded = loadKnowledge(entry.filename);
-    expect(loaded.ready).toBe(false);
-    expect(loaded.error).toContain(entry.filename);
+  /**
+   * THE PRESENT PATH, NOW LIVE.
+   *
+   * Recorded as unproven last commit — the loader's success branch had never
+   * executed. Six files landed, so it executes now, and this is what proves it
+   * rather than the shape of the code.
+   */
+  describe('the six that landed actually load', () => {
+    const present = KNOWLEDGE.filter((k) => k.status === 'present');
+
+    it('there are some, or the block below proves nothing', () => {
+      // Checklist rule 10. it.each over an empty array registers no tests and
+      // reports green, which is how the awaited-skills block silently stopped
+      // asserting anything the moment every skill landed.
+      expect(present.length).toBeGreaterThan(0);
+    });
+
+    it.each(present)('$filename loads', (entry) => {
+      const loaded = loadKnowledge(entry.filename);
+      expect(loaded.error).toBeNull();
+      expect(loaded.ready).toBe(true);
+      expect(loaded.text.length).toBeGreaterThan(1000);
+    });
+
+    it.each(present)('$filename is embedded verbatim', (entry) => {
+      const block = knowledgeBlock(entry.filename);
+      expect(block).toContain(loadKnowledge(entry.filename).text);
+      expect(block).not.toContain('NOT AVAILABLE');
+    });
+
+    it('the caveat leads the content, it does not trail it', () => {
+      // A warning printed after the material is read by whoever already
+      // doubted it. The reader who needs it is the one who did not.
+      const block = knowledgeBlock('competitive-matrix.md');
+      const caveatAt = block.indexOf('CAVEAT');
+      const contentAt = block.indexOf('# Competitive Matrix');
+      expect(caveatAt).toBeGreaterThan(-1);
+      expect(contentAt).toBeGreaterThan(-1);
+      expect(caveatAt).toBeLessThan(contentAt);
+    });
+
+    it('a file with no §6 caveat gets no caveat header', () => {
+      expect(knowledgeBlock('ercot-market-primer.md')).not.toContain('CAVEAT');
+    });
   });
 
-  it.each(KNOWLEDGE)('$filename still produces a block naming the gap', (entry) => {
-    const block = knowledgeBlock(entry.filename);
-    expect(block).toContain('NOT AVAILABLE');
-    expect(block).toContain(entry.filename);
-    // Proceed without it — but never reconstruct it from general knowledge.
-    expect(block).toContain('Do not');
+  describe('the one that has not', () => {
+    const awaited = KNOWLEDGE.filter((k) => k.status === 'awaited');
+
+    it('there is one, or the block below proves nothing', () => {
+      expect(awaited.length).toBeGreaterThan(0);
+    });
+
+    it.each(awaited)('$filename reports why it is unavailable, and never throws', (entry) => {
+      const loaded = loadKnowledge(entry.filename);
+      expect(loaded.ready).toBe(false);
+      expect(loaded.error).toContain(entry.filename);
+    });
+
+    it.each(awaited)('$filename still produces a block naming the gap', (entry) => {
+      const block = knowledgeBlock(entry.filename);
+      expect(block).toContain('NOT AVAILABLE');
+      expect(block).toContain(entry.filename);
+      // Proceed without it — but never reconstruct it from general knowledge.
+      expect(block).toContain('Do not');
+    });
   });
 
   /**
-   * The caveat is doctrine and it travels with the file, so it is asserted
-   * here rather than trusted to a paragraph of the prompt. `knowledgeBlock`
-   * prints it ABOVE the content when the file is present — a warning below the
-   * material is read by whoever already doubted it.
-   */
-  it('competitive-matrix carries its staleness caveat in the registry', () => {
-    const entry = KNOWLEDGE.find((k) => k.filename === 'competitive-matrix.md')!;
-    expect(entry.caveat).toBeTruthy();
-    expect(entry.caveat).toContain('four-tier');
-    expect(entry.caveat).toContain('as-is');
-    expect(loadKnowledge('competitive-matrix.md').caveat).toBe(entry.caveat);
-  });
-
-  it('no other entry invents a caveat it was not given', () => {
-    const withCaveat = KNOWLEDGE.filter((k) => k.caveat).map((k) => k.filename);
-    expect(withCaveat).toEqual(['competitive-matrix.md']);
-  });
-
-  /**
-   * THE CAVEAT NOW EXISTS TWICE, AND THAT IS A RISK THIS CREATED.
+   * §6 OWNS THE CAVEAT. There is no field on the entry any more — it held one
+   * for exactly one commit, and a rule written in doctrine and restated in
+   * TypeScript is two rules that agree until the first edit.
    *
-   * §6 already carries a note saying competitive-matrix predates v3.1 and is
-   * overridden by the four-tier set. The registry restates it operationally so
-   * the loader can print it above the content without reading the prompt.
-   *
-   * Two copies of a rule is two rules, and they diverge on the first edit —
-   * the entire argument of the last two commits. Since the second copy was
-   * judged worth having, it gets the same treatment §6's skill list gets: the
-   * prompt is PARSED, and the registry fails if doctrine moves out from under
-   * it. Resolving the duplication properly is a v3.1.11 question (BACKLOG 8c).
+   * Same discipline as the tier-1b and Both → Multiple renames: one concept,
+   * one authority, and the code reads it. That makes drift in emphasis
+   * impossible rather than merely detectable — the earlier cross-check could
+   * only catch contradiction.
    */
-  it('the registry caveat does not contradict §6', () => {
-    const note = promptText
-      .split('\n')
-      .find((l) => l.includes('competitive-matrix') && /predates/i.test(l));
+  it('parses competitive-matrix\u2019s caveat out of §6', () => {
+    const caveat = parseKnowledgeCaveat(promptText, 'competitive-matrix.md');
     expect(
-      note,
-      '§6 no longer carries the competitive-matrix staleness note. The registry ' +
-        'caveat is now a second, unbacked copy — reconcile them.',
+      caveat,
+      '§6 no longer carries the competitive-matrix staleness note. The loader ' +
+        'has nothing to print above the file — restore the note or decide the ' +
+        'caveat no longer applies.',
     ).toBeTruthy();
-    // Both must still say the four-tier set wins over whatever the file says.
-    expect(note!.toLowerCase()).toContain('four-tier');
-    expect(KNOWLEDGE.find((k) => k.filename === 'competitive-matrix.md')!.caveat!.toLowerCase())
-      .toContain('four-tier');
+    expect(caveat!.toLowerCase()).toContain('four-tier');
+    expect(caveat!.toLowerCase()).toContain('predates');
+    // Nothing between doctrine and the loader.
+    expect(loadKnowledge('competitive-matrix.md').caveat).toBe(caveat);
+  });
+
+  it('returns null for a file §6 attaches no caveat to', () => {
+    // Both directions. A parser that returned the same note for everything
+    // would put a staleness warning on six clean files.
+    for (const f of ['ercot-market-primer.md', 'vertical-playbooks.md', 'PowerBD.pdf']) {
+      expect(parseKnowledgeCaveat(promptText, f), f).toBeNull();
+    }
+  });
+
+  it('matches the Note line by the file it names, not by position', () => {
+    const doc = '**Note:** widget-guide predates everything — ignore it.\nUnrelated line.';
+    expect(parseKnowledgeCaveat(doc, 'widget-guide.md')).toBe(
+      'widget-guide predates everything — ignore it.',
+    );
+    expect(parseKnowledgeCaveat(doc, 'other-guide.md')).toBeNull();
+    // A mention that is not a Note is not a caveat.
+    expect(parseKnowledgeCaveat('See widget-guide for detail.', 'widget-guide.md')).toBeNull();
   });
 });
 
