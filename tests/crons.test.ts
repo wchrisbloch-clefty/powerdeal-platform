@@ -234,6 +234,41 @@ describe('the health surface can tell "did not run" from "could not write it dow
  * the schedule. A test is a better home for reasoning than a config file — it
  * fails when the reasoning stops being true.
  */
+/**
+ * A PROBE THAT REPORTS WEEKLY ON A FEED THAT SWEEPS DAILY IS SIX DAYS BLIND.
+ *
+ * feed-health ran `0 9 * * 1` — Mondays. The sweep runs daily, so six of every
+ * seven failures went unseen until the following week, and the two-cause
+ * diagnosis fix could not be confirmed for six days after it shipped.
+ *
+ * A monitor's cadence is a claim about how fast you want to learn. Weekly was
+ * never that claim.
+ */
+describe('the health probe runs at least as often as the thing it watches', () => {
+  it('feed-health is daily, like the sweep', async () => {
+    const cfg = JSON.parse(await readFile('vercel.json', 'utf8')) as {
+      crons: { path: string; schedule: string }[];
+    };
+    const dow = (p: string) =>
+      cfg.crons.find((c) => c.path === p)!.schedule.trim().split(/\s+/)[4];
+    expect(dow('/api/feed/sweep')).toBe('*');
+    expect(
+      dow('/api/cron/feed-health'),
+      'feed-health is scoped to specific days while the sweep runs daily.',
+    ).toBe('*');
+  });
+
+  it('runs before the sweep, so it reports on a settled state', async () => {
+    const cfg = JSON.parse(await readFile('vercel.json', 'utf8')) as {
+      crons: { path: string; schedule: string }[];
+    };
+    const hour = (p: string) =>
+      Number(cfg.crons.find((c) => c.path === p)!.schedule.trim().split(/\s+/)[1]);
+    // Hobby's ~1h flexible window means this is a preference, not a guarantee.
+    expect(hour('/api/cron/feed-health')).toBeLessThan(hour('/api/feed/sweep'));
+  });
+});
+
 describe('vercel.json is what the platform will accept', () => {
   const TOP_LEVEL = new Set(['$schema', 'framework', 'crons', 'buildCommand',
     'devCommand', 'installCommand', 'outputDirectory', 'regions', 'redirects',

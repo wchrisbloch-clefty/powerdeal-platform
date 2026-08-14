@@ -23,6 +23,15 @@ const STATUS_STYLES: Record<AgentStatus, { dot: string; label: string }> = {
   'never-run': { dot: 'bg-rule', label: 'Never run' },
 };
 
+interface DriftResponse {
+  ok: boolean;
+  checkedTables: number;
+  blocking: number;
+  notices: number;
+  error: string | null;
+  drift: { kind: string; table: string; detail: string; severity: string; why: string }[];
+}
+
 interface StatusResponse {
   persistence: boolean;
   note?: string;
@@ -33,12 +42,29 @@ interface StatusResponse {
 export default function AgentHealth() {
   const [data, setData] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  /**
+   * SCHEMA DRIFT IS FETCHED SEPARATELY, ON PURPOSE.
+   *
+   * Folding it into /api/agents/status would make one payload depend on two
+   * mechanisms, and a failure in either would take out the reading of both —
+   * checklist rule 9, the shape that produced "six idle jobs" from one broken
+   * write. Two fetches means a drift check that cannot answer still leaves job
+   * status readable, and vice versa.
+   */
+  const [drift, setDrift] = useState<DriftResponse | null>(null);
 
   async function load() {
     setLoading(true);
     try {
       const res = await fetch('/api/agents/status');
       setData((await res.json()) as StatusResponse);
+      // Independent: a drift failure must not blank the job table.
+      try {
+        const d = await fetch('/api/schema/drift');
+        setDrift((await d.json()) as DriftResponse);
+      } catch {
+        setDrift(null);
+      }
     } catch {
       setData(null);
     } finally {
@@ -154,6 +180,64 @@ export default function AgentHealth() {
           in first.
         </p>
       ) : null}
+
+      {/* ── Schema drift ──
+          schema.sql declared feed_items.url_hash for the whole life of the feed
+          feature and the live table never had it. Nothing in the repo could see
+          the difference; the app can, and this is where it says so. Reports
+          only — it never blocks anything. */}
+      <div className="border-t border-rule pt-4">
+        <div className="flex items-baseline justify-between">
+          <p className="eyebrow">Schema drift</p>
+          <p className="text-2xs text-text-faint">
+            {drift === null
+              ? 'not checked'
+              : drift.error
+                ? 'could not read'
+                : `${drift.checkedTables} tables`}
+          </p>
+        </div>
+
+        {drift === null ? (
+          <p className="mt-1.5 text-2xs text-text-faint">
+            The drift check did not answer. That is not the same as no drift — it
+            means nothing looked.
+          </p>
+        ) : drift.error ? (
+          <p className="mt-1.5 rounded-sm border border-rule bg-bg-raised px-2.5 py-1.5 text-2xs text-text-dim">
+            {drift.error}
+          </p>
+        ) : drift.ok ? (
+          <p className="mt-1.5 text-2xs text-text-dim">
+            Declared and live schema agree across {drift.checkedTables} tables.
+          </p>
+        ) : (
+          <>
+            <p className="mt-1.5 text-2xs text-text-dim">
+              {drift.blocking} blocking · {drift.notices} notice
+              {drift.notices === 1 ? '' : 's'}
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {drift.drift.slice(0, 8).map((d) => (
+                <li key={`${d.table}-${d.kind}-${d.detail}`} className="text-2xs">
+                  <span className={d.severity === 'blocking' ? 'text-danger' : 'text-text-faint'}>
+                    {d.severity === 'blocking' ? '\u25CF' : '\u25CB'}
+                  </span>{' '}
+                  <span className="font-mono text-text">
+                    {d.table}.{d.detail}
+                  </span>{' '}
+                  <span className="text-text-faint">{d.why}</span>
+                </li>
+              ))}
+            </ul>
+            {drift.drift.length > 8 ? (
+              <p className="mt-1 text-2xs text-text-faint">
+                +{drift.drift.length - 8} more — see /api/schema/drift
+              </p>
+            ) : null}
+          </>
+        )}
+      </div>
     </div>
   );
 }

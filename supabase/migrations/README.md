@@ -1,10 +1,10 @@
 # Migration checklist
 
-Every migration in this directory must satisfy all fourteen. They are not style
+Every migration in this directory must satisfy all sixteen. They are not style
 preferences — each one is here because its absence caused a real, silent
 failure in this project.
 
-Rules 4 and 6 through 14 generalise past migrations to anything this build ships;
+Rules 4 and 6 through 16 generalise past migrations to anything this build ships;
 they are kept here because this is the file that gets read before something goes
 out.
 
@@ -325,3 +325,69 @@ Two Hobby-plan facts worth knowing when reading timestamps:
 Crons are registered from the **last successful production deployment**. Eight
 consecutive failed deployments meant production kept running an older
 `vercel.json` — a fix can be merged, green, and still not scheduled.
+
+## 15. A metric's name is an assertion about what produced it
+
+`skipped_cached: 46` against a table that had never held a row.
+
+```ts
+const fresh = unseen.slice(0, maxItems);
+result.skipped_cached = raw.length - fresh.length;   // ← two causes, one name
+```
+
+106 items fetched, 60 taken by the `maxItems` cap, 46 dropped by the slice — and
+counted as "already seen". The number was correct. The name was a claim about
+its cause, and the claim was false. It aimed two people at the dedupe path for a
+day while the actual failure was a missing column three lines further down.
+
+A metric is read as evidence. `skipped_cached` does not say "46 items did not
+make it"; it says "46 items were skipped **because they were cached**". When one
+counter is fed by two mechanisms, every reading of it is an unfalsifiable
+guess about which one fired.
+
+So: **one counter per cause.** If a number can be produced two ways, it is two
+numbers. `skipped_cached` and `over_cap` are cheap; a day of misdirected
+debugging is not.
+
+The tell is a subtraction between two quantities that several steps have
+touched. `raw.length - fresh.length` spans dedupe AND the cap, so it cannot mean
+either one. Compute each difference where its cause is, not at the end.
+
+Same family as rule 9: a surface that cannot distinguish two states reports
+whichever one the reader already suspects.
+
+## 16. Some checks only exist at runtime — build them into the app
+
+Rule 11 said some gates do not exist locally, so encode them as tests. This is
+the case where **no test can work at all**, because the fact being checked lives
+somewhere the suite cannot reach.
+
+`schema.sql` declared `feed_items.url_hash` for the entire life of the feed
+feature. The live table never had it — the table was created from an earlier
+version of the file, and `create table if not exists` is a no-op on an existing
+table. The sweep wrote that column on every run: ten consecutive failures, zero
+rows, no `agents:runs` key.
+
+The suite was green throughout and **correctly so**. It compared code against
+`schema.sql`, and those two agreed. The database disagreed, and no test in this
+repo can see the database.
+
+The app can — it holds service-role credentials. So the check belongs at
+runtime: `/api/schema/drift` reads `information_schema` and `pg_constraint`
+through a `schema_snapshot()` RPC and reports every divergence in both
+directions, declared-but-absent and present-but-undeclared.
+
+Three properties, none optional:
+
+- **Non-gating.** It reports. It never blocks a deploy, a request, a deal or an
+  artifact, and it returns 200 even when it finds blocking drift — the HTTP
+  status describes whether the CHECK ran, not whether the schema is clean. A
+  monitor that 500s on a finding looks broken exactly when it is working.
+- **"Could not look" ≠ "nothing found."** A missing RPC returns
+  `ok: false` with the reason, never a clean bill (rule 9).
+- **Fetched independently of the surface it sits beside.** The drift panel does
+  its own request rather than riding the status payload, so a failure in either
+  leaves the other readable.
+
+The general form: when declaration and reality live in different systems, put a
+comparator where it can see both, and make it say which one it could not read.
