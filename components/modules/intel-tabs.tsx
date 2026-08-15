@@ -14,6 +14,10 @@ import { cn } from '@/lib/utils';
  */
 
 export const INTEL_TABS = [
+  // Headlines leads, and is the default. The feed answers "what was
+  // published"; this answers "what matters to my pipeline this morning",
+  // which is the question somebody actually opens the tab to ask.
+  { id: 'headlines', label: 'Headlines' },
   { id: 'feed', label: 'Feed' },
   { id: 'market-watch', label: 'Market Watch' },
   { id: 'trending', label: 'Trending' },
@@ -27,7 +31,7 @@ export const INTEL_TABS = [
 
 export type IntelTab = (typeof INTEL_TABS)[number]['id'];
 
-export const DEFAULT_TAB: IntelTab = 'feed';
+export const DEFAULT_TAB: IntelTab = 'headlines';
 
 export function isIntelTab(value: string | undefined): value is IntelTab {
   return INTEL_TABS.some((t) => t.id === value);

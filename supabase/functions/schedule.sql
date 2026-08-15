@@ -107,8 +107,24 @@ select cron.schedule(
 -- Scheduled jobs:
 --   select jobid, jobname, schedule, active from cron.job;
 --
--- Recent runs (a 401 in return_message means CRON_SECRET does not match
--- the value set on the edge function):
+-- ⚠️ A 401 NEVER APPEARS IN cron.job_run_details. This comment used to say
+-- it did, and it sent the CCUS investigation to the wrong table.
+--
+-- `net.http_post` is ASYNCHRONOUS. It queues the request, returns a bigint
+-- request_id immediately, and pg_cron records THAT statement as succeeded.
+-- The job succeeds whether the edge function returns 200, 401 or never
+-- answers at all. The HTTP response lands later, in `net._http_response`.
+--
+-- So the two tables answer two different questions and you need both:
+--
+--   cron.job_run_details  — did pg_cron fire the statement?
+--                           A missing row here means the JOB did not run.
+--   net._http_response    — what did the function say?
+--                           A 401 here means CRON_SECRET does not match.
+--
+-- Run supabase/functions/diagnose-cron.sql; it queries both and joins them.
+--
+-- Recent runs — fired or not, says nothing about the HTTP result:
 --   select j.jobname, r.status, r.return_message, r.start_time
 --   from cron.job_run_details r
 --   join cron.job j using (jobid)

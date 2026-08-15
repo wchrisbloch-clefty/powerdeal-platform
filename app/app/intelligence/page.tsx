@@ -22,6 +22,7 @@ import { buildBenchmarks } from '@/lib/pricing';
 import { isAdminConfigured } from '@/lib/supabase/admin';
 import IntelTabs, { DEFAULT_TAB, isIntelTab, type IntelTab } from '@/components/modules/intel-tabs';
 import IntelFeed from '@/components/modules/intel-feed';
+import HeadlinePanel from '@/components/modules/headline-panel';
 import MarketWatchPanel from '@/components/modules/market-watch-panel';
 import SignalsPanel from '@/components/modules/signals-panel';
 import TrendingPanel from '@/components/modules/trending-panel';
@@ -71,6 +72,8 @@ export default async function IntelligencePage({
 
 async function TabContent({ tab }: { tab: IntelTab }) {
   switch (tab) {
+    case 'headlines':
+      return <HeadlinesTab />;
     case 'feed':
       return <FeedTab />;
     case 'market-watch':
@@ -90,6 +93,19 @@ async function TabContent({ tab }: { tab: IntelTab }) {
     case 'research':
       return <ResearchTab />;
   }
+}
+
+// ── Headlines ───────────────────────────────────────────────────
+//
+// Client-rendered from /api/headlines rather than server-loaded like the
+// tabs below. Deliberate: the ranking depends on BOTH feed_items and deals,
+// and the whole point of the surface is that it reports which of those two
+// reads failed. A server component that throws on a bad read renders an
+// error boundary, which is the "friendly empty state on a broken read"
+// failure wearing a different hat.
+
+function HeadlinesTab() {
+  return <HeadlinePanel />;
 }
 
 // ── Feed ────────────────────────────────────────────────────────
