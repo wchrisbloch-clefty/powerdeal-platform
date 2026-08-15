@@ -41,7 +41,6 @@ export const KNOWN_SURFACES: KnownSurface[] = [
   { path: '/app/intelligence?tab=signals', label: 'Intelligence · Signals' },
   { path: '/app/intelligence?tab=ccus', label: 'Intelligence · CCUS' },
   { path: '/app/intelligence?tab=pricing', label: 'Intelligence · Pricing' },
-  { path: '/app/intelligence?tab=sources', label: 'Intelligence · Sources' },
   { path: '/app/intelligence?tab=video', label: 'Intelligence · Video' },
   { path: '/app/intelligence?tab=research', label: 'Intelligence · Research' },
 ];

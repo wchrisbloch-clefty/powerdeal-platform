@@ -51,6 +51,18 @@
   --color-accent-fg: #0f1117;
   --color-accent-border: rgba(60, 173, 58, 0.22);
 
+  /* ── Nav active marker ───────────────────────────────────────
+     ⚠️ NOT `--color-accent`. The brand green on white is 2.90:1,
+     under the 3:1 WCAG asks of a non-text indicator — and the nav
+     underline is exactly that: a 2px bar carrying "you are here"
+     with no text of its own.
+
+     `--color-accent-dim` on white is 4.98:1. In dark the brand
+     green is already 8.20:1 on the bar ground, so the dark block
+     below uses it unchanged. A semantic token per theme, rather
+     than one brand colour that happens to work in one of them. */
+  --color-nav-marker: #2a8028;
+
   /* Semantic */
   --color-danger: #b53527;
   --color-danger-bg: rgba(192, 57, 43, 0.08);
@@ -71,11 +83,33 @@
   --font-body: var(--font-atkinson), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-plex-mono), 'Courier New', monospace;
 
-  /* Shell */
+  /* ── Shell ───────────────────────────────────────────────────
+     The left sidebar is GONE. Top-level nav moved to a top bar at
+     md and up, and to a bottom tab bar below it.
+
+     Three breakpoints, three layouts, and all eight destinations
+     reachable at every one:
+
+       < md   (<768px)   bottom tab bar — 4 primary + More sheet.
+                         Eight targets at the 44pt floor is 352px
+                         before padding, against a 375px phone. It
+                         does not fit, and the top of a 6.7" phone is
+                         not reachable one-handed regardless.
+       md–lg  (768-1023) top bar, icon STACKED over label. Eight at
+                         --nav-item-min-w is 512px of 768px, leaving
+                         room for the wordmark. Nothing wraps.
+       >= lg  (1024+)    top bar, icon beside label. Eight visible,
+                         no overflow menu. */
   --shell-max: 1400px;
-  --sidebar-width: 240px;
   --topbar-height: 56px;
+  /* Taller at md, because the label sits under the icon there. */
+  --topbar-height-stacked: 60px;
   --tabbar-height: 60px;
+  /* 64px x 8 = 512px, inside a 768px iPad portrait viewport. Also the
+     touch-target width at that breakpoint — over the 44pt floor. */
+  --nav-item-min-w: 64px;
+  /* The active marker. 2px reads at a glance without becoming a rule. */
+  --nav-active-border: 2px;
 
   /* ── Type scale ──────────────────────────────────────────────
      Named on Tailwind's own scale rather than invented names, on
@@ -183,6 +217,8 @@
   --color-accent-bg: rgba(76, 194, 73, 0.1);
   --color-accent-fg: #0f1117;
   --color-accent-border: rgba(76, 194, 73, 0.26);
+  /* 8.20:1 on --color-bg. No dimming needed here. */
+  --color-nav-marker: #4cc249;
 
   --color-danger: #e26758;
   --color-danger-bg: rgba(224, 90, 74, 0.12);

@@ -3,6 +3,7 @@ import { isAdminConfigured } from '@/lib/supabase/admin';
 import { envStatus } from '@/lib/env-check';
 import { BRAIN_READY, BRAIN_ERROR } from '@/lib/prompts/system';
 import SettingsPanel from '@/components/modules/settings-panel';
+import { getActiveVertical } from '@/lib/active-vertical';
 
 export const metadata = { title: 'Settings' };
 
@@ -16,6 +17,7 @@ export default async function SettingsPage() {
       brainReady={BRAIN_READY}
       brainError={BRAIN_ERROR}
       canPersist={isAdminConfigured()}
+      vertical={getActiveVertical()}
     />
   );
 }

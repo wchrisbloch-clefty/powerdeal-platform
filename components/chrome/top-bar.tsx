@@ -9,6 +9,16 @@ import { Wordmark } from '@/components/ui/bloom-logo';
 import { cn } from '@/lib/utils';
 
 /**
+ * MOBILE ONLY, since nav moved to the top.
+ *
+ * On md and up `NavBar` carries search, the theme toggle and Settings in the
+ * SAME row as the eight destinations — stacking a nav row over a search row
+ * would rebuild, at the chrome level, the two-stacked-rows collision that
+ * Intelligence's tabs created inside the page.
+ *
+ * Below md the bottom tab bar owns navigation, so this thin bar has the row to
+ * itself and keeps the full search input.
+ *
  * Sign-in was removed — the deployment is single-user behind Vercel SSO — so
  * there is no account chip or sign-out control here any more. Leaving a
  * sign-out button that cleared a session nothing depends on would have been a
@@ -29,16 +39,16 @@ export default function TopBar() {
   return (
     <header
       className={cn(
-        'sticky top-0 z-20 flex h-[var(--topbar-height)] items-center gap-3',
+        'sticky top-0 z-20 flex h-topbar items-center gap-3 md:hidden',
         'border-b border-rule bg-bg/95 px-4 backdrop-blur',
+        'pt-[env(safe-area-inset-top)]',
       )}
     >
-      {/* Wordmark shows on mobile only — the sidebar carries it on desktop. */}
-      <Link href="/app" className="flex min-h-tap items-center md:hidden">
+      <Link href="/app" className="flex min-h-tap items-center">
         <Wordmark />
       </Link>
 
-      <form onSubmit={onSearch} className="relative ml-auto w-full max-w-sm md:ml-0">
+      <form onSubmit={onSearch} className="relative ml-auto w-full max-w-sm">
         <Search
           size={15}
           strokeWidth={1.75}

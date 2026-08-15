@@ -24,7 +24,6 @@ export const INTEL_TABS = [
   { id: 'signals', label: 'Signals' },
   { id: 'ccus', label: 'CCUS' },
   { id: 'pricing', label: 'Pricing' },
-  { id: 'sources', label: 'Sources' },
   { id: 'video', label: 'Video' },
   { id: 'research', label: 'Research' },
 ] as const;
@@ -40,7 +39,27 @@ export function isIntelTab(value: string | undefined): value is IntelTab {
 export default function IntelTabs({ active }: { active: IntelTab }) {
   return (
     <nav
-      className="scrollbar-thin -mx-1 flex gap-1 overflow-x-auto border-b border-rule px-1"
+      /**
+       * ══ IT WRAPS. IT NEVER SCROLLS SIDEWAYS. ══
+       *
+       * With top-level nav moved to a top bar, a horizontally scrolling tab
+       * row here would sit directly under it — two stacked scrollers, which is
+       * the layout where people lose their place. The reason is specific:
+       * sideways-scrolled content is hidden WITH NO AFFORDANCE. You cannot see
+       * how many tabs exist or where you are among them.
+       *
+       * Nine short pills wrap to a second line at around 700px and everything
+       * stays visible. It costs ~28px of height at narrow widths, which is
+       * cheaper than the thing it prevents. `flex-wrap`, and deliberately no
+       * `overflow-x-auto` — tests/nav.test.ts asserts the absence.
+       *
+       * ══ AND IT IS CONTENT, NOT CHROME ══
+       *
+       * No bar fill, no full-bleed background, no sticky. It sits on the page
+       * ground under the heading so it reads as a control ON this page rather
+       * than a second navigation row. The global bar is chrome; this is not.
+       */
+      className="flex flex-wrap gap-1"
       aria-label="Intelligence sections"
     >
       {INTEL_TABS.map((tab) => {
@@ -51,22 +70,17 @@ export default function IntelTabs({ active }: { active: IntelTab }) {
             href={tab.id === DEFAULT_TAB ? '/app/intelligence' : `/app/intelligence?tab=${tab.id}`}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'relative inline-flex min-h-tap items-center whitespace-nowrap px-3 py-2 text-sm transition-colors xl:min-h-0',
+              'inline-flex min-h-tap items-center whitespace-nowrap rounded-md px-3 text-sm transition-colors sm:min-h-tap-sm',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-bg',
               isActive
-                ? 'font-medium text-text'
-                : 'text-text-dim hover:text-text',
+                // Filled pill rather than an underline: an underline here would
+                // echo the top bar's active treatment and the two levels would
+                // read as one.
+                ? 'bg-bg-overlay font-medium text-text'
+                : 'text-text-dim hover:bg-bg-raised hover:text-text',
             )}
           >
             {tab.label}
-            {/* The underline is the only accent — a tab bar that colours every
-                label reads as nine equally urgent things. */}
-            <span
-              aria-hidden
-              className={cn(
-                'absolute inset-x-2 -bottom-px h-0.5 rounded-full',
-                isActive ? 'bg-accent' : 'bg-transparent',
-              )}
-            />
           </Link>
         );
       })}

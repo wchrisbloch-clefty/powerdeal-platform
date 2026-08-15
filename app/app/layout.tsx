@@ -1,4 +1,4 @@
-import { Sidebar, TabBar } from '@/components/chrome/nav';
+import { NavBar, TabBar } from '@/components/chrome/nav';
 import TopBar from '@/components/chrome/top-bar';
 import { collectEnvWarnings } from '@/lib/env-check';
 import AgentAlertBanner from '@/components/chrome/agent-alert-banner';
@@ -38,11 +38,17 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-screen bg-bg">
-      <Sidebar />
+      {/* Top-level nav is CHROME: full-bleed, sticky, above the content well.
+          Intelligence's own tabs live in its page body and are styled as
+          content, so the two never read as stacked nav rows — the layout where
+          people lose their place. */}
+      <NavBar />
+      {/* Mobile only. Below md the bottom tab bar owns navigation, so this
+          thin row has search and the theme toggle to itself — the two never
+          stack, at either breakpoint. */}
+      <TopBar />
 
-      {/* Sidebar is fixed, so the content column owns the left offset. */}
-      <div className="md:pl-sidebar">
-        <TopBar />
+      <div>
         <main
           className="scrollbar-thin px-4 pb-24 pt-5 md:px-7 md:pb-10"
           // Bottom padding clears the mobile tab bar.

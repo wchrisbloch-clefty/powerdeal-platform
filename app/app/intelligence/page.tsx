@@ -19,7 +19,6 @@ import { getFeedHealth } from '@/lib/feed-health';
 import { getResearchRuns } from '@/lib/research';
 import { getFeedItemsByKeys } from '@/lib/data';
 import { buildBenchmarks } from '@/lib/pricing';
-import { isAdminConfigured } from '@/lib/supabase/admin';
 import IntelTabs, { DEFAULT_TAB, isIntelTab, type IntelTab } from '@/components/modules/intel-tabs';
 import IntelFeed from '@/components/modules/intel-feed';
 import HeadlinePanel from '@/components/modules/headline-panel';
@@ -27,7 +26,6 @@ import MarketWatchPanel from '@/components/modules/market-watch-panel';
 import SignalsPanel from '@/components/modules/signals-panel';
 import TrendingPanel from '@/components/modules/trending-panel';
 import WeeklyRecapPanel from '@/components/modules/weekly-recap';
-import SourcesPanel from '@/components/modules/sources-panel';
 import VideoPanel from '@/components/modules/video-panel';
 import CcusTracker from '@/components/modules/ccus-tracker';
 import PricingPanel from '@/components/modules/pricing-panel';
@@ -86,8 +84,6 @@ async function TabContent({ tab }: { tab: IntelTab }) {
       return <CcusTab />;
     case 'pricing':
       return <PricingTab />;
-    case 'sources':
-      return <SourcesTab />;
     case 'video':
       return <VideoTab />;
     case 'research':
@@ -234,16 +230,11 @@ async function PricingTab() {
 
 // ── Sources ─────────────────────────────────────────────────────
 
-async function SourcesTab() {
-  const settings = await getUserSettings();
-  return (
-    <SourcesPanel
-      vertical={getActiveVertical()}
-      settings={settings}
-      canPersist={isAdminConfigured()}
-    />
-  );
-}
+// Sources MOVED TO SETTINGS at the nav rebuild. It is a configuration screen,
+// and a configuration screen sitting in a row of reading surfaces is a
+// category error — it does not need a week of usage data to resolve, unlike
+// Video and Research, which are reference surfaces whose open counts are
+// exactly the question.
 
 // ── Video ───────────────────────────────────────────────────────
 

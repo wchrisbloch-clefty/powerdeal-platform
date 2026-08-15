@@ -13,6 +13,8 @@ import Badge from '@/components/ui/badge';
 import AgentHealth from './agent-health';
 import UsageReport from './usage-report';
 import SpineExport from './spine-export';
+import SourcesPanel from './sources-panel';
+import type { VerticalConfig } from '@/lib/verticals/types';
 
 const DEFAULTS: Required<Pick<UserSettings, 'watchlist'>> = {
   watchlist: { accounts: [], topics: [], verticals: [], utilities: [] },
@@ -24,6 +26,7 @@ export default function SettingsPanel({
   brainReady,
   brainError,
   canPersist,
+  vertical,
 }: {
   settings: UserSettings | null;
   env: EnvStatus;
@@ -35,6 +38,8 @@ export default function SettingsPanel({
    * than on a session.
    */
   canPersist: boolean;
+  /** For the source list, which moved here from Intelligence. */
+  vertical: VerticalConfig;
 }) {
   const [watchlist, setWatchlist] = useState(settings?.watchlist ?? DEFAULTS.watchlist);
   const [density, setDensity] = useState(settings?.display_density ?? 'comfortable');
@@ -171,6 +176,28 @@ export default function SettingsPanel({
         </CardHeader>
         <CardBody>
           <AgentHealth />
+        </CardBody>
+      </Card>
+
+      {/* ── Sources ──
+          MOVED HERE FROM INTELLIGENCE at the nav rebuild. It was the only
+          configuration screen in a row of reading surfaces — a category error
+          rather than a usage question, so it did not need a week of open
+          counts to resolve. Video and Research stayed, because whether a
+          reference surface is dead is exactly what open counts answer. */}
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Sources</CardTitle>
+            <p className="mt-0.5 text-xs text-text-dim">
+              Which feeds and channels the sweep reads. Configuration, not a
+              reading surface — which is why it lives here rather than beside
+              the intelligence it produces.
+            </p>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <SourcesPanel vertical={vertical} settings={settings} canPersist={canPersist} />
         </CardBody>
       </Card>
 

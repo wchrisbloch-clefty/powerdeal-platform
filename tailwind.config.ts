@@ -26,6 +26,7 @@ const config: Config = {
         'accent-bg': 'var(--color-accent-bg)',
         'accent-border': 'var(--color-accent-border)',
         'accent-fg': 'var(--color-accent-fg)',
+        'nav-marker': 'var(--color-nav-marker)',
         danger: 'var(--color-danger)',
         'danger-bg': 'var(--color-danger-bg)',
         warning: 'var(--color-warning)',
@@ -82,17 +83,25 @@ const config: Config = {
       transitionTimingFunction: {
         DEFAULT: 'var(--ease)',
       },
+      borderWidth: {
+        'nav-active': 'var(--nav-active-border)',
+      },
       transitionDuration: {
         fast: 'var(--dur-fast)',
         base: 'var(--dur-base)',
       },
       height: {
+        topbar: 'var(--topbar-height)',
+        'topbar-stacked': 'var(--topbar-height-stacked)',
+        tabbar: 'var(--tabbar-height)',
         row: 'var(--row-h-comfortable)',
         'row-compact': 'var(--row-h-compact)',
         'row-spacious': 'var(--row-h-spacious)',
       },
       spacing: {
-        sidebar: 'var(--sidebar-width)',
+        topbar: 'var(--topbar-height)',
+        'topbar-stacked': 'var(--topbar-height-stacked)',
+        'nav-item': 'var(--nav-item-min-w)',
         tap: 'var(--tap-target)',
         'tap-sm': 'var(--tap-target-sm)',
         'col-tiny': 'var(--col-tiny)',

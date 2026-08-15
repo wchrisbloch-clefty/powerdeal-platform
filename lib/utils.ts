@@ -20,6 +20,22 @@ const twMerge = extendTailwindMerge({
       // Only '2xs' is a NEW font-size name — the rest of the scale reuses
       // Tailwind's own names, which tailwind-merge already classifies.
       'font-size': [{ text: ['2xs'] }],
+      /**
+       * ⚠️ `border-b-nav-active` IS A WIDTH, and without this group
+       * tailwind-merge classifies it as a border COLOUR — the same
+       * misclassification that dropped `text-accent-fg` from the primary
+       * button and left its label at 1.98:1. The nav puts a width and a colour
+       * on the same element, so undeclared it renders the active underline
+       * with no colour or no width, silently.
+       *
+       * A matching `border-color` group was written and then DELETED. Probed
+       * directly: tailwind-merge already classifies an unknown `border-<name>`
+       * as a colour, so the group changed nothing in any of four cases. A
+       * declaration that alters no behaviour is worse than none — it reads as
+       * protection, and the next person adds a token to it believing it is
+       * doing something. Only the width needs declaring.
+       */
+      'border-w-b': [{ 'border-b': ['nav-active'] }],
       'text-color': [
         {
           text: [
