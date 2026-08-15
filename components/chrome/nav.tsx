@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, BarChart3, RadioTower, Map,
   FileText, MessageSquare, SlidersHorizontal, Calculator, GraduationCap,
-  MoreHorizontal, X, Search,
+  MoreHorizontal, X, Search, LogOut,
 } from 'lucide-react';
 import ThemeToggle from './theme-toggle';
 import type { LucideIcon } from 'lucide-react';
@@ -69,6 +69,17 @@ export const SETTINGS_ITEM: NavItem = {
 /** What the More sheet holds: everything not in the bottom four, plus Settings. */
 export function overflowItems(): NavItem[] {
   return [...NAV_ITEMS.filter((i) => !i.primary), SETTINGS_ITEM];
+}
+
+/**
+ * Sign out. Clears the cookie and returns to the gate.
+ *
+ * A full navigation rather than a router push: the cleared cookie has to be
+ * absent from the NEXT document request for middleware to refuse it.
+ */
+export async function signOut(): Promise<void> {
+  await fetch('/api/auth/login', { method: 'DELETE' });
+  window.location.href = '/login';
 }
 
 /** What the bottom bar holds. Four, and the count is asserted. */
@@ -223,6 +234,18 @@ export function NavBar() {
 
           <ThemeToggle />
 
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            aria-label="Sign out"
+            className={cn(
+              NAV_BASE,
+              'h-tap w-tap rounded-md text-text-faint hover:text-text-dim lg:h-tap-sm lg:w-tap-sm',
+            )}
+          >
+            <LogOut size={17} strokeWidth={1.75} aria-hidden />
+          </button>
+
           <Link
             href={SETTINGS_ITEM.href}
             aria-current={isActive(SETTINGS_ITEM.href) ? 'page' : undefined}
@@ -314,6 +337,20 @@ export function TabBar() {
               </button>
             </div>
             <ul className="p-2">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => void signOut()}
+                  className={cn(
+                    NAV_BASE,
+                    'min-h-tap w-full justify-start gap-2.5 rounded-md px-3 text-sm',
+                    NAV_IDLE,
+                  )}
+                >
+                  <LogOut size={17} strokeWidth={1.75} aria-hidden />
+                  Sign out
+                </button>
+              </li>
               {overflow.map((item) => {
                 const active = isActive(item.href);
                 const Icon = item.icon;
