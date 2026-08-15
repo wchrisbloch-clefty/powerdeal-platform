@@ -2,6 +2,8 @@ import { Sidebar, TabBar } from '@/components/chrome/nav';
 import TopBar from '@/components/chrome/top-bar';
 import { collectEnvWarnings } from '@/lib/env-check';
 import AgentAlertBanner from '@/components/chrome/agent-alert-banner';
+import { Suspense } from 'react';
+import UsageTracker from '@/components/chrome/usage-tracker';
 
 export default async function AppLayout({
   children,
@@ -56,6 +58,15 @@ export default async function AppLayout({
       </div>
 
       <TabBar />
+
+      {/* USAGE CAPTURE FOR THE WEEK. In the shell so it reaches every surface —
+          the finding that matters most is which surfaces are never opened, and
+          a tracker mounted per-page cannot see the pages it is not on.
+          Suspense because useSearchParams opts the tree into client rendering;
+          without it every /app route would be forced dynamic. */}
+      <Suspense fallback={null}>
+        <UsageTracker />
+      </Suspense>
     </div>
   );
 }

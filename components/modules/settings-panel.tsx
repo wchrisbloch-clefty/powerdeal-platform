@@ -11,6 +11,7 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import Button from '@/components/ui/button';
 import Badge from '@/components/ui/badge';
 import AgentHealth from './agent-health';
+import UsageReport from './usage-report';
 
 const DEFAULTS: Required<Pick<UserSettings, 'watchlist'>> = {
   watchlist: { accounts: [], topics: [], verticals: [], utilities: [] },
@@ -169,6 +170,28 @@ export default function SettingsPanel({
         </CardHeader>
         <CardBody>
           <AgentHealth />
+        </CardBody>
+      </Card>
+
+      {/* ── The usage week ──
+          Read at the END of the week, not during it. Recollection remembers
+          what was interesting rather than what was used, cannot see absence at
+          all, and loses the thought at the moment of friction. This records
+          all three. No score, no engagement index — one operator over one week
+          cannot produce a denominator, and a derived number would read as a
+          finding anyway. */}
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>The week, as recorded</CardTitle>
+            <p className="mt-0.5 text-xs text-text-dim">
+              Which surfaces you actually opened, which you never did, and every
+              &ldquo;I wish it just&hellip;&rdquo; captured where it happened.
+            </p>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <UsageReport />
         </CardBody>
       </Card>
 
