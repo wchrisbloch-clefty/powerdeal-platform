@@ -118,7 +118,15 @@ The first real move on a deal makes its counter honest.
 
 ## 2. `Archived` collapses three different losses
 
-**Status:** accepted, noted
+**Status:** CLOSED 2026-08-15 — `archivedOutcome()` / `outcomesByDeal()` in
+`lib/win-loss.ts`. The collapse stands, because it is correct: `DEAL_STAGES`
+has no lost stage and `win_loss_log.outcome_type` already preserves the
+distinction. What was missing was the read-back, and that is what shipped —
+the join, indexed by deal so a table resolves each row without a rescan, plus
+the doctrine cure for each of the three. A deal with NO log row returns null
+rather than the most common outcome: an archived deal moved by hand has no
+recorded outcome, and a guessed one would put a fabricated cure in front of a
+rep. A reopened-and-reclosed deal reports its latest close, not its first.
 **Severity:** low — nothing is lost, but the pipeline view cannot distinguish
 them without a join
 
@@ -227,7 +235,29 @@ a schema migration. The share route comes after, never instead.
 
 ## 6. `deals.competition` still scores one MEDDPICC point
 
-**Status:** open
+**Status:** CLOSED 2026-08-15 — `meddpiccResult()` in `lib/deals.ts`.
+
+The rule that shipped is the one this entry identified as the only one that
+works: **a stored `deal_competitors` row exists.** It works because returning a
+toggle to its DEFAULT deletes the row rather than storing the default as data
+(`presenceWrite`), so a stored row can only mean a deliberate act — a
+competitor turned on that is normally off, one turned off that is normally on,
+or a posture recorded. Presence alone would have handed every deal a free point
+on creation, since do-nothing and the grid are both on by default.
+
+The part this entry did not anticipate: **a read that FAILED must not score as
+zero.** `competitorsForDeal` returns `[]` on error, which is right for
+rendering a grid (the defaults still apply) and wrong for scoring — it would
+print "Competition: gap" on a deal with a fully worked competitive picture. So
+there is a second read, `competitorCountForDeal`, returning `number | null`,
+and `meddpiccResult` reports an unloaded record as `unscored` rather than as a
+gap. That understates the score by at most one point and names why, which beats
+a number nobody measured. `unknown` is now a real third state in
+`meddpiccState`, distinct from `gap`.
+
+The score does move on live deals, as this entry warned. It moves toward the
+grid, which is the authority.
+
 **Found:** 2026-08-11, deprecating the field as the competitive record
 **Severity:** one point of eight, on a field nothing else reads
 

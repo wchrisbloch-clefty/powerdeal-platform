@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { terminalStageFor } from '@/lib/win-loss';
-import { OUTCOME_TYPES, TERMINAL_STAGES, type DealStage } from '@/lib/types';
+import { OUTCOME_TYPES, TERMINAL_STAGES, type DealStage, type WinLossEntry } from '@/lib/types';
 
 const MIGRATION = 'supabase/migrations/20260810_win_loss_verbatim.sql';
 
@@ -106,5 +106,100 @@ describe('schema.sql and the migration agree', () => {
   it('both declare buyer_verbatim', async () => {
     const schema = await readFile('supabase/schema.sql', 'utf8');
     expect(schema).toContain('buyer_verbatim  text');
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * `Archived` COLLAPSES THREE DIFFERENT LOSSES.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * The collapse itself is correct — DEAL_STAGES has no lost stage and
+ * `win_loss_log.outcome_type` preserves the distinction. What was missing was
+ * the join that reads it back, which matters because the doctrine gives the
+ * three different cures: a no-decision needs a forcing function, a competitive
+ * loss needs a different argument, a disqualification needs better
+ * qualification earlier. `Archived` prescribes none of them.
+ */
+describe('an archived deal says WHICH loss it was', () => {
+  const entry = (over: Partial<WinLossEntry> = {}): WinLossEntry =>
+    ({
+      id: 'w1',
+      deal_id: 'd1',
+      company: 'Acme',
+      outcome_type: 'No-Decision',
+      reason: null,
+      lesson: null,
+      competitor_won: null,
+      revisit_trigger: null,
+      closed_at: '2026-08-01T00:00:00Z',
+      ...over,
+    }) as WinLossEntry;
+
+  it('names the outcome the stage cannot', async () => {
+    const { archivedOutcome } = await import('@/lib/win-loss');
+    expect(archivedOutcome('d1', [entry({ outcome_type: 'Competitive' })]).label).toBe(
+      'Archived — Competitive',
+    );
+  });
+
+  it('carries the doctrine cure for THAT loss, and they differ', async () => {
+    const { archivedOutcome } = await import('@/lib/win-loss');
+    const nd = archivedOutcome('d1', [entry({ outcome_type: 'No-Decision' })]).cure!;
+    const comp = archivedOutcome('d1', [entry({ outcome_type: 'Competitive' })]).cure!;
+    const dq = archivedOutcome('d1', [entry({ outcome_type: 'Disqualified' })]).cure!;
+
+    expect(nd).toContain('forcing function');
+    expect(comp).toContain('different argument');
+    expect(dq).toContain('qualification earlier');
+    // Three distinct cures, not one sentence with the category substituted in.
+    expect(new Set([nd, comp, dq]).size).toBe(3);
+  });
+
+  it('a Won deal is not "Archived" and has no cure', async () => {
+    const { archivedOutcome } = await import('@/lib/win-loss');
+    const r = archivedOutcome('d1', [entry({ outcome_type: 'Won' })]);
+    expect(r.label).toBe('Won');
+    expect(r.cure).toBeNull();
+  });
+
+  it('a deal with NO log row returns null, never a guessed outcome', async () => {
+    // An archived deal moved by hand has no recorded outcome. Inventing the
+    // most common one would put a fabricated cure in front of a rep.
+    const { archivedOutcome } = await import('@/lib/win-loss');
+    const r = archivedOutcome('missing', [entry()]);
+    expect(r.outcome).toBeNull();
+    expect(r.cure).toBeNull();
+    expect(r.label).toContain('not recorded');
+  });
+
+  it('a reopened-and-reclosed deal reports its LATEST outcome', async () => {
+    const { archivedOutcome } = await import('@/lib/win-loss');
+    const r = archivedOutcome('d1', [
+      entry({ id: 'old', outcome_type: 'No-Decision', closed_at: '2026-01-01T00:00:00Z' }),
+      entry({ id: 'new', outcome_type: 'Won', closed_at: '2026-08-01T00:00:00Z' }),
+    ]);
+    expect(r.outcome).toBe('Won');
+  });
+
+  it('indexes by deal so a table does not rescan per row', async () => {
+    const { outcomesByDeal } = await import('@/lib/win-loss');
+    const map = outcomesByDeal([
+      entry({ deal_id: 'd1', outcome_type: 'Competitive' }),
+      entry({ deal_id: 'd2', outcome_type: 'Disqualified' }),
+    ]);
+    expect(map.get('d1')!.outcome).toBe('Competitive');
+    expect(map.get('d2')!.outcome).toBe('Disqualified');
+    expect(map.has('d3')).toBe(false);
+  });
+
+  it('a log row with a null deal_id does not become a map key', async () => {
+    const { outcomesByDeal } = await import('@/lib/win-loss');
+    expect(outcomesByDeal([entry({ deal_id: null })]).size).toBe(0);
+  });
+
+  it('an empty log produces an empty index rather than throwing', async () => {
+    const { outcomesByDeal } = await import('@/lib/win-loss');
+    expect(outcomesByDeal([]).size).toBe(0);
   });
 });

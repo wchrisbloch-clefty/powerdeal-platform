@@ -75,7 +75,10 @@ export async function POST(request: NextRequest) {
     decision_mapped: false,
   };
 
-  const meddpicc = computeMeddpiccScore(draft);
+  // A brand-new deal has no `deal_competitors` rows yet, and that is a real
+  // zero rather than an unknown — nothing has been recorded because nothing
+  // could have been. Passing 0 explicitly, not omitting the argument.
+  const meddpicc = computeMeddpiccScore(draft, 0);
   const row = {
     ...draft,
     meddpicc_score: meddpicc,

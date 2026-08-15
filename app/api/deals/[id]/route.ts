@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { getDeal, getSignalsForDeal, getMarketWatchForDeal, getStageTransitions } from '@/lib/data';
 import { computeHealthScore, computeMeddpiccScore } from '@/lib/deals';
+import { competitorCountForDeal } from '@/lib/competitive';
 import { DEAL_STAGES, VERTICALS, RELATIONSHIP_TYPES } from '@/lib/types';
 import type { Deal } from '@/lib/types';
 
@@ -99,7 +100,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
   // MEDDPICC and health are derived, never client-supplied — otherwise the
   // score stops meaning anything.
-  const meddpicc = computeMeddpiccScore(merged);
+  // THE 'C' SCORES OFF `deal_competitors`, NOT THE DEPRECATED FREE-TEXT FIELD.
+  // A null count means the read failed, and `meddpiccResult` leaves the pillar
+  // unscored rather than calling it a gap — which would print "Competition:
+  // gap" on a deal with a fully worked competitive grid.
+  const competitorCount = await competitorCountForDeal(id);
+  const meddpicc = computeMeddpiccScore(merged, competitorCount);
   const update = {
     ...patch,
     meddpicc_score: meddpicc,

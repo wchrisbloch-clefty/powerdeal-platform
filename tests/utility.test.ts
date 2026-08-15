@@ -453,11 +453,23 @@ describe('deals.competition is deprecated as the competitive record', () => {
     expect(src).toContain('competition: string | null;');
   });
 
-  it('its one remaining dependency is named rather than left to be rediscovered', async () => {
+  it('NOTHING SCORES OFF IT ANY MORE — the last dependency is gone, not documented', async () => {
+    // This assertion moved with the fix rather than being deleted. It used to
+    // check that the remaining dependency was NAMED, which was the right thing
+    // to assert while it existed and is the wrong thing to assert now.
     const src = await readFile('lib/deals.ts', 'utf8');
-    expect(src).toContain('THE LAST DEPENDENCY ON A DEPRECATED FIELD');
-    const backlog = await readFile('docs/BACKLOG.md', 'utf8');
-    expect(backlog).toContain('`deals.competition` still scores one MEDDPICC point');
+    const code = src.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toContain('deal.competition');
+    expect(code).toContain('competitorCount');
+  });
+
+  it('the scoring read can tell "no competitors" from "could not look"', async () => {
+    // `competitorsForDeal` returns [] on failure, which is right for rendering
+    // a grid and wrong for scoring — it would print "Competition: gap" on a
+    // deal with a fully worked competitive picture.
+    const src = await readFile('lib/competitive.ts', 'utf8');
+    expect(src).toContain('competitorCountForDeal');
+    expect(src).toContain('if (error) return null;');
   });
 
   it('days_in_stage was unfrozen by the stage-advancement item, not patched around', async () => {
@@ -472,5 +484,118 @@ describe('deals.competition is deprecated as the competitive record', () => {
     expect(item1).toContain('`days_in_stage` rode on this and is now unfrozen');
     expect(item1).toContain('Nothing was patched around it');
     expect(item1).toContain('That is not backfilled');
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * THE MEDDPICC 'C', REWIRED TO THE REAL COMPETITIVE RECORD.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * It scored off `deals.competition`, a free-text field deprecated as the
+ * competitive record two versions before `deal_competitors` replaced it. A
+ * deal could carry a fully worked competitive grid and score zero because
+ * nobody had also typed a sentence into a legacy box.
+ */
+describe('the MEDDPICC Competition pillar scores off deal_competitors', () => {
+  const bare = { champion: 'Dana', competition: 'Long-standing free-text answer' };
+
+  it('a stored competitor row earns the point', async () => {
+    const { meddpiccResult } = await import('@/lib/deals');
+    const r = meddpiccResult(bare, 1);
+    expect(r.known).toContain('competition');
+    expect(r.gaps).not.toContain('competition');
+  });
+
+  it('ZERO stored rows is a gap, even with the legacy text field filled in', async () => {
+    // The whole point. The grid's defaults are the ordinary deal; a stored row
+    // is the only evidence somebody made a competitive decision.
+    const { meddpiccResult } = await import('@/lib/deals');
+    const r = meddpiccResult(bare, 0);
+    expect(r.gaps).toContain('competition');
+    expect(r.known).not.toContain('competition');
+  });
+
+  it('presence alone does not hand every deal a free point', async () => {
+    const { computeMeddpiccScore } = await import('@/lib/deals');
+    // do-nothing and the grid are ON by default and store no rows, so a fresh
+    // deal must not collect a point for existing.
+    expect(computeMeddpiccScore({}, 0)).toBe(0);
+  });
+
+  it('an UNLOADED competitor set is unscored — not a gap', async () => {
+    // Absent evidence, not evidence of absence. Reporting a fully worked grid
+    // as a gap is worse than saying nothing about it.
+    const { meddpiccResult } = await import('@/lib/deals');
+    const r = meddpiccResult(bare, null);
+    expect(r.unscored).toContain('competition');
+    expect(r.gaps).not.toContain('competition');
+    expect(r.known).not.toContain('competition');
+  });
+
+  it('omitting the argument entirely behaves the same as null', async () => {
+    const { meddpiccResult } = await import('@/lib/deals');
+    expect(meddpiccResult(bare).unscored).toContain('competition');
+  });
+
+  it('an unscored pillar costs at most one point and never inflates the score', async () => {
+    const { computeMeddpiccScore } = await import('@/lib/deals');
+    const deal = {
+      metrics_known: true,
+      economic_buyer: 'A',
+      decision_criteria: 'B',
+      decision_process: 'C',
+      identified_pain: 'D',
+      champion: 'E',
+      decision_mapped: true,
+    };
+    expect(computeMeddpiccScore(deal, 1)).toBe(8);
+    expect(computeMeddpiccScore(deal, 0)).toBe(7);
+    expect(computeMeddpiccScore(deal, null)).toBe(7);
+  });
+
+  it('the other seven pillars are unaffected', async () => {
+    const { meddpiccResult } = await import('@/lib/deals');
+    const r = meddpiccResult({ metrics_known: true, champion: 'Dana' }, 0);
+    expect(r.known.sort()).toEqual(['champion', 'metrics_known']);
+    expect(r.score).toBe(2);
+  });
+
+  it('a whitespace-only pillar is a gap, not a known', async () => {
+    const { meddpiccResult } = await import('@/lib/deals');
+    expect(meddpiccResult({ champion: '' }, 0).gaps).toContain('champion');
+  });
+
+  it('meddpiccState reports the three states distinctly', async () => {
+    const { meddpiccState } = await import('@/lib/deals');
+    const deal = { competition: 'legacy text' } as never;
+    expect(meddpiccState(deal, 'competition', 2)).toBe('known');
+    expect(meddpiccState(deal, 'competition', 0)).toBe('gap');
+    // Unknown, NOT gap — the read did not happen.
+    expect(meddpiccState(deal, 'competition', null)).toBe('unknown');
+  });
+
+  it('the breakdown shows the COUNT, never the deprecated free text', async () => {
+    // Rendering `deal.competition` beside a state derived from the grid would
+    // show two answers to one question.
+    const { meddpiccBreakdown } = await import('@/lib/deals');
+    const row = meddpiccBreakdown({ competition: 'stale sentence' } as never, 3).find(
+      (f) => f.key === 'competition',
+    )!;
+    expect(row.value).toBe(3);
+    expect(row.state).toBe('known');
+  });
+
+  it('a new deal passes an explicit zero rather than omitting the argument', async () => {
+    // Omitting it would leave every newly created deal permanently unscored on
+    // Competition, which is a different bug wearing the fix's clothes.
+    const src = await readFile('app/api/deals/route.ts', 'utf8');
+    expect(src).toContain('computeMeddpiccScore(draft, 0)');
+  });
+
+  it('an updated deal reads the live count', async () => {
+    const src = await readFile('app/api/deals/[id]/route.ts', 'utf8');
+    expect(src).toContain('competitorCountForDeal(id)');
+    expect(src).toContain('computeMeddpiccScore(merged, competitorCount)');
   });
 });

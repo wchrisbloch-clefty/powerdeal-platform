@@ -62,42 +62,116 @@ export function hasCriticalEvent(deal: Partial<Deal>): boolean {
   return Boolean(deal.critical_event?.trim());
 }
 
+/**
+ * ═══ THE 'C' NOW SCORES OFF THE REAL COMPETITIVE RECORD ═══
+ *
+ * It used to read `deals.competition`, a free-text field deprecated as the
+ * competitive record two versions ago — `deal_competitors` and the toggle grid
+ * replaced it. A deal could have a fully worked competitive picture in the
+ * grid and score zero on Competition because nobody had also typed a sentence
+ * into a legacy box, or score one for a stale sentence contradicted by the
+ * grid beside it.
+ *
+ * THE RULE IS "A STORED ROW EXISTS", and it works because of how the grid
+ * writes. Returning a toggle to its DEFAULT deletes the row rather than
+ * storing the default as data (see `presenceWrite`), so a stored row can only
+ * mean a deliberate act: a competitor turned on that is normally off, one
+ * turned off that is normally on, or a posture recorded. Presence alone would
+ * not work — do-nothing and the grid are ON by default, so every deal would
+ * collect a free point on creation.
+ *
+ * WHEN THE RECORD IS NOT LOADED IT IS NOT SCORED, AND SAYS SO. Callers that
+ * do not have the competitor set pass nothing and get `competition` in
+ * `unscored`. That understates by at most one point and names why, which is
+ * the house rule everywhere else: flag the gap inside the output, never fill
+ * it with a number nobody measured. Falling back to `deals.competition` would
+ * have been the silent version of the same bug.
+ */
+export interface MeddpiccResult {
+  score: number;
+  /** Pillars that were evaluated and found present. */
+  known: string[];
+  /** Pillars evaluated and found absent. A real gap. */
+  gaps: string[];
+  /**
+   * Pillars that could NOT be evaluated because their source was not supplied.
+   * Distinct from a gap: absent evidence, not evidence of absence.
+   */
+  unscored: string[];
+}
+
+export function meddpiccResult(
+  deal: Partial<Deal>,
+  competitorCount?: number | null,
+): MeddpiccResult {
+  const known: string[] = [];
+  const gaps: string[] = [];
+  const unscored: string[] = [];
+
+  const note = (key: string, present: boolean) => (present ? known : gaps).push(key);
+
+  note('metrics_known', Boolean(deal.metrics_known));
+  note('economic_buyer', Boolean(deal.economic_buyer));
+  note('decision_criteria', Boolean(deal.decision_criteria));
+  note('decision_process', Boolean(deal.decision_process));
+  note('identified_pain', Boolean(deal.identified_pain));
+  note('champion', Boolean(deal.champion));
+
+  if (competitorCount == null) {
+    unscored.push('competition');
+  } else {
+    note('competition', competitorCount > 0);
+  }
+
+  note('decision_mapped', Boolean(deal.decision_mapped));
+
+  return { score: known.length, known, gaps, unscored };
+}
+
 /** Derive the MEDDPICC score (0-8) from which pillars are actually populated. */
-export function computeMeddpiccScore(deal: Partial<Deal>): number {
-  let n = 0;
-  if (deal.metrics_known) n++;
-  if (deal.economic_buyer) n++;
-  if (deal.decision_criteria) n++;
-  if (deal.decision_process) n++;
-  if (deal.identified_pain) n++;
-  if (deal.champion) n++;
-  // ⚠️ THE LAST DEPENDENCY ON A DEPRECATED FIELD. `deals.competition` is no
-  // longer the competitive record — deal_competitors and the toggle grid are —
-  // but this point still reads it. Scoring it off presence instead is not a
-  // drop-in: the grid has do-nothing and the grid ON by default, so presence
-  // alone would hand every deal a free MEDDPICC point. The rule that works is
-  // "a stored row exists", which needs the competitor set threaded through a
-  // function the pipeline table calls once per row, and it moves a score on 21
-  // live deals. Deliberately not rewired in this pass. See BACKLOG item 6.
-  if (deal.competition) n++;
-  if (deal.decision_mapped) n++;
-  return n;
+export function computeMeddpiccScore(
+  deal: Partial<Deal>,
+  competitorCount?: number | null,
+): number {
+  return meddpiccResult(deal, competitorCount).score;
 }
 
 export type MeddpiccState = 'known' | 'gap' | 'unknown';
 
-export function meddpiccState(deal: Deal, key: string): MeddpiccState {
+/**
+ * `unknown` is a THIRD state and not a synonym for `gap`.
+ *
+ * A gap is "we asked and there is nothing there". Unknown is "nothing asked".
+ * Competition returns `unknown` when the competitor set was not supplied,
+ * because reporting a fully-worked competitive grid as a gap is worse than
+ * saying nothing about it.
+ */
+export function meddpiccState(
+  deal: Deal,
+  key: string,
+  competitorCount?: number | null,
+): MeddpiccState {
+  if (key === 'competition') {
+    if (competitorCount == null) return 'unknown';
+    return competitorCount > 0 ? 'known' : 'gap';
+  }
   const value = deal[key as keyof Deal];
   if (typeof value === 'boolean') return value ? 'known' : 'gap';
   if (typeof value === 'string' && value.trim().length > 0) return 'known';
   return 'unknown';
 }
 
-export function meddpiccBreakdown(deal: Deal) {
+export function meddpiccBreakdown(deal: Deal, competitorCount?: number | null) {
   return MEDDPICC_FIELDS.map((f) => ({
     ...f,
-    state: meddpiccState(deal, f.key),
-    value: deal[f.key as keyof Deal],
+    state: meddpiccState(deal, f.key, competitorCount),
+    value:
+      f.key === 'competition'
+        ? // The count, not the deprecated free-text field. Rendering
+          // `deal.competition` beside a state derived from the grid would show
+          // two answers to one question.
+          (competitorCount ?? null)
+        : deal[f.key as keyof Deal],
   }));
 }
 

@@ -241,7 +241,10 @@ function buildDeal(spec: SeedSpec, index: number): Deal {
 
   // Derive rather than hardcode, so the local copy and the database agree —
   // the schema trigger runs the same formula server-side.
-  const meddpicc = computeMeddpiccScore(base);
+  // Seed deals ship with no `deal_competitors` rows — a real zero, not an
+  // unknown. Passed explicitly so the seed score matches what the app would
+  // compute for the same row.
+  const meddpicc = computeMeddpiccScore(base, 0);
   return {
     ...base,
     meddpicc_score: meddpicc,

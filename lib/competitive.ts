@@ -42,6 +42,35 @@ export async function competitorsForDeal(dealId: string): Promise<DealCompetitor
   return (data as DealCompetitor[]) ?? [];
 }
 
+/**
+ * How many competitor rows this deal has, or NULL when the read failed.
+ *
+ * ⚠️ NULL AND 0 ARE DIFFERENT ANSWERS AND THE MEDDPICC 'C' DEPENDS ON THE
+ * DIFFERENCE. Zero rows is the ordinary deal — the grid and the status quo,
+ * both on by default, nothing overridden — and it scores the Competition
+ * pillar as a genuine gap. A read that FAILED knows nothing, and reporting it
+ * as zero would print "Competition: gap" on a deal with a fully worked
+ * competitive grid.
+ *
+ * `competitorsForDeal` above returns `[]` on failure, which is right for
+ * rendering a grid (the defaults still apply) and wrong for scoring. This is
+ * the scoring read, and it keeps the distinction supabase-js erases by
+ * resolving with `{ data: null, error }`.
+ */
+export async function competitorCountForDeal(dealId: string): Promise<number | null> {
+  const client = getAdminClient();
+  if (!client) return null;
+
+  const { count, error } = await client
+    .from('deal_competitors')
+    .select('id', { count: 'exact', head: true })
+    .eq('deal_id', dealId)
+    .eq('user_id', POWERDEAL_USER_ID);
+
+  if (error) return null;
+  return count ?? 0;
+}
+
 export interface UpsertCompetitor {
   dealId: string;
   competitor: string;
