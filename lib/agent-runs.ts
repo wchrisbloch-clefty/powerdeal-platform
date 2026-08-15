@@ -62,14 +62,14 @@ export const AGENT_JOBS: AgentJob[] = [
   {
     id: 'weekly-recap',
     label: 'Weekly recap',
-    schedule: 'Mondays · 12:00 UTC',
+    schedule: 'Fridays · 17:00 UTC',
     runner: 'vercel',
     matters: 'The week in review, with the accounts to touch first.',
   },
   {
     id: 'feed-health',
     label: 'Feed health probe',
-    schedule: 'Mondays · 09:00 UTC',
+    schedule: 'Daily · 09:00 UTC',
     runner: 'vercel',
     matters: 'Catches publishers moving feed URLs without notice.',
   },
@@ -95,6 +95,57 @@ export const AGENT_JOBS: AgentJob[] = [
     matters: 'Class VI permit movement, which breaks in local press first.',
   },
 ];
+
+/**
+ * Render a 5-field cron expression as the label a human reads.
+ *
+ * ⚠️ THE LABELS HAD DRIFTED AND NOTHING NOTICED. `weekly-recap` displayed
+ * "Mondays · 12:00 UTC" while `vercel.json` had run it at `0 17 * * 5` —
+ * Friday — since the recap was moved to match the Friday ritual. `feed-health`
+ * displayed "Mondays · 09:00 UTC" after being moved to daily. Both labels were
+ * hand-written strings sitting next to a schedule nobody re-read.
+ *
+ * The status page's entire job is telling an operator whether scheduled work is
+ * alive. A row that reports the wrong schedule tells them a job is overdue when
+ * it is not, or on time when it never fired — the same class of failure as a
+ * metric whose name is a lie about what produced it (checklist rule 15).
+ *
+ * Pure, so the suite can hold every label to the file that actually schedules
+ * it. See tests/crons.test.ts.
+ */
+const DAY_NAMES = [
+  'Sundays',
+  'Mondays',
+  'Tuesdays',
+  'Wednesdays',
+  'Thursdays',
+  'Fridays',
+  'Saturdays',
+];
+
+export function describeCron(expression: string): string {
+  const parts = expression.trim().split(/\s+/);
+  if (parts.length !== 5) return expression;
+  const [minute, hour, dom, month, dow] = parts;
+
+  // Anything this does not confidently understand is returned VERBATIM rather
+  // than described approximately. A label that is obviously a cron expression
+  // sends the reader to the schedule; a plausible-but-wrong sentence does not.
+  if (!/^\d+$/.test(minute) || !/^\d+$/.test(hour)) return expression;
+  if (dom !== '*' || month !== '*') return expression;
+
+  const time = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')} UTC`;
+  if (dow === '*') return `Daily · ${time}`;
+  if (/^\d$/.test(dow)) return `${DAY_NAMES[Number(dow)]} · ${time}`;
+  return expression;
+}
+
+/** Which cron path backs each Vercel-run job. Asserted against vercel.json. */
+export const VERCEL_JOB_PATHS: Record<string, string> = {
+  'feed-sweep': '/api/feed/sweep',
+  'weekly-recap': '/api/cron/recap',
+  'feed-health': '/api/cron/feed-health',
+};
 
 export interface AgentRun {
   lastAttemptAt: string;
@@ -314,8 +365,8 @@ export async function getAgentAlert(): Promise<AgentAlert | null> {
  */
 const STALE_AFTER_MS: Record<string, number> = {
   'feed-sweep': 3 * 24 * 3600_000,
-  'weekly-recap': 16 * 24 * 3600_000,
-  'feed-health': 16 * 24 * 3600_000,
+  'weekly-recap': 10 * 24 * 3600_000,
+  'feed-health': 3 * 24 * 3600_000,
   'market-watch': 16 * 24 * 3600_000,
   'stall-alert': 3 * 24 * 3600_000,
   'ccus-sweep': 3 * 24 * 3600_000,

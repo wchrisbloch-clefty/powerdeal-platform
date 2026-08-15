@@ -138,7 +138,9 @@ export async function runSweep(
   // constraint, getting throttled halfway through is.
   for (const item of fresh) {
     try {
-      rows.push(await processItem(item, deals, accountsHit, aiAvailable, userId, supabase));
+      rows.push(
+        await processItem(item, deals, accountsHit, aiAvailable, userId, supabase, result.errors),
+      );
     } catch (err) {
       result.errors.push(`${item.sourceName}: ${(err as Error).message}`);
     }
@@ -183,6 +185,25 @@ export async function runSweep(
   return result;
 }
 
+/**
+ * ═══ THE SUMMARY IS AN ENHANCEMENT. THE ITEM IS THE ARTIFACT. ═══
+ *
+ * A model failure must NEVER cost the item. This function used to let a
+ * `summarizeItem` throw escape, where the caller's catch recorded an error and
+ * DISCARDED THE WHOLE ROW — so an afternoon when every provider was down would
+ * have produced an empty feed rather than sixty unsummarized headlines. The
+ * headline, the source, the date, the account mapping and the outreach hook
+ * are all computed without a model and all survive on their own.
+ *
+ * `synthesis` is nullable in the schema and nullable here, in three distinct
+ * cases that all render the same and mean different things:
+ *   · the model judged the item off-topic and returned its NOT RELEVANT
+ *     sentinel rather than manufacturing relevance,
+ *   · no provider was configured and the RSS lede was empty,
+ *   · every provider failed — recorded in `errors`, never fatal.
+ *
+ * Locked by tests/sweep-degradation.test.ts. Do not "fix" this by rethrowing.
+ */
 async function processItem(
   item: RawItem,
   deals: Deal[],
@@ -190,6 +211,7 @@ async function processItem(
   aiAvailable: boolean,
   userId: string,
   supabase: SupabaseClient,
+  errors: string[],
 ): Promise<Partial<FeedItem>> {
   // Grade before spending anything on it.
   const { tier, confidence } = classifyTier(item);
@@ -199,19 +221,28 @@ async function processItem(
 
   let synthesis: string | null = null;
   if (aiAvailable) {
-    const summary = await summarizeItem(
-      {
-        title: item.title,
-        content: content.text,
-        url: item.url,
-        source: item.sourceName,
-      },
-      'summary',
-      supabase,
-    );
-    // The prompt returns this sentinel for off-topic items rather than
-    // manufacturing relevance.
-    synthesis = summary.text.trim() === 'NOT RELEVANT' ? null : summary.text;
+    try {
+      const summary = await summarizeItem(
+        {
+          title: item.title,
+          content: content.text,
+          url: item.url,
+          source: item.sourceName,
+        },
+        'summary',
+        supabase,
+      );
+      const text = summary.text.trim();
+      // The prompt returns this sentinel for off-topic items rather than
+      // manufacturing relevance. An empty string is treated the same way: a
+      // blank summary is not a summary, and storing '' would render as one.
+      synthesis = text === 'NOT RELEVANT' || text === '' ? null : summary.text;
+    } catch (err) {
+      // Named so the reason reaches the sweep record rather than a console
+      // line. "groq 429 · gemini 404" is the finding; a missing item is not.
+      errors.push(`${item.sourceName}: summary unavailable, item kept — ${(err as Error).message}`);
+      synthesis = null;
+    }
   } else {
     synthesis = item.summary.slice(0, 400) || null;
   }

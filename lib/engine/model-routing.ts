@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ChatInput } from '@/lib/types';
+import { recordResolution } from './model-log';
 
 /**
  * ═══════════════════════════════════════════════════════════════
@@ -150,6 +151,48 @@ export function canRun(task: TaskKind): boolean {
   return ORDER[task].some(providerConfigured);
 }
 
+/** The routing chain for a task, unfiltered. Reported, never mutated. */
+export function chainFor(task: TaskKind): Provider[] {
+  return [...ORDER[task]];
+}
+
+/**
+ * Every model id this deployment is configured to call, with the env var that
+ * changes it and the tasks that reach it.
+ *
+ * Derived from ORDER rather than listed by hand: a task added to the routing
+ * table appears here automatically, so the health surface cannot fall behind
+ * the thing it reports on. The Claude row uses CHEAP_MODEL — it is the tier at
+ * the END of the summarize/classify chains, which is precisely the model whose
+ * absence would leave those tasks with nothing.
+ */
+export function configuredModels(): {
+  provider: Provider;
+  model: string;
+  envVar: string;
+  tasks: TaskKind[];
+}[] {
+  const tasksFor = (p: Provider) =>
+    (Object.keys(ORDER) as TaskKind[]).filter((t) => ORDER[t].includes(p));
+
+  return [
+    { provider: 'groq', model: GROQ_MODEL, envVar: 'GROQ_MODEL', tasks: tasksFor('groq') },
+    { provider: 'gemini', model: GEMINI_MODEL, envVar: 'GEMINI_MODEL', tasks: tasksFor('gemini') },
+    {
+      provider: 'claude',
+      model: CHEAP_MODEL,
+      envVar: 'ANTHROPIC_MODEL_CHEAP',
+      tasks: tasksFor('claude').filter((t) => claudeModelFor(t) === CHEAP_MODEL),
+    },
+    {
+      provider: 'claude',
+      model: QUALITY_MODEL,
+      envVar: 'ANTHROPIC_MODEL_QUALITY',
+      tasks: tasksFor('claude').filter((t) => claudeModelFor(t) === QUALITY_MODEL),
+    },
+  ];
+}
+
 // ── Anthropic ───────────────────────────────────────────────────
 
 let anthropicClient: Anthropic | null = null;
@@ -267,7 +310,26 @@ async function* streamGroq(input: ChatInput): AsyncGenerator<StreamChunk> {
 
 // ── Gemini ──────────────────────────────────────────────────────
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
+/**
+ * ⚠️ `gemini-2.0-flash` WAS RETIRED and this default replaces it.
+ *
+ * Every call returned a hard 404 — "no longer available". Not a transient
+ * failure and not something a retry fixes: the identifier is gone from
+ * Google's API. The whole `market-watch` chain led with it and `summarize`
+ * fell through to it, so the first cheap tier and the second were dead at the
+ * same time.
+ *
+ * THE VALUE BELOW IS A CLAIM THIS REPO CANNOT PROVE. Which model ids exist is
+ * a fact about Google's servers, and no test here can reach them. It is
+ * asserted at RUNTIME instead, by `/api/models/health`, which asks the live
+ * API whether this exact string resolves and — if it does not — prints what
+ * the provider currently offers so the replacement is a copy-paste rather than
+ * an investigation. Override with `GEMINI_MODEL` without touching this file.
+ *
+ * Nothing auto-selects a substitute. A model swapped in silently is a quality
+ * change nobody approved.
+ */
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
 
 async function* streamGemini(input: ChatInput): AsyncGenerator<StreamChunk> {
   const url =
@@ -346,9 +408,33 @@ export class NoProviderError extends Error {
   }
 }
 
+/** An empty completion is a failure, not a summary. See routeStream. */
+export class EmptyCompletionError extends Error {
+  constructor(provider: Provider) {
+    super(`${provider} returned 200 with no text.`);
+    this.name = 'EmptyCompletionError';
+  }
+}
+
+function messageOf(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 /**
  * Stream a task through the routing chain. Falls through to the next provider
- * when one is unconfigured or throws before emitting any text.
+ * when one is unconfigured, throws, or answers with nothing.
+ *
+ * EVERY FALL-THROUGH IS RECORDED. A call that succeeded after burning through
+ * two dead providers used to look identical to one that succeeded on the first
+ * try — the summary appeared, the sweep reported success, and the fact that
+ * both cheap tiers were down existed only as a `console.warn` nobody reads.
+ * The winner and the losers are both written to `models:last`.
+ *
+ * AN EMPTY RESPONSE IS A FAILURE. A provider that answers 200 with an empty
+ * body used to end the loop as a success, returning `text: ''`. Downstream,
+ * `''` is not `NOT RELEVANT` and not null, so it stored as a summary that is a
+ * blank string — a silent-direction failure of the exact kind this build keeps
+ * finding. It now throws and falls through like any other failure.
  */
 export async function* routeStream(
   task: TaskKind,
@@ -358,6 +444,7 @@ export async function* routeStream(
   if (chain.length === 0) throw new NoProviderError(task);
 
   let lastError: unknown = null;
+  const fellThrough: { provider: Provider; error: string }[] = [];
 
   for (const provider of chain) {
     let emitted = false;
@@ -369,25 +456,64 @@ export async function* routeStream(
             ? streamGroq(input)
             : streamGemini(input);
 
+      let model = '';
+      let declined = false;
       for await (const chunk of gen) {
-        if (chunk.type === 'text') emitted = true;
+        if (chunk.type === 'text' && chunk.text) emitted = true;
+        if (chunk.type === 'meta' && chunk.model) model = chunk.model;
+        // A refusal is an ANSWER, not an empty response. Falling through to
+        // another provider to get a different verdict on the same request is
+        // shopping for a yes, and on a domain task there is no other provider
+        // to shop at — it would surface as "returned 200 with no text", which
+        // is true and tells the reader nothing.
+        if (chunk.type === 'error') declined = true;
         yield chunk;
       }
+      if (!emitted && !declined) throw new EmptyCompletionError(provider);
+
+      void recordResolution(task, {
+        provider,
+        model,
+        at: new Date().toISOString(),
+        ok: true,
+        fellThrough,
+      });
       return;
     } catch (err) {
       lastError = err;
       // Once text has reached the client we can't silently restart on another
       // provider — the output would be spliced mid-sentence.
       if (emitted) {
+        void recordResolution(task, {
+          provider,
+          model: '',
+          at: new Date().toISOString(),
+          ok: false,
+          fellThrough,
+          error: `interrupted mid-stream: ${messageOf(err)}`,
+        });
         yield {
           type: 'error',
           message: `Stream interrupted (${provider}).`,
         };
         return;
       }
+      fellThrough.push({ provider, error: messageOf(err).slice(0, 300) });
       console.warn(`[model-routing] ${provider} failed for "${task}":`, err);
     }
   }
+
+  // Nobody answered. Recorded against the LAST provider tried, with the whole
+  // fall-through chain attached — "all three failed" is the finding, and which
+  // one failed last is the least interesting part of it.
+  void recordResolution(task, {
+    provider: chain[chain.length - 1],
+    model: '',
+    at: new Date().toISOString(),
+    ok: false,
+    fellThrough: fellThrough.slice(0, -1),
+    error: messageOf(lastError ?? new Error(`All providers failed for task "${task}".`)).slice(0, 300),
+  });
 
   throw lastError instanceof Error
     ? lastError

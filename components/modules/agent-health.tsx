@@ -39,6 +39,56 @@ interface StatusResponse {
   summary?: { total: number; ok: number; failing: number; stale: number; neverRun: number };
 }
 
+interface ModelProbeRow {
+  provider: string;
+  model: string;
+  envVar: string;
+  status: 'resolves' | 'retired' | 'throttled' | 'unauthorized' | 'unreachable' | 'not-configured';
+  action: string;
+  httpStatus: number | null;
+  alternatives: string[];
+  tasks: string[];
+  explanation: string;
+}
+
+interface ModelHealthResponse {
+  ok: boolean;
+  worst: string;
+  headline: string;
+  probes: ModelProbeRow[];
+  resolutions: {
+    task: string;
+    chain: string[];
+    stale: boolean;
+    resolution: {
+      provider: string;
+      model: string;
+      at: string;
+      ok: boolean;
+      fellThrough: { provider: string; error: string }[];
+      error?: string;
+    } | null;
+  }[];
+  fellThroughLastRun: { provider: string; error: string }[];
+}
+
+/**
+ * Colour by how PERMANENT the problem is, not how loud it is.
+ *
+ * `retired` is red because nothing but a human changing an env var will fix
+ * it. `throttled` is amber because it clears on the provider's clock.
+ * `not-configured` is neutral — a deployment choice is not a fault, and
+ * painting it red teaches people to ignore red.
+ */
+const MODEL_STATUS_STYLES: Record<ModelProbeRow['status'], { dot: string; label: string }> = {
+  resolves: { dot: 'bg-success', label: 'Resolves' },
+  retired: { dot: 'bg-danger', label: 'Retired' },
+  unauthorized: { dot: 'bg-danger', label: 'Key rejected' },
+  throttled: { dot: 'bg-warning', label: 'Rate-limited' },
+  unreachable: { dot: 'bg-warning', label: 'Unreachable' },
+  'not-configured': { dot: 'bg-rule', label: 'No key' },
+};
+
 export default function AgentHealth() {
   const [data, setData] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,24 +102,39 @@ export default function AgentHealth() {
    * status readable, and vice versa.
    */
   const [drift, setDrift] = useState<DriftResponse | null>(null);
+  /**
+   * MODEL HEALTH IS THE THIRD INDEPENDENT FETCH, for the same reason.
+   *
+   * Gemini retired a model and Groq hit its daily ceiling in the same hour, and
+   * the first place either appeared was a log line. A provider deprecating out
+   * from under us is not something any test here can catch — only asking the
+   * live API can. Two dead providers should be on the page, not in a log.
+   */
+  const [models, setModels] = useState<ModelHealthResponse | null>(null);
 
   async function load() {
     setLoading(true);
     try {
       const res = await fetch('/api/agents/status');
       setData((await res.json()) as StatusResponse);
-      // Independent: a drift failure must not blank the job table.
-      try {
-        const d = await fetch('/api/schema/drift');
-        setDrift((await d.json()) as DriftResponse);
-      } catch {
-        setDrift(null);
-      }
     } catch {
       setData(null);
-    } finally {
-      setLoading(false);
     }
+    // Independent: a drift failure must not blank the job table, and a model
+    // probe timing out must not blank either of the other two.
+    try {
+      const d = await fetch('/api/schema/drift');
+      setDrift((await d.json()) as DriftResponse);
+    } catch {
+      setDrift(null);
+    }
+    try {
+      const m = await fetch('/api/models/health');
+      setModels((await m.json()) as ModelHealthResponse);
+    } catch {
+      setModels(null);
+    }
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -84,16 +149,26 @@ export default function AgentHealth() {
     );
   }
 
-  if (!data) {
-    return <p className="text-sm text-text-dim">Could not reach the agent status endpoint.</p>;
-  }
-
-  if (!data.persistence) {
+  /**
+   * ⚠️ THE EARLY RETURNS USED TO TAKE THE WHOLE PAGE WITH THEM.
+   *
+   * A failed `/api/agents/status` fetch returned before anything else
+   * rendered, which would have hidden model health and schema drift behind an
+   * unrelated outage — rebuilding, one level up, the exact coupling the three
+   * separate fetches exist to prevent. Each section now renders its own
+   * unavailability and nothing else's.
+   */
+  if (!data || !data.persistence) {
     return (
-      <p className="rounded-card border border-rule bg-bg-raised px-3.5 py-2.5 text-sm text-text-dim">
-        {data.note ??
-          'Supabase is not configured, so run records cannot be stored. Job status is unknown — not healthy.'}
-      </p>
+      <div className="space-y-3">
+        <p className="rounded-card border border-rule bg-bg-raised px-3.5 py-2.5 text-sm text-text-dim">
+          {!data
+            ? 'Could not reach the agent status endpoint. Job status is unknown — not healthy.'
+            : (data.note ??
+              'Supabase is not configured, so run records cannot be stored. Job status is unknown — not healthy.')}
+        </p>
+        <ModelHealth models={models} />
+      </div>
     );
   }
 
@@ -238,6 +313,124 @@ export default function AgentHealth() {
           </>
         )}
       </div>
+
+      <ModelHealth models={models} />
+    </div>
+  );
+}
+
+/**
+ * MODEL HEALTH — two independent readings, deliberately not folded together.
+ *
+ * `probes` ask each provider whether the configured model id still exists.
+ * `resolutions` record what the last real call actually did, including every
+ * provider it fell through on the way. A model can exist and still be
+ * rate-limited, and a call can succeed having burned two dead providers to get
+ * there — so neither reading answers alone, and one merged number derived from
+ * two partial truths is how "six idle jobs" happened.
+ */
+function ModelHealth({ models }: { models: ModelHealthResponse | null }) {
+  return (
+    <div className="border-t border-rule pt-4">
+      <div className="flex items-baseline justify-between">
+        <p className="eyebrow">Model health</p>
+        <p className="text-2xs text-text-faint">
+          {models === null ? 'not checked' : `${models.probes.length} configured`}
+        </p>
+      </div>
+
+      {models === null ? (
+        <p className="mt-1.5 text-2xs text-text-faint">
+          The model check did not answer. That is not the same as every model being
+          reachable — it means nothing asked.
+        </p>
+      ) : (
+        <>
+          <p
+            className={cn(
+              'mt-1.5 text-2xs',
+              models.ok ? 'text-text-dim' : 'text-danger',
+            )}
+          >
+            {models.headline}
+          </p>
+
+          <ul className="mt-2 space-y-1.5">
+            {models.probes.map((p) => {
+              const style = MODEL_STATUS_STYLES[p.status];
+              return (
+                <li key={`${p.provider}-${p.model}`} className="text-2xs">
+                  <span className="inline-flex items-baseline gap-1.5">
+                    <span
+                      className={cn('mt-1 h-1.5 w-1.5 shrink-0 self-center rounded-full', style.dot)}
+                      aria-hidden
+                    />
+                    <span className="font-mono text-text">{p.model}</span>
+                    <span className="text-text-faint">
+                      {p.provider} · {style.label}
+                      {p.httpStatus ? ` (${p.httpStatus})` : ''}
+                    </span>
+                  </span>
+                  {p.status === 'retired' ? (
+                    /* The only row that needs a human. It names the env var
+                       rather than the file, because the fix is a deploy
+                       setting — nothing here selects a replacement. */
+                    <span className="mt-0.5 block max-w-col-clamp text-danger">
+                      Gone for good — set <span className="font-mono">{p.envVar}</span>.{' '}
+                      {p.alternatives.length
+                        ? `Currently offered: ${p.alternatives.slice(0, 6).join(', ')}`
+                        : 'The provider returned no alternatives list.'}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+
+          {models.fellThroughLastRun.length > 0 ? (
+            /* THE FINDING THAT WAS INVISIBLE. A task can report success having
+               fallen through two failing providers to get there — the summary
+               appears, the sweep goes green, and both cheap tiers are down. */
+            <div className="mt-2.5 rounded-sm border border-rule bg-bg-raised px-2.5 py-1.5">
+              <p className="text-2xs text-text-dim">
+                Fell through on the last real call:
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {models.fellThroughLastRun.map((f) => (
+                  <li key={`${f.provider}-${f.error}`} className="text-2xs text-text-faint">
+                    <span className="font-mono text-text-dim">{f.provider}</span> — {f.error}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {models.resolutions.length > 0 ? (
+            <div className="mt-2.5">
+              <p className="text-2xs text-text-faint">Last resolved to</p>
+              <ul className="mt-1 space-y-0.5">
+                {models.resolutions.map((r) => (
+                  <li key={r.task} className="text-2xs">
+                    <span className="font-mono text-text-dim">{r.task}</span>{' '}
+                    <span className={r.resolution?.ok ? 'text-text-faint' : 'text-danger'}>
+                      {r.resolution
+                        ? r.resolution.ok
+                          ? `${r.resolution.provider} · ${r.resolution.model} · ${relativeTime(r.resolution.at)}`
+                          : `no provider answered — ${r.resolution.error ?? 'unknown'}`
+                        : 'never called'}
+                      {r.stale ? ' · stale' : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="mt-2.5 text-2xs text-text-faint">
+              No task has recorded a resolution yet. Absent, not healthy.
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }

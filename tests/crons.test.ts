@@ -490,3 +490,78 @@ describe('the sweep counts dedupe and the cap separately', () => {
     expect(src).toContain('Cache lookup failed');
   });
 });
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * A JOB'S DISPLAYED SCHEDULE IS A CLAIM ABOUT vercel.json.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * Two of them were false. `weekly-recap` displayed "Mondays · 12:00 UTC" long
+ * after the recap moved to `0 17 * * 5` to match the Friday ritual, and
+ * `feed-health` still said "Mondays · 09:00 UTC" after being moved to daily.
+ * Both were hand-written strings beside a schedule nobody re-read.
+ *
+ * The status page exists to say whether scheduled work is alive. A row with
+ * the wrong schedule reports a healthy job as overdue, or a dead one as fine.
+ * Checklist rule 15 — a label is an assertion about what produced it.
+ */
+describe('every displayed schedule matches the file that actually schedules it', () => {
+  it('reads a daily expression', async () => {
+    const { describeCron } = await import('@/lib/agent-runs');
+    expect(describeCron('0 10 * * *')).toBe('Daily · 10:00 UTC');
+  });
+
+  it('reads a weekday expression', async () => {
+    const { describeCron } = await import('@/lib/agent-runs');
+    expect(describeCron('0 17 * * 5')).toBe('Fridays · 17:00 UTC');
+    expect(describeCron('30 9 * * 1')).toBe('Mondays · 09:30 UTC');
+  });
+
+  it('returns anything it cannot read VERBATIM rather than guessing', async () => {
+    // A plausible-but-wrong sentence is worse than an obvious cron expression:
+    // one sends the reader to the schedule, the other does not.
+    const { describeCron } = await import('@/lib/agent-runs');
+    expect(describeCron('0 10 1 * *')).toBe('0 10 1 * *');
+    expect(describeCron('*/15 * * * *')).toBe('*/15 * * * *');
+    expect(describeCron('0 9 * * 1-5')).toBe('0 9 * * 1-5');
+    expect(describeCron('nonsense')).toBe('nonsense');
+  });
+
+  it('EVERY Vercel job label equals its cron in vercel.json', async () => {
+    const { AGENT_JOBS, VERCEL_JOB_PATHS, describeCron } = await import('@/lib/agent-runs');
+    const cfg = JSON.parse(await readFile('vercel.json', 'utf8')) as {
+      crons: { path: string; schedule: string }[];
+    };
+
+    const vercelJobs = AGENT_JOBS.filter((j) => j.runner === 'vercel');
+    // Rule 10: a parameterized test over an empty set cannot fail.
+    expect(vercelJobs.length).toBeGreaterThan(0);
+
+    for (const job of vercelJobs) {
+      const path = VERCEL_JOB_PATHS[job.id];
+      expect(path, `${job.id} has no path mapping`).toBeTruthy();
+      const cron = cfg.crons.find((c) => c.path === path);
+      expect(cron, `${job.id} is declared but not scheduled in vercel.json`).toBeTruthy();
+      expect(describeCron(cron!.schedule), `${job.id} label drifted`).toBe(job.schedule);
+    }
+  });
+
+  it('every cron in vercel.json has a declared job — an unlisted one is invisible', async () => {
+    const { VERCEL_JOB_PATHS } = await import('@/lib/agent-runs');
+    const cfg = JSON.parse(await readFile('vercel.json', 'utf8')) as {
+      crons: { path: string }[];
+    };
+    const mapped = new Set(Object.values(VERCEL_JOB_PATHS));
+    for (const cron of cfg.crons) {
+      expect(mapped.has(cron.path), `${cron.path} runs but no AGENT_JOBS row reports on it`).toBe(true);
+    }
+  });
+
+  it('a job that runs daily is not given a two-week staleness budget', async () => {
+    // feed-health moved Monday → daily and kept a 16-day budget, which is two
+    // weeks of silence before the surface would say anything.
+    const src = await readFile('lib/agent-runs.ts', 'utf8');
+    const block = /const STALE_AFTER_MS[\s\S]*?\n\};/.exec(src)![0];
+    expect(block).toContain("'feed-health': 3 * 24 * 3600_000");
+  });
+});
