@@ -143,6 +143,27 @@ export function probeDiagnosis(status: number, raw: string, url: string): string
   const internal = !/^https?:\/\/(?!.*(?:vercel\.app|localhost|127\.0\.0\.1))/i.test(url)
     || /\/api\//.test(url);
 
+  // ⚠️ A REDIRECT IS ITS OWN FINDING, AND THIS BRANCH WAS MISSING.
+  //
+  // The daily probe failed for weeks reading "unparseable non-HTML (HTTP 302):
+  // Redirecting…" — true, and useless. A 302 with a `Redirecting` body is not
+  // a malformed feed; it is something standing in front of the request. On an
+  // internal callback that is almost always Deployment Protection bouncing the
+  // caller into an SSO login, which is a configuration finding and sends the
+  // reader somewhere completely different from "the publisher moved the feed".
+  //
+  // Detection is only half the job. A check that fires correctly and names the
+  // wrong cause costs more than one that stays quiet.
+  if (status >= 300 && status < 400) {
+    return internal
+      ? `Probe was REDIRECTED (HTTP ${status}) calling its own route ${url} — ` +
+        `something is standing in front of an internal endpoint, almost always ` +
+        `Deployment Protection bouncing the request to an SSO login. This is ` +
+        `configuration, not a moved feed. Body: ${head}`
+      : `Probe was REDIRECTED (HTTP ${status}) by ${url} — the source has moved ` +
+        `and the new location is in the Location header. Body: ${head}`;
+  }
+
   if (!looksHtml) {
     return `Probe returned unparseable non-HTML (HTTP ${status}): ${head}`;
   }

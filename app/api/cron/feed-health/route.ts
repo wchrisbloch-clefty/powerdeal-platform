@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { isCronAuthorized } from '@/lib/cron-auth';
-import { storeFeedHealth, parseProbeBody, probeDiagnosis } from '@/lib/feed-health';
+import { storeFeedHealth } from '@/lib/feed-health';
+import { probeAllSources } from '@/lib/feed-health-probe';
 import { withRunRecord } from '@/lib/agent-runs';
 
 export const dynamic = 'force-dynamic';
@@ -15,9 +16,19 @@ export const maxDuration = 300;
  * that quietly started 404ing three weeks ago and made the stream a little
  * thinner every day since.
  *
- * The probe itself lives in /api/feed/health. This calls that route rather than
- * duplicating it, so there is exactly one definition of what "healthy" means —
- * two probes that drift apart would be worse than one that runs less often.
+ * ⚠️ THIS USED TO fetch() ITS OWN DEPLOYMENT, AND FAILED EVERY DAY.
+ *
+ * Vercel Deployment Protection 302'd the request into an SSO login. The cron's
+ * inbound request to THIS route carries Vercel's own auth; the second request
+ * it then made back to itself carried nothing, so protection bounced it. The
+ * body was `Redirecting...` and the run recorded a failure daily.
+ *
+ * The reasoning behind the round trip was right — call the probe rather than
+ * duplicate it, so there is exactly one definition of "healthy" and two probes
+ * cannot drift apart. The transport was the mistake. `probeAllSources()` is
+ * that single definition, called IN PROCESS: no protection layer to satisfy,
+ * no origin to derive from a request host that may not be reachable from
+ * inside the function, no second cold start, no network.
  */
 export async function GET(request: NextRequest) {
   if (!isCronAuthorized(request)) {
@@ -26,32 +37,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const snapshot = await withRunRecord('feed-health', async () => {
-      const origin = new URL(request.url).origin;
-      const res = await fetch(`${origin}/api/feed/health`, {
-        headers: { 'x-cron-secret': process.env.CRON_SECRET ?? '' },
-        // Do not follow a redirect into a login page and then try to parse it.
-        // A 3xx here is a finding, not a step on the way to the answer.
-        redirect: 'manual',
-      });
-
-      const raw = await res.text();
-      const parsed = parseProbeBody(raw);
-
-      // ⚠️ THE PROBE CRASHED ON THE CONDITION IT EXISTS TO DETECT.
+      // No fetch, no parse, no transport that can be intercepted. The two
+      // failure modes this block used to guard against — an HTML login page
+      // and an unparseable body — cannot occur across a function call.
       //
-      // `await res.json()` on an HTML body threw "Unexpected token '<'", which
-      // took the whole run down as an exception. A probe whose job is noticing
-      // that a response stopped being parseable, and which dies when a response
-      // stops being parseable, is blind in exactly the way a check that only
-      // ever sees the passing case is blind.
-      //
-      // So a non-parseable body is now a RESULT with a diagnosis attached.
-      if (!parsed.ok) {
-        throw new Error(probeDiagnosis(res.status, raw, `${origin}/api/feed/health`));
-      }
-      if (!res.ok) throw new Error(`Probe failed (${res.status}).`);
-
-      const sources = parsed.sources;
+      // `parseProbeBody` and `probeDiagnosis` are NOT deleted. The Sources
+      // panel still reads this over HTTP, and a diagnosis path removed because
+      // its current caller stopped triggering it is a path that rots until the
+      // day something else does. Both stay covered by tests/crons.test.ts.
+      const sources = await probeAllSources();
       if (sources.length === 0) throw new Error('Probe returned no sources.');
 
       const stored = await storeFeedHealth(

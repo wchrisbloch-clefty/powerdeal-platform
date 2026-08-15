@@ -114,15 +114,25 @@ describe('feed-health treats an unparseable body as a finding, not a crash', () 
       .toContain('<!DOCTYPE html><title>Login</title>');
   });
 
-  it('does not follow a redirect into a login page and parse it', async () => {
+  it('cannot follow a redirect into a login page, because it makes no request', async () => {
+    // This assertion MOVED WITH THE FIX rather than being deleted. It used to
+    // require `redirect: 'manual'` on the cron's fetch — the right guard while
+    // there was a fetch. There is no fetch now: the cron calls the probe in
+    // process, so the redirect, the HTML body and the unparseable response are
+    // all unreachable rather than handled. Not making the request is strictly
+    // stronger than making it safely.
     const src = await readFile('app/api/cron/feed-health/route.ts', 'utf8');
-    expect(src).toContain("redirect: 'manual'");
-    // The body is read as TEXT and handed to a parser that cannot throw. The
-    // comment above it is allowed to name the call that used to be there —
-    // asserting on the bare substring failed on the explanation of the fix.
-    expect(src).toContain('await res.text()');
-    expect(src).toContain('parseProbeBody(raw)');
-    expect(src.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '')).not.toContain('res.json()');
+    const code = src.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toContain('fetch(');
+    expect(code).not.toContain('res.json()');
+    expect(code).not.toContain('res.text()');
+  });
+
+  it('but the HTTP path that REMAINS still refuses to parse a login page', async () => {
+    // The Sources panel reads /api/feed/health over the network, so the
+    // parse-cannot-throw guarantee still has a live caller.
+    expect(() => parseProbeBody('<!DOCTYPE html><html>Login')).not.toThrow();
+    expect(parseProbeBody('<!DOCTYPE html><html>Login').ok).toBe(false);
   });
 });
 
@@ -563,5 +573,108 @@ describe('every displayed schedule matches the file that actually schedules it',
     const src = await readFile('lib/agent-runs.ts', 'utf8');
     const block = /const STALE_AFTER_MS[\s\S]*?\n\};/.exec(src)![0];
     expect(block).toContain("'feed-health': 3 * 24 * 3600_000");
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * THE DAILY PROBE FETCHED ITS OWN DEPLOYMENT AND GOT AN SSO LOGIN.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * Observed in production: `Feed health probe — Failing. Probe returned
+ * unparseable non-HTML (HTTP 302): Redirecting…`, every day, 0.1s.
+ *
+ * The cron's INBOUND request carries Vercel's own auth. The second request it
+ * then made back to its own origin carried nothing, so Deployment Protection
+ * bounced it into a login. The other five jobs were healthy because none of
+ * them calls itself over HTTP.
+ */
+describe('feed-health calls the probe in process, not over the network', () => {
+  it('the cron makes no HTTP request at all', async () => {
+    const src = await readFile('app/api/cron/feed-health/route.ts', 'utf8');
+    const code = src.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toContain('fetch(');
+    // And it no longer derives an origin from the request host, which is not
+    // necessarily reachable from inside the function.
+    expect(code).not.toContain('new URL(request.url).origin');
+    expect(code).toContain('await probeAllSources()');
+  });
+
+  it('there is still exactly ONE definition of healthy', async () => {
+    // The round trip existed so the cron and the route could not drift apart.
+    // That reasoning was right; the transport was the mistake.
+    const cron = await readFile('app/api/cron/feed-health/route.ts', 'utf8');
+    const route = await readFile('app/api/feed/health/route.ts', 'utf8');
+    expect(cron).toContain("from '@/lib/feed-health-probe'");
+    expect(route).toContain("from '@/lib/feed-health-probe'");
+    // Neither re-implements the probe.
+    const lib = await readFile('lib/feed-health-probe.ts', 'utf8');
+    expect(lib).toContain('export async function probeAllSources');
+    for (const src of [cron, route]) {
+      expect(src).not.toContain('async function probeUrl(');
+    }
+  });
+
+  it('the shared probe is server-only', async () => {
+    const lib = await readFile('lib/feed-health-probe.ts', 'utf8');
+    expect(lib.startsWith("import 'server-only';")).toBe(true);
+  });
+
+  it('the interactive route still serves the Sources panel', async () => {
+    const route = await readFile('app/api/feed/health/route.ts', 'utf8');
+    expect(route).toContain('export async function GET');
+    expect(route).toContain('candidates');
+  });
+});
+
+describe('a redirect is its own diagnosis, not "unparseable non-HTML"', () => {
+  it('names Deployment Protection on an INTERNAL callback', async () => {
+    // The message that shipped was true and useless: it sent the reader
+    // looking for a moved publisher feed when the caller had been bounced to
+    // an SSO login. Detection is half the job — a check that fires correctly
+    // and names the wrong cause costs more than one that stays quiet.
+    const d = probeDiagnosis(302, 'Redirecting...', 'https://x.vercel.app/api/feed/health');
+    expect(d).toContain('REDIRECTED');
+    expect(d).toContain('Deployment Protection');
+    expect(d).toContain('not a moved feed');
+    expect(d).not.toContain('unparseable non-HTML');
+  });
+
+  it('names a MOVED SOURCE on an external one, and points at the header', () => {
+    const d = probeDiagnosis(301, 'Moved', 'https://news.example.com/rss');
+    expect(d).toContain('REDIRECTED');
+    expect(d).toContain('has moved');
+    expect(d).toContain('Location header');
+    expect(d).not.toContain('Deployment Protection');
+  });
+
+  it('covers the whole 3xx range, not just 302', () => {
+    for (const status of [300, 301, 302, 303, 307, 308]) {
+      expect(probeDiagnosis(status, 'Redirecting...', 'https://x/api/feed/health')).toContain(
+        'REDIRECTED',
+      );
+    }
+  });
+
+  it('and 2xx / 4xx / 5xx still take their own branches', () => {
+    // The redirect branch must not swallow the cases that were already right.
+    expect(probeDiagnosis(500, 'upstream timeout', 'https://news.example.com/rss')).toContain(
+      'unparseable non-HTML',
+    );
+    expect(
+      probeDiagnosis(200, '<!DOCTYPE html><html>Page not found', 'https://news.example.com/rss'),
+    ).toContain('most likely moved');
+    expect(
+      probeDiagnosis(200, '<!DOCTYPE html><html>Authentication', 'https://x.vercel.app/api/feed/health'),
+    ).toContain('deployment configuration');
+  });
+
+  it('the parser and the diagnosis are KEPT, not deleted with their caller', async () => {
+    // The Sources panel still reads this over HTTP. A diagnosis path removed
+    // because its current caller stopped triggering it is a path that rots
+    // until the day something else does.
+    const lib = await readFile('lib/feed-health.ts', 'utf8');
+    expect(lib).toContain('export function parseProbeBody');
+    expect(lib).toContain('export function probeDiagnosis');
   });
 });
