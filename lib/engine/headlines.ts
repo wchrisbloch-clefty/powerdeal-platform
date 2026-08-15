@@ -122,6 +122,20 @@ function recencyPoints(item: FeedItem, now: number): number {
 export interface RankOptions {
   limit?: number;
   /**
+   * ⚠️ FALSE WHEN THE DEALS COULD NOT BE READ AT ALL.
+   *
+   * "13 mapped deal IDs no longer resolve to a deal" was printed on a run
+   * where ZERO deals had been loaded because the query failed. Every deal_id
+   * on every item was unresolvable, and the message asserted they had been
+   * DELETED — a confident claim about the pipeline derived from a failure to
+   * read it. The count said 13 and the truth was "nothing was looked up".
+   *
+   * This is the seed-state split arriving inside the ranker: an empty deal
+   * list means "no deals" only when the read succeeded. When it did not, the
+   * orphan check is not run and the gap says so instead.
+   */
+  dealsReadable?: boolean;
+  /**
    * Include items that touch no pipeline account. Default true: an item about
    * a utility rate case matters even before it is mapped to a deal, and
    * filtering it out would make the view quietly narrower than the feed.
@@ -135,7 +149,7 @@ export function rankHeadlines(
   now: number = Date.now(),
   options: RankOptions = {},
 ): Headline[] {
-  const { limit = 12, includeUnmapped = true } = options;
+  const { limit = 12, includeUnmapped = true, dealsReadable = true } = options;
   const byId = new Map(deals.map((d) => [d.id, d]));
 
   const scored: Headline[] = [];
@@ -193,10 +207,14 @@ export function rankHeadlines(
       }
     }
 
-    const orphaned = (item.deal_ids?.length ?? 0) - accounts.length;
-    if (orphaned > 0) {
+    const unresolved = (item.deal_ids?.length ?? 0) - accounts.length;
+    if (unresolved > 0) {
       gaps.push(
-        `${orphaned} mapped deal ID${orphaned === 1 ? '' : 's'} no longer resolve to a deal.`,
+        dealsReadable
+          ? `${unresolved} mapped deal ID${unresolved === 1 ? '' : 's'} no longer resolve to a deal.`
+          : // NOT "no longer resolve". Nothing was looked up.
+            `${unresolved} account mapping${unresolved === 1 ? '' : 's'} could not be checked — ` +
+            `the deals query failed, so whether they still exist is unknown.`,
       );
     }
 

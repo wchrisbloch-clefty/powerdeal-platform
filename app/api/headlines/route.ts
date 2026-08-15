@@ -3,6 +3,7 @@ import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { rankHeadlines, headlineSummary } from '@/lib/engine/headlines';
 import { classifySeedState, describeSeedState } from '@/lib/seed-state';
 import type { Deal, FeedItem } from '@/lib/types';
+import { explainFailure, keyShape } from '@/lib/supabase/diagnose';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,7 +66,17 @@ export async function GET() {
 
   const dealState = classifySeedState<Deal>({
     rows: dealRes.data as Deal[] | null,
-    error: dealRes.error,
+    // The raw message says WHAT ("JWT issued at future") and not WHERE. The
+    // diagnosis names the client, the key scheme and the actual fix.
+    error: dealRes.error
+      ? {
+          message: explainFailure({
+            client: 'service-role',
+            message: dealRes.error.message,
+            key: keyShape(process.env.SUPABASE_SERVICE_ROLE_KEY),
+          }),
+        }
+      : null,
   });
 
   const items = (feedRes.data ?? []) as FeedItem[];
@@ -75,7 +86,11 @@ export async function GET() {
   // account, so the ranking falls back to provenance and recency — narrower,
   // still useful, and `deal_state` says why it is narrower. Refusing to rank
   // would be a hard gate, and there are none here.
-  const headlines = rankHeadlines(items, deals, Date.now(), { limit: 12 });
+  const headlines = rankHeadlines(items, deals, Date.now(), {
+    limit: 12,
+    // A failed read must not make the ranker claim every mapping is dangling.
+    dealsReadable: dealState.kind !== 'unreadable',
+  });
 
   return NextResponse.json({
     headlines,

@@ -1,5 +1,6 @@
 import 'server-only';
 import { ownerSelect } from './supabase/admin';
+import { explainFailure, keyShape } from './supabase/diagnose';
 import { SEED_DEALS, SEED_FEED_ITEMS } from './seed-data';
 import type {
   Deal, FeedItem, Signal, MarketWatchEntry, CcusEvent,
@@ -23,43 +24,83 @@ import type {
  * This file is `server-only`. None of it can reach a client bundle.
  */
 
+/**
+ * Turn a raw supabase-js message into one that names the client, the key
+ * scheme and the fix. "JWT issued at future" is a symptom; this says where.
+ */
+function describeReadFailure(message: string): string {
+  return explainFailure({
+    client: 'service-role',
+    message,
+    key: keyShape(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  });
+}
+
 export interface DataResult<T> {
   data: T;
   /** True when this came from the local seed rather than the database. */
   isSeed: boolean;
+  /**
+   * ⚠️ SET WHEN THE READ FAILED, AS OPPOSED TO NOT BEING CONFIGURED.
+   *
+   * Both fall back to seed data and both set `isSeed`, and for a long time the
+   * Dashboard printed the same sentence for both: "Showing template data.
+   * Connect Supabase to load your real pipeline." That instruction is correct
+   * for an unconfigured deployment and WRONG for a configured one whose key is
+   * being rejected — it sends the reader to connect something already
+   * connected.
+   *
+   * It is also nearly invisible, because SEED_DEALS has exactly 21 deals and
+   * so does the live pipeline. A rejected key renders 21 plausible rows under
+   * a banner that reads like setup advice.
+   *
+   * Null means "seed because nothing is configured", which is a deployment
+   * state. A string means "seed because the database refused us", which is an
+   * outage, and it carries the diagnosis — which client, which key scheme, and
+   * the actual fix.
+   */
+  readError: string | null;
 }
 
 export async function getDeals(): Promise<DataResult<Deal[]>> {
   const query = ownerSelect('deals');
-  if (!query) return { data: SEED_DEALS, isSeed: true };
+  if (!query) return { data: SEED_DEALS, isSeed: true, readError: null };
 
   const { data, error } = await query
     .neq('stage', 'Archived')
     .order('health_score', { ascending: true });
 
   if (error) {
-    console.warn('[data] getDeals failed:', error.message);
-    return { data: SEED_DEALS, isSeed: true };
+    // NOT the same as unconfigured. Named, with the diagnosis attached.
+    const why = describeReadFailure(error.message);
+    console.warn('[data] getDeals failed:', why);
+    return { data: SEED_DEALS, isSeed: true, readError: why };
   }
 
   // An empty table on a signed-in account means the seed hasn't run yet.
-  if (!data || data.length === 0) return { data: SEED_DEALS, isSeed: true };
-  return { data: data as Deal[], isSeed: false };
+  if (!data || data.length === 0) return { data: SEED_DEALS, isSeed: true, readError: null };
+  return { data: data as Deal[], isSeed: false, readError: null };
 }
 
 export async function getDeal(id: string): Promise<DataResult<Deal | null>> {
   const query = ownerSelect('deals');
   if (!query) {
-    return { data: SEED_DEALS.find((d) => d.id === id) ?? null, isSeed: true };
+    return { data: SEED_DEALS.find((d) => d.id === id) ?? null, isSeed: true, readError: null };
   }
 
   const { data, error } = await query.eq('id', id).maybeSingle();
 
   if (error || !data) {
     const seeded = SEED_DEALS.find((d) => d.id === id) ?? null;
-    return { data: seeded, isSeed: seeded !== null };
+    // A missing row and a refused query are different states. Only the second
+    // carries a readError; `!data` alone means the deal genuinely is not there.
+    return {
+      data: seeded,
+      isSeed: seeded !== null,
+      readError: error ? describeReadFailure(error.message) : null,
+    };
   }
-  return { data: data as Deal, isSeed: false };
+  return { data: data as Deal, isSeed: false, readError: null };
 }
 
 export async function getSignalsForDeal(dealId: string): Promise<Signal[]> {
@@ -129,7 +170,7 @@ export interface FeedQuery {
 
 export async function getFeedItems(q: FeedQuery = {}): Promise<DataResult<FeedItem[]>> {
   const base = ownerSelect('feed_items');
-  if (!base) return { data: SEED_FEED_ITEMS, isSeed: true };
+  if (!base) return { data: SEED_FEED_ITEMS, isSeed: true, readError: null };
 
   const limit = q.limit ?? 20;
   let query = base
@@ -142,21 +183,21 @@ export async function getFeedItems(q: FeedQuery = {}): Promise<DataResult<FeedIt
   const { data, error } = await query;
   if (error) {
     console.warn('[data] getFeedItems failed:', error.message);
-    return { data: SEED_FEED_ITEMS, isSeed: true };
+    return { data: SEED_FEED_ITEMS, isSeed: true, readError: null };
   }
-  if (!data || data.length === 0) return { data: SEED_FEED_ITEMS, isSeed: true };
-  return { data: data as FeedItem[], isSeed: false };
+  if (!data || data.length === 0) return { data: SEED_FEED_ITEMS, isSeed: true, readError: null };
+  return { data: data as FeedItem[], isSeed: false, readError: null };
 }
 
 export async function getCcusEvents(limit = 40): Promise<DataResult<CcusEvent[]>> {
   const query = ownerSelect('ccus_events');
-  if (!query) return { data: [], isSeed: true };
+  if (!query) return { data: [], isSeed: true, readError: null };
 
   const { data } = await query
     .order('event_date', { ascending: false, nullsFirst: false })
     .limit(limit);
 
-  return { data: (data ?? []) as CcusEvent[], isSeed: false };
+  return { data: (data ?? []) as CcusEvent[], isSeed: false, readError: null };
 }
 
 export async function getUserSettings(): Promise<UserSettings | null> {
