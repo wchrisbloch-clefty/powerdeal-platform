@@ -1,6 +1,7 @@
 import { powerdeal } from './verticals/powerdeal';
 import type { SourceConfig, VerticalConfig, ModuleId } from './verticals/types';
 import type { SourcePrefs } from './types';
+import { relayConfig, relayUsable } from './engine/feed-relay';
 
 /**
  * Vertical registry. Adding a vertical is one import + one entry here — every
@@ -55,8 +56,16 @@ export function resolveSources(
   // `blocked` sources are listed in the Sources tab so the gap is legible, but
   // never fetched — polling a known 403 every sweep just adds latency and log
   // noise to a hole we already understand.
+  //
+  // UNLESS A RELAY IS CONFIGURED. thundersaidenergy.com blocks Vercel's IP
+  // ranges, not this platform; a Worker on an address it does not block can
+  // reach it. When FEED_RELAY_URL and FEED_RELAY_TOKEN are BOTH set, blocked
+  // sources come back into the fetch list and route through it. Half
+  // configured is treated as not configured — see lib/engine/feed-relay.ts,
+  // where an unauthenticated URL-taking endpoint is an open proxy.
+  const relayOn = relayUsable(relayConfig());
   const core = vertical.sources.filter(
-    (s) => !muted.has(s.id) && s.status !== 'blocked',
+    (s) => !muted.has(s.id) && (relayOn || s.status !== 'blocked'),
   );
   const discovery = vertical.discovery.filter(
     (s) => enabled.has(s.id) || s.enabledByDefault === true,

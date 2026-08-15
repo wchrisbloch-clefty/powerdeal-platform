@@ -2,6 +2,7 @@ import Parser from 'rss-parser';
 import type { SourceConfig } from '@/lib/verticals/types';
 import { canonicalUrl, hashString } from '@/lib/utils';
 import { FEED_REQUEST_HEADERS } from './feed-headers';
+import { relayConfig, relayRequest, shouldRelay, type RelayConfig } from './feed-relay';
 
 /**
  * RSS ingestion. Every source in the vertical config is an open feed — no
@@ -73,7 +74,13 @@ function pickImage(item: Record<string, unknown>): string | null {
 /** Fetch and normalize one source. Returns [] on any failure. */
 export async function fetchSource(source: SourceConfig): Promise<RawItem[]> {
   try {
-    const feed = await parser.parseURL(source.url);
+    // A `blocked` source reaches us only when a relay is configured — see
+    // resolveSources. Fetched by hand and parsed from the string, because
+    // parseURL does its own fetch and cannot carry the relay's auth header.
+    const config = relayConfig();
+    const feed = shouldRelay(source, config)
+      ? await parser.parseString(await fetchThroughRelay(source.url, config))
+      : await parser.parseURL(source.url);
     const items = feed.items ?? [];
 
     return items.flatMap((item): RawItem[] => {
@@ -141,6 +148,27 @@ export async function fetchSources(
 
   await Promise.all(workers);
   return dedupe(out);
+}
+
+/**
+ * Fetch one URL through the relay.
+ *
+ * Throws on anything but a 2xx, so the caller's existing catch records it as a
+ * source failure exactly like a direct fetch would. The relay's own status
+ * codes are distinguishable in the message — a 403 from the WORKER means the
+ * allowlist rejected the host, which is a configuration finding and not a
+ * publisher blocking us again.
+ */
+async function fetchThroughRelay(url: string, config: RelayConfig): Promise<string> {
+  const request = relayRequest(url, config);
+  if (!request) throw new Error('Relay is not usable.');
+
+  const res = await fetch(request.url, { headers: request.headers });
+  if (!res.ok) {
+    const body = (await res.text().catch(() => '')).slice(0, 200);
+    throw new Error(`Relay ${res.status} for ${url}: ${body}`);
+  }
+  return res.text();
 }
 
 /** Collapse items that appear in more than one feed, newest wins. */
