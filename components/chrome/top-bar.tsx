@@ -19,10 +19,11 @@ import { cn } from '@/lib/utils';
  * Below md the bottom tab bar owns navigation, so this thin bar has the row to
  * itself and keeps the full search input.
  *
- * Sign-in was removed — the deployment is single-user behind Vercel SSO — so
- * there is no account chip or sign-out control here any more. Leaving a
- * sign-out button that cleared a session nothing depends on would have been a
- * dead affordance.
+ * No account chip and no sign-out here. There IS a session now — one shared
+ * password, one signed cookie — but sign-out lives where each form factor
+ * already puts its controls: in `NavBar` on md and up, and in the tab bar's
+ * More sheet below it. A third copy in this row would be the same action in
+ * two places on the same screen.
  */
 export default function TopBar() {
   const router = useRouter();

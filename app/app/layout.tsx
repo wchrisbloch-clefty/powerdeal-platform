@@ -9,22 +9,24 @@ export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   /**
-   * NO AUTH GATE. Sign-in was removed deliberately.
+   * NO GATE IN THIS LAYOUT, AND THAT IS NOT THE SAME AS NO GATE.
    *
-   * This deployment serves one operator and sits behind Vercel SSO, so a
-   * second auth layer was redundant friction. Every /app/* page and API route
-   * now reads through the service role scoped to POWERDEAL_USER_ID — see
-   * lib/supabase/admin.ts for why that scope is applied in code rather than
-   * by the database.
+   * middleware.ts runs before every request to every path and refuses anything
+   * without a valid session cookie. Checking again here would be a second
+   * boundary that can disagree with the first, and the one a reader trusts
+   * would be whichever they happened to find.
    *
-   * RLS policies remain on every table, untouched. They are simply not
-   * consulted on this path, so restoring real auth is a client swap rather
-   * than a migration.
+   * ⚠️ The gate is the MIDDLEWARE, not this file and not the hosting platform.
+   * This comment used to read "Vercel SSO is the ONLY thing standing in front
+   * of this data" — which was true, and the thing it named turned out not to
+   * cover the production alias. Both /app and /api returned 200 to an
+   * unauthenticated curl. Do not put the boundary back in someone else's
+   * dashboard.
    *
-   * WHAT THIS MEANS: Vercel SSO is the ONLY thing standing in front of this
-   * data. Deployment protection is set to all_except_custom_domains, so
-   * attaching a custom domain would expose the app unauthenticated. Revisit
-   * protection before doing that.
+   * Below the gate there is still no per-user session: every /app/* page and
+   * API route reads through the service role scoped in code to
+   * POWERDEAL_USER_ID — see lib/supabase/admin.ts. RLS policies remain on
+   * every table, untouched, simply not consulted on this path.
    */
 
   // Warnings, never errors — the product runs with zero keys (GLOBAL RULE 4).

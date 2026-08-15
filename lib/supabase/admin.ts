@@ -5,10 +5,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 /**
  * Service-role data access for the single-user deployment.
  *
- * WHY THIS EXISTS: sign-in was removed — the deployment sits behind Vercel
- * SSO for one operator, so a second auth layer was friction. But RLS on every
- * table keys off auth.uid(), and with no session that is null, so an anon
- * client returns zero rows from every table. The service role bypasses RLS.
+ * WHY THIS EXISTS: there is no per-user sign-in. The whole app sits behind one
+ * shared password enforced by middleware.ts, so no Supabase session is ever
+ * established. RLS on every table keys off auth.uid(), which is null without
+ * one, so an anon client returns zero rows from every table. The service role
+ * bypasses RLS.
+ *
+ * ⚠️ THAT PASSWORD IS THE ONLY THING IN FRONT OF THIS CLIENT. Nothing below
+ * this line distinguishes the operator from anyone who got past the gate.
  *
  * RLS POLICIES ARE DELIBERATELY LEFT IN PLACE. Nothing here disables them;
  * they simply are not consulted on this path. The moment real auth returns,
