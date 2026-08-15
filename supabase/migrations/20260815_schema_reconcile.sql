@@ -96,8 +96,7 @@ create index if not exists feed_items_user_idx on feed_items(user_id);
 create index if not exists ccus_events_date_idx on ccus_events(event_date desc);
 create index if not exists ccus_events_state_idx on ccus_events(state);
 create index if not exists ccus_events_user_idx on ccus_events(user_id);
-create unique index if not exists prompts_one_active_per_module
-  on prompts(module, user_id) where is_active;
+
 
 -- Deferred deliberately: the `utilities` and `state_market_structure` indexes
 -- belong to the utility-structure migration. Creating an index on a table this
