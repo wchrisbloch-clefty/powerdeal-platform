@@ -12,6 +12,7 @@ import Button from '@/components/ui/button';
 import Badge from '@/components/ui/badge';
 import AgentHealth from './agent-health';
 import UsageReport from './usage-report';
+import SpineExport from './spine-export';
 
 const DEFAULTS: Required<Pick<UserSettings, 'watchlist'>> = {
   watchlist: { accounts: [], topics: [], verticals: [], utilities: [] },
@@ -170,6 +171,26 @@ export default function SettingsPanel({
         </CardHeader>
         <CardBody>
           <AgentHealth />
+        </CardBody>
+      </Card>
+
+      {/* ── Spine export ──
+          The pinned Pipeline-Spine.md had already drifted: BAE at 6/10 health
+          against a database computing 4 after the critical-event cap. A
+          hand-maintained copy of a computed number is wrong from the first
+          time the computation changes. */}
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Pipeline Spine export</CardTitle>
+            <p className="mt-0.5 text-xs text-text-dim">
+              The current pipeline as markdown, for re-pinning in the Claude project.
+              Every figure is computed at export time and the file says when.
+            </p>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <SpineExport />
         </CardBody>
       </Card>
 
