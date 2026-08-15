@@ -402,6 +402,24 @@ create table if not exists app_state (
 -- ═══════════════════════════════════════════════════════
 -- ROW LEVEL SECURITY — every table, every command
 -- ═══════════════════════════════════════════════════════
+-- ── LEARN SESSIONS ────────────────────────────────────────
+-- Resume-only persistence. NO numeric column, deliberately — see
+-- supabase/migrations/20260815_learn_sessions.sql for why the table has
+-- nowhere to put a score.
+create table if not exists learn_sessions (
+  id              uuid primary key default uuid_generate_v4(),
+  mode            text not null,
+  opener          text not null,
+  turns           jsonb not null default '[]'::jsonb,
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now(),
+  user_id         uuid references auth.users(id) on delete cascade
+);
+
+create index if not exists learn_sessions_user_idx    on learn_sessions(user_id);
+create index if not exists learn_sessions_updated_idx on learn_sessions(updated_at desc);
+create index if not exists learn_sessions_mode_idx    on learn_sessions(mode);
+
 alter table deals              enable row level security;
 alter table contacts           enable row level security;
 alter table stage_transitions  enable row level security;
@@ -413,6 +431,7 @@ alter table ccus_events        enable row level security;
 alter table prompts            enable row level security;
 alter table user_settings      enable row level security;
 alter table app_state          enable row level security;
+alter table learn_sessions     enable row level security;
 
 -- Policies are written with an explicit WITH CHECK so INSERT and UPDATE are
 -- gated as tightly as SELECT — a user can never write a row owned by someone
@@ -422,7 +441,8 @@ declare t text;
 begin
   foreach t in array array[
     'deals','contacts','stage_transitions','win_loss_log','intelligence_log',
-    'market_watch_log','feed_items','ccus_events','prompts','user_settings','app_state'
+    'market_watch_log','feed_items','ccus_events','prompts','user_settings','app_state',
+    'learn_sessions'
   ]
   loop
     execute format('drop policy if exists users_own_rows on %I', t);

@@ -38,6 +38,7 @@ export type TaskKind =
   | 'no-decision-card' // No-decision card, per deal → Claude (domain)
   | 'pricing-defense-card' // Pricing defense vs one posture → Claude (domain)
   | 'meeting-prep' // Persona + stage-aware meeting brief → Claude (domain)
+  | 'learn' // Teaching the doctrine back to the rep → Claude (domain)
   | 'persuade' // Persuasion enhancement → Claude (domain)
   | 'forge-doc' // Document generation (PPTX/DOCX) → Claude (domain)
   | 'recap'; // Weekly recap → Claude Haiku (structured)
@@ -58,6 +59,11 @@ export const DOMAIN_TASKS: readonly TaskKind[] = [
   'no-decision-card',
   'pricing-defense-card',
   'meeting-prep',
+  // Learn teaches the methodology itself. If the output quality IS the product
+  // anywhere, it is on the surface whose whole job is making somebody more
+  // accurate — a cheaper model here would teach a subtly wrong version of the
+  // doctrine, and the reader has no way to tell.
+  'learn',
 ];
 
 export function isDomainTask(task: TaskKind): boolean {
@@ -84,6 +90,7 @@ const ORDER: Record<TaskKind, Provider[]> = {
   'no-decision-card': ['claude'],
   'pricing-defense-card': ['claude'],
   'meeting-prep': ['claude'],
+  learn: ['claude'],
   persuade: ['claude'],
   'forge-doc': ['claude'],
 };

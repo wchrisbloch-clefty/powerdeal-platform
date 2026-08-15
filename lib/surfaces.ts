@@ -23,6 +23,7 @@ export const KNOWN_SURFACES: KnownSurface[] = [
   { path: '/app/economics', label: 'Economics' },
   { path: '/app/forge', label: 'Forge' },
   { path: '/app/chat', label: 'Chat' },
+  { path: '/app/learn', label: 'Learn' },
   { path: '/app/settings', label: 'Settings' },
 
   /**

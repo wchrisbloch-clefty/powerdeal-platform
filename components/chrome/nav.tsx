@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home, BarChart3, RadioTower, Map,
-  FileText, MessageSquare, SlidersHorizontal, Calculator,
+  FileText, MessageSquare, SlidersHorizontal, Calculator, GraduationCap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Wordmark } from '@/components/ui/bloom-logo';
@@ -36,6 +36,10 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/app/economics', label: 'Economics', icon: Calculator },
   { href: '/app/forge', label: 'Forge', icon: FileText },
   { href: '/app/chat', label: 'Chat', icon: MessageSquare, primary: true },
+  // Deliberately NOT primary. Learn is somewhere you go on purpose, in a gap
+  // between meetings — giving it top-level weight would spend attention on it
+  // during the hours that are for working deals.
+  { href: '/app/learn', label: 'Learn', icon: GraduationCap },
 ];
 
 /**
