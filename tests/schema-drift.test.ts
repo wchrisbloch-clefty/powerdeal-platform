@@ -221,3 +221,102 @@ describe('the route is non-gating', () => {
     expect(sql).toContain('create or replace function schema_snapshot()');
   });
 });
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * THE PARSER READ ONE OF THREE UNIQUE SYNTAXES.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * The first live run of /api/schema/drift reported 24 notices, and two of them
+ * were wrong: `user_settings.user_id` and `app_state (user_id, key)` came back
+ * as "the database enforces uniqueness that schema.sql does not declare."
+ * Both ARE declared — one column-level, one anonymous table-level. The file was
+ * right, the database was right, and the checker could read neither form.
+ *
+ * That is the worse direction for this module. A checker that invents findings
+ * gets muted, and a muted checker reads as coverage.
+ */
+describe('all three ways Postgres spells a unique constraint', () => {
+  it('named table-level — the form it already read', () => {
+    const m = parseSchemaManifest(`create table if not exists feed_items (
+  id uuid primary key,
+  user_id uuid,
+  url_hash text,
+  constraint feed_items_user_url_key unique (user_id, url_hash)
+);`);
+    expect(m[0].unique).toEqual([['user_id', 'url_hash']]);
+  });
+
+  it('ANONYMOUS table-level — app_state', () => {
+    const m = parseSchemaManifest(`create table if not exists app_state (
+  id uuid primary key,
+  user_id uuid,
+  key text not null,
+  unique(user_id, key)
+);`);
+    expect(m[0].unique).toEqual([['user_id', 'key']]);
+    // And it is not also counted as a column called "unique".
+    expect(m[0].columns).toEqual(['id', 'user_id', 'key']);
+  });
+
+  it('COLUMN-level — user_settings.user_id', () => {
+    const m = parseSchemaManifest(`create table if not exists user_settings (
+  id uuid primary key,
+  user_id uuid references auth.users(id) on delete cascade unique,
+  theme text
+);`);
+    expect(m[0].unique).toEqual([['user_id']]);
+    expect(m[0].columns).toEqual(['id', 'user_id', 'theme']);
+  });
+
+  it('does NOT manufacture a constraint from a column merely NAMED unique-ish', () => {
+    // A false unique reports the database as MISSING one, sending somebody to
+    // write a migration for a constraint that should not exist.
+    const m = parseSchemaManifest(`create table if not exists t (
+  id uuid primary key,
+  unique_key text,
+  uniqueness numeric
+);`);
+    expect(m[0].unique).toEqual([]);
+    expect(m[0].columns).toEqual(['id', 'unique_key', 'uniqueness']);
+  });
+
+  it('does NOT read the word out of a trailing comment', () => {
+    const m = parseSchemaManifest(`create table if not exists t (
+  id uuid primary key,
+  slug text -- must be unique per tenant, enforced in app code
+);`);
+    expect(m[0].unique).toEqual([]);
+  });
+
+  it('the REAL schema.sql declares both constraints the live run flagged', async () => {
+    // The regression, against the actual file rather than a fixture.
+    const sql = await readFile('supabase/schema.sql', 'utf8');
+    const manifest = parseSchemaManifest(sql);
+
+    const settings = manifest.find((t) => t.table === 'user_settings')!;
+    expect(settings.unique).toContainEqual(['user_id']);
+
+    const state = manifest.find((t) => t.table === 'app_state')!;
+    expect(state.unique).toContainEqual(['user_id', 'key']);
+  });
+
+  it('so neither reports as extra-unique against a database that has them', async () => {
+    const sql = await readFile('supabase/schema.sql', 'utf8');
+    const manifest = parseSchemaManifest(sql);
+    const live: LiveTable[] = [
+      {
+        table_name: 'app_state',
+        columns: manifest.find((t) => t.table === 'app_state')!.columns,
+        unique_constraints: ['user_id,key'],
+        indexes: [],
+      },
+    ];
+    const drift = compareSchema(
+      manifest.filter((t) => t.table === 'app_state'),
+      live,
+    );
+    expect(drift.filter((d) => d.kind === 'extra-unique')).toEqual([]);
+    expect(drift.filter((d) => d.kind === 'missing-unique')).toEqual([]);
+  });
+});

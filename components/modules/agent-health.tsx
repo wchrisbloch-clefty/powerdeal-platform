@@ -264,13 +264,31 @@ export default function AgentHealth() {
       <div className="border-t border-rule pt-4">
         <div className="flex items-baseline justify-between">
           <p className="eyebrow">Schema drift</p>
-          <p className="text-2xs text-text-faint">
-            {drift === null
-              ? 'not checked'
-              : drift.error
-                ? 'could not read'
-                : `${drift.checkedTables} tables`}
-          </p>
+          {/* THE NUMBER THAT SHOULD BE ZERO, SHOWN WHETHER OR NOT IT IS.
+              A count that only appears when it is non-zero is a count nobody
+              learns the shape of, so a clean run reads the same as a check
+              that did not happen. Zero is rendered as a fact, in the same
+              place, at the same size. */}
+          {drift === null || drift.error ? (
+            <p className="text-2xs text-text-faint">
+              {drift === null ? 'not checked' : 'could not read'}
+            </p>
+          ) : (
+            <p className="text-2xs">
+              <span
+                className={cn(
+                  'font-mono',
+                  drift.blocking > 0 ? 'text-danger' : 'text-success',
+                )}
+              >
+                {drift.blocking}
+              </span>{' '}
+              <span className="text-text-faint">
+                blocking · {drift.notices} notice{drift.notices === 1 ? '' : 's'} ·{' '}
+                {drift.checkedTables} tables
+              </span>
+            </p>
+          )}
         </div>
 
         {drift === null ? (
@@ -288,10 +306,6 @@ export default function AgentHealth() {
           </p>
         ) : (
           <>
-            <p className="mt-1.5 text-2xs text-text-dim">
-              {drift.blocking} blocking · {drift.notices} notice
-              {drift.notices === 1 ? '' : 's'}
-            </p>
             <ul className="mt-2 space-y-1.5">
               {drift.drift.slice(0, 8).map((d) => (
                 <li key={`${d.table}-${d.kind}-${d.detail}`} className="text-2xs">

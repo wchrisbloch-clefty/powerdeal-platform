@@ -106,15 +106,59 @@ export function parseSchemaManifest(sql: string): TableManifest[] {
       const line = rawLine.replace(/--.*$/, '').trim();
       if (!line) continue;
 
-      const con = /^constraint\s+\w+\s+unique\s*\(([^)]+)\)/i.exec(line);
-      if (con) {
-        unique.push(con[1].split(',').map((c) => c.trim()));
+      /**
+       * ⚠️ POSTGRES HAS THREE WAYS TO SPELL A UNIQUE CONSTRAINT AND THIS
+       * PARSER READ ONE OF THEM.
+       *
+       * It matched only the NAMED table-level form. `schema.sql` also uses the
+       * anonymous table-level form (`unique(user_id, key)` on `app_state`) and
+       * the column-level form (`user_id uuid references … unique` on
+       * `user_settings`) — so both were reported as `extra-unique`: "the
+       * database enforces uniqueness that schema.sql does not declare."
+       *
+       * SCHEMA.SQL DECLARED THEM BOTH. The file was right, the database was
+       * right, and the checker could not read two of the three syntaxes.
+       *
+       * That is the worse failure direction for this module. A checker that
+       * invents findings gets muted, and a muted checker reads as coverage —
+       * which is the sentence already at the top of this file. Two false
+       * notices out of twenty-four is exactly how that starts.
+       *
+       * The fix is here, NOT in schema.sql. Rewriting the schema to a syntax
+       * the parser happens to understand is editing the thing being measured
+       * to satisfy the measurement.
+       */
+      const namedConstraint = /^constraint\s+\w+\s+unique\s*\(([^)]+)\)/i.exec(line);
+      if (namedConstraint) {
+        unique.push(namedConstraint[1].split(',').map((c) => c.trim()));
         continue;
       }
+
+      // Anonymous table-level: `unique(user_id, key)` / `unique (a, b)`
+      const anonConstraint = /^unique\s*\(([^)]+)\)/i.exec(line);
+      if (anonConstraint) {
+        unique.push(anonConstraint[1].split(',').map((c) => c.trim()));
+        continue;
+      }
+
       if (/^(constraint|primary key|unique|check|foreign key)\b/i.test(line)) continue;
 
       const col = /^([a-z_][a-z0-9_]*)\s+/i.exec(line);
-      if (col) columns.push(col[1]);
+      if (col) {
+        columns.push(col[1]);
+        // Column-level: `user_id uuid references auth.users(id) … unique,`
+        //
+        // Matched on the line AFTER the column name is taken, and anchored on
+        // a word boundary so a column literally named `unique_key` or a
+        // comment containing the word does not manufacture a constraint. A
+        // false unique here would report the database as MISSING one, which
+        // sends someone to write a migration for a constraint that should not
+        // exist.
+        const withoutComment = line.replace(/--.*$/, '');
+        if (/\bunique\b/i.test(withoutComment) && !/^unique\b/i.test(withoutComment)) {
+          unique.push([col[1]]);
+        }
+      }
     }
 
     out.push({ table, columns, unique, indexes: [] });
