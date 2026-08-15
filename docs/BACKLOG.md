@@ -436,7 +436,45 @@ should pull what it needs rather than all six.
 
 ## 9. `vertical-playbooks.md` wants splitting by vertical
 
-**Status:** logged, not built — CB's call
+**Status:** DESIGN SETTLED, BLOCKED ON A DOCTRINE VERSION — 2026-08-15
+
+CB chose the option this entry recommended: **declare all three, select at load
+time from `deal.vertical`. Not wildcarded.** That closes the only open design
+question here.
+
+### Why it did not ship in the same pass
+
+The split cannot land green without editing §6, and §6 is doctrine.
+
+`lib/skills/registry.ts` pins the knowledge set exactly and the suite asserts
+that every name in §6 resolves to a file and that every registered file is
+named in §6 — in both directions, deliberately. Replacing one filename with
+three therefore requires the **Knowledge files** line of §6 to change, which
+means a new system prompt version, a changelog entry, `POWERDEAL_VERSION` in
+`lib/brand.ts`, and the prompt filename that the suite holds to it.
+
+Every prompt version so far has been authored by CB and delivered whole.
+Minting v3.1.12 to carry a filing change is a bigger footprint than the change
+warrants, and it is not a call to make unilaterally. The forcing function
+working exactly as designed is what surfaced this.
+
+### What is ready the moment the §6 line changes
+
+The split itself is mechanical and was verified: three files at ~4.5k, ~4.6k
+and ~3.7k chars, content **byte-identical to the original sections** — a
+reference file is filed, not rewritten, and editing it to read better
+standalone would destroy the record of what it said.
+
+Replace the §6 knowledge line's `vertical-playbooks.md` with:
+
+    `vertical-refining.md` · `vertical-data-center.md` · `vertical-industrial.md`
+
+Then, in one commit: write the three files, swap the `KNOWLEDGE` entry for
+three, update the six skills that declare it, and add the deal-vertical
+selection. Six skills declare the combined file today and **not one needs more
+than one vertical at a time** — the heaviest call (`four-lever-calculator`,
+`prospect-originator`) drops from ~8,351 tokens to roughly 6,000.
+
 **Found:** 2026-08-14, sizing the knowledge shelf for declared dependencies
 **Severity:** wasted context on every vertical-specific call, and irrelevant
 doctrine in front of the model
@@ -475,3 +513,42 @@ split happens rather than now.
 `vertical-playbooks.md` covers three verticals; §2 names **four** (Defense is in
 the target market with no playbook). Splitting is the moment to notice whether
 Defense should have one, which is a content question, not a code one.
+
+---
+
+## 12. Recip and fuel-cell preset data
+
+**Status:** BLOCKED — environmental, 2026-08-15
+**Severity:** `recip-engine` is an empty preset the economics page offers and
+cannot fill
+
+`lib/economics/presets.ts` carries `recip-engine` as `emptyTech()` with the note
+"Not covered by Lazard v18.0." The fix is real vendor numbers — capex/kW, O&M,
+heat rate, lead time, asset life — from public spec sheets.
+
+### Why it is blocked rather than open
+
+**The build environment has no egress to any of the sources.** Verified
+directly: `cat.com`, `wartsila.com`, `jenbacher.com`, `bloomenergy.com`,
+`nrel.gov` and `eia.gov` all return `CONNECT tunnel failed, response 403` from
+the agent proxy, which allows only package registries. `WebFetch` is blocked on
+the same domains.
+
+### Why nothing was written anyway
+
+The preset system is provenance-tiered: every value carries a source and a date
+and renders as VERIFIED, REPORTED or INFERRED. Filling these from recollection
+would put a remembered figure behind a citation to a document nobody read,
+inside the one surface whose entire purpose is that its numbers are traceable.
+An unsourced number that looks sourced is worse than an empty preset, and the
+empty preset already says why it is empty.
+
+**Never fabricate a number to fill a gap** applies here more sharply than
+anywhere else in the platform.
+
+### What unblocks it
+
+Any one of: a spec sheet PDF dropped into the repo, the numbers supplied
+directly with their source and date, or an environment with egress to the
+vendor domains. The shape to fill is `sourcedRange(low, high, unit, tier,
+source, date)` — the same one every populated preset uses.
