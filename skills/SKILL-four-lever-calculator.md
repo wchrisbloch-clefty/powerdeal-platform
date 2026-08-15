@@ -1,6 +1,6 @@
 ---
 name: four-lever-calculator
-knowledge: [ercot-market-primer.md, permitting-playbook.md, vertical-playbooks.md, reference-bundle.md]
+knowledge: [ercot-market-primer.md, permitting-playbook.md, vertical-playbook-refining.md, vertical-playbook-data-centers.md, vertical-playbook-industrial.md, reference-bundle.md]
 description: >
   Run a quantified four-lever diagnostic for any prospect or active deal. Triggers on: "run the calculator",
   "four-lever analysis", "quantify the value", "what's the value case", "build the value case", "what's our

@@ -213,3 +213,79 @@ describe('the four features that were reading a frozen field', () => {
     expect(item1).toMatch(/\*\*Status:\*\*\s*(shipped|closed|landed)/i);
   });
 });
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * `Archived` IS THE LAST ELEMENT OF DEAL_STAGES AND IS NOT THE FURTHEST ALONG.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * The ladder ends in OUTCOMES, not progress: Closed-Won, Post-Sale, Archived.
+ * Any code that reads the array positionally inherits that, and it has already
+ * produced two live bugs in two different files — a linear stage weight in the
+ * headline ranker that ranked archived accounts above deals in Negotiation, and
+ * `directionOf` scoring a loss as forward movement.
+ *
+ * These assertions are the general form: whatever a module does with an index
+ * over DEAL_STAGES, it must first decide what a terminal state means there.
+ */
+describe('nothing treats a terminal stage as a rung on the ladder', () => {
+  it('losing a deal is NOT forward movement', async () => {
+    const { directionOf } = await import('@/lib/stage');
+    // Archived is index 10. A raw index comparison called this "forward".
+    expect(directionOf('Discovery', 'Archived')).toBe('terminal');
+    expect(directionOf('Negotiation', 'Archived')).toBe('terminal');
+    expect(directionOf('Closed-Won', 'Archived')).toBe('terminal');
+  });
+
+  it('reopening is its own direction, not "backward"', async () => {
+    const { directionOf } = await import('@/lib/stage');
+    expect(directionOf('Archived', 'Discovery')).toBe('reopen');
+  });
+
+  it('but the in-flight ladder still reads normally', async () => {
+    const { directionOf } = await import('@/lib/stage');
+    expect(directionOf('Qualified', 'Discovery')).toBe('forward');
+    expect(directionOf('Negotiation', 'Discovery')).toBe('backward');
+    expect(directionOf('Discovery', 'Discovery')).toBe('lateral');
+    // Post-Sale after Closed-Won IS progress — those two keep their positions.
+    expect(directionOf('Closed-Won', 'Post-Sale')).toBe('forward');
+  });
+
+  it('Post-Sale does NOT suggest Archived as the next step', async () => {
+    // v3.1.11, in so many words: "Never treat `Archived` as something a deal
+    // progresses into from `Post-Sale`." It was suggested first, because it is
+    // the array element after it.
+    const { stageOptions } = await import('@/lib/stage');
+    expect(stageOptions('Post-Sale')[0]).not.toBe('Archived');
+  });
+
+  it('but Archived stays REACHABLE from every stage — it is not hidden', async () => {
+    const { stageOptions } = await import('@/lib/stage');
+    const { DEAL_STAGES } = await import('@/lib/types');
+    for (const s of DEAL_STAGES) {
+      if (s === 'Archived') continue;
+      expect(stageOptions(s), `${s} cannot reach Archived`).toContain('Archived');
+    }
+  });
+
+  it('the headline ranker made the same decision, and did not copy the list', async () => {
+    // Two modules, one rule. The ranker derives its in-flight set from
+    // DEAL_STAGES rather than keeping a second copy.
+    const src = await readFile('lib/engine/headlines.ts', 'utf8');
+    expect(src).toContain('IN_FLIGHT_STAGES');
+    expect(src).toContain('TERMINAL_STAGES.includes');
+    const code = src.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
+    // No hand-written ladder — a copy is a copy that drifts on the first rename.
+    expect(code).not.toContain("'Prospecting',");
+  });
+
+  it('there is exactly ONE stage ladder in the codebase', async () => {
+    // lib/deals.ts carried a second, hand-maintained list of ten stages that
+    // omitted Archived and returned 99 for it. Nothing imported it, so it had
+    // drifted from DEAL_STAGES unnoticed.
+    const deals = await readFile('lib/deals.ts', 'utf8');
+    const code = deals.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toContain("'Economic Proposal', 'Negotiation'");
+    expect(code).not.toContain('export function stageIndex');
+  });
+});

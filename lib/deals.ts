@@ -404,11 +404,14 @@ export function stageClass(stage: string): string {
   }
 }
 
-export function stageIndex(stage: string): number {
-  const order = [
-    'Prospecting', 'Qualified', 'Intro Call', 'Discovery', 'Solution Design',
-    'Economic Proposal', 'Negotiation', 'Contracting', 'Closed-Won', 'Post-Sale',
-  ];
-  const i = order.indexOf(stage);
-  return i === -1 ? 99 : i;
-}
+/**
+ * ⚠️ A SECOND, HAND-MAINTAINED STAGE LADDER LIVED HERE AND IS DELETED.
+ *
+ * It listed ten stages, omitted `Archived` entirely, and returned 99 for
+ * anything it did not recognise — so an archived deal sorted after every live
+ * one by accident rather than by decision. Nothing imported it; it had drifted
+ * from `DEAL_STAGES` unnoticed because no caller ever exercised it.
+ *
+ * `stageIndex` lives in `lib/stage.ts`, derived from `DEAL_STAGES`. Two ladders
+ * that agree today are two ladders that disagree after the first rename.
+ */

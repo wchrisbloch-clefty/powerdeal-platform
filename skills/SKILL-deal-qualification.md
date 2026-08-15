@@ -1,6 +1,6 @@
 ---
 name: deal-qualification
-knowledge: [reference-bundle.md, vertical-playbooks.md, permitting-playbook.md]
+knowledge: [reference-bundle.md, vertical-playbook-refining.md, vertical-playbook-data-centers.md, vertical-playbook-industrial.md, permitting-playbook.md]
 description: >
   Score any prospect or deal against the PowerDeal ICP and qualification framework to determine
   pursue/no-go/conditional. Triggers on: "qualify this deal", "should we pursue", "is this a

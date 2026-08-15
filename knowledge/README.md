@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | Location | `knowledge/` at the repo root, beside `prompts/` and `skills/` |
-| Filename | exactly as §6 names it — `competitive-matrix.md`, `PowerBD.pdf` |
+| Filename | exactly as §6 names it — `competitive-matrix.md`, `vertical-playbook-refining.md` |
 | Registry | `lib/skills/registry.ts` → `KNOWLEDGE` |
 | Loader | `lib/skills/knowledge.ts` — server-only, reads verbatim |
 
@@ -97,14 +97,18 @@ is why it lives here and not in the prompt.
 
 ## Status
 
-Six on disk, six in §6, and six is the final set.
+Eight on disk, eight in §6. Six was the final set until v3.1.12 split
+`vertical-playbooks.md` into three — one file became three, the shelf did not
+grow.
 
 | File | Status | Chars |
 |---|---|---|
 | `competitive-matrix.md` | present | 5,291 |
 | `ercot-market-primer.md` | present | 2,756 |
 | `permitting-playbook.md` | present | 3,620 |
-| `vertical-playbooks.md` | present | 10,846 |
+| `vertical-playbook-refining.md` | present | 4,540 |
+| `vertical-playbook-data-centers.md` | present | 4,614 |
+| `vertical-playbook-industrial.md` | present | 3,710 |
 | `objection-battlecards.md` | present | 9,718 |
 | `reference-bundle.md` | present | 15,803 |
 
@@ -133,3 +137,44 @@ take it under 6k without touching anything else.
 Every file is declared by at least one skill, asserted in both directions — a
 registered file nothing names is material the platform carries and can never
 show a model, which is §6 naming a ghost, inverted.
+
+## Vertical playbooks are declared per vertical, never wildcarded
+
+v3.1.12 split `vertical-playbooks.md` into three. It carried refining, data
+centers and industrial manufacturing in one file at ~2,700 tokens, six of the
+seventeen skills declared it, and **not one of them needs more than one vertical
+at a time** — a defense call carried hyperscaler clean-energy clauses and
+refinery steam balance.
+
+A skill still **declares all three.** The declaration stays static and
+auditable, exactly as §6 requires; `selectPlaybook(deal.vertical)` drops the two
+that do not apply at load. There is no `vertical-*` glob and no filename
+pattern-match at runtime — a wildcard would put the one place this build has
+deliberately kept literal back into guessing.
+
+**"None" is a real answer and is said out loud.** §2 names four verticals and
+three playbooks exist:
+
+| Vertical | Playbook |
+|---|---|
+| `O&G-Down` | refining |
+| `Data Center` | data-centers |
+| `Industrial-Chemical` · `-Semicon` · `-Other` | industrial |
+| `Defense` · `Defense/Special` | **none — named absent, never substituted** |
+| `O&G-Up` · `O&G-Mid` | **none** — the refining playbook is DOWNSTREAM |
+| `Other-*` | none |
+
+`PLAYBOOK_FOR` has an entry for every member of `VERTICALS` and the suite
+asserts it, so a new vertical fails the build here rather than falling through
+a default into whichever playbook the code reached for. An unrecognised vertical
+is reported as unrecognised, not defaulted.
+
+Handing a defense account the data-center playbook because it is the nearest
+neighbour is worse than handing it nothing: clauses written for someone else
+read as authoritative doctrine to a model that cannot tell.
+
+| | files | ~tokens |
+|---|---|---|
+| Heaviest declared call, before the split | 4 | 8,351 |
+| Heaviest declared call, after (one vertical loaded) | 4 | ~6,000 |
+| A defense deal on the same skill | 3 | ~4,900 |

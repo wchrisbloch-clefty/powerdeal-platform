@@ -61,7 +61,7 @@ describe('§6 parsing', () => {
    */
   it('finds all three lines and returns names, not empty lists', () => {
     expect(parseSection6Skills(promptText).length).toBe(17);
-    expect(parseSection6Knowledge(promptText).length).toBe(6);
+    expect(parseSection6Knowledge(promptText).length).toBe(8);
     expect(parseSection6Capabilities(promptText).length).toBe(2);
   });
 
@@ -344,7 +344,7 @@ describe('knowledge files §6 names', () => {
       present: KNOWLEDGE.filter((k) => k.status === 'present').length,
       awaited: KNOWLEDGE.filter((k) => k.status === 'awaited').length,
       retired: RETIRED_KNOWLEDGE.map((k) => k.filename),
-    }).toEqual({ present: 6, awaited: 0, retired: [] });
+    }).toEqual({ present: 8, awaited: 0, retired: [] });
   });
 
   it.skipIf(KNOWLEDGE.every((k) => k.status === 'present'))(
@@ -758,7 +758,12 @@ describe('every skill declares the knowledge it reasons over', () => {
    * `business-case-engine` and `meeting-prep` sat built and uncallable.
    */
   it('every knowledge file is declared by at least one skill', () => {
-    const declared = new Set(SKILLS.flatMap((s) => knowledgeForSkill(s.slug).files));
+    // `declaredFiles`, NOT `files`. Since v3.1.12 `files` is narrowed to the
+    // deal's vertical, so with no vertical supplied it holds no playbook at
+    // all — and this assertion would report all three as orphans while every
+    // one of them is declared by six skills. The question here is what the
+    // frontmatter names, which does not vary by deal.
+    const declared = new Set(SKILLS.flatMap((s) => knowledgeForSkill(s.slug).declaredFiles));
     const orphans = KNOWLEDGE.filter((k) => k.status === 'present')
       .map((k) => k.filename)
       .filter((f) => !declared.has(f));
@@ -773,9 +778,17 @@ describe('every skill declares the knowledge it reasons over', () => {
     // A skill declares what its OWN prose needs. account-strategy synthesizes
     // across verticals and competitive position; it does not re-declare the
     // financial and permitting sources its children carry.
-    expect(knowledgeForSkill('account-strategy').files.sort()).toEqual([
+    expect(knowledgeForSkill('account-strategy').declaredFiles.sort()).toEqual([
       'competitive-matrix.md',
-      'vertical-playbooks.md',
+      'vertical-playbook-data-centers.md',
+      'vertical-playbook-industrial.md',
+      'vertical-playbook-refining.md',
+    ]);
+    // And with a vertical, exactly ONE playbook survives — the declaration
+    // stays static and auditable while the load stays narrow.
+    expect(knowledgeForSkill('account-strategy', 'Data Center').files.sort()).toEqual([
+      'competitive-matrix.md',
+      'vertical-playbook-data-centers.md',
     ]);
     // Inheritance is an optimization, not a contract — but `[]` is still the
     // right answer for a skill that genuinely reasons over no reference
@@ -853,5 +866,255 @@ describe('every skill declares the knowledge it reasons over', () => {
     const readme = await readFile(join(SKILLS_DIR, 'README.md'), 'utf-8');
     expect(readme).toContain('knowledge:');
     expect(readme.toLowerCase()).toContain('backtick');
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * v3.1.12 — ONE VERTICAL PLAYBOOK, SELECTED, NEVER WILDCARDED.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * `vertical-playbooks.md` carried all three at ~2,700 tokens and six of the
+ * seventeen skills declared it, while not one of them needs more than one
+ * vertical at a time. A defense call was carrying hyperscaler clean-energy
+ * clauses and refinery steam balance.
+ *
+ * The doctrine's own words: declared, not wildcarded; Defense has no playbook
+ * and must be named absent rather than substituted by the nearest neighbour.
+ */
+describe('the vertical playbook is selected, and "none" is a real answer', () => {
+  it('maps each vertical that HAS a playbook', async () => {
+    const { selectPlaybook, REFINING, DATA_CENTERS, INDUSTRIAL } = await import(
+      '@/lib/skills/vertical-playbook'
+    );
+    expect(selectPlaybook('O&G-Down')).toMatchObject({ kind: 'selected', file: REFINING });
+    expect(selectPlaybook('Data Center')).toMatchObject({ kind: 'selected', file: DATA_CENTERS });
+    for (const v of ['Industrial-Chemical', 'Industrial-Semicon', 'Industrial-Other']) {
+      expect(selectPlaybook(v)).toMatchObject({ kind: 'selected', file: INDUSTRIAL });
+    }
+  });
+
+  it('DEFENSE gets none, and the reason forbids substituting one', async () => {
+    // §2 names four verticals and three playbooks exist. This is the case the
+    // doctrine calls out by name.
+    const { selectPlaybook } = await import('@/lib/skills/vertical-playbook');
+    for (const v of ['Defense', 'Defense/Special']) {
+      const s = selectPlaybook(v);
+      expect(s.kind).toBe('none-exists');
+      expect(s.kind === 'none-exists' && s.reason).toContain('Do not substitute');
+    }
+  });
+
+  it('upstream and midstream get none — the refining playbook is DOWNSTREAM', async () => {
+    // Crack spreads, cogen steam balance and HGB non-attainment describe a
+    // refinery, not a wellhead. Nearest-neighbour is the failure, not the fix.
+    const { selectPlaybook } = await import('@/lib/skills/vertical-playbook');
+    for (const v of ['O&G-Up', 'O&G-Mid']) {
+      const s = selectPlaybook(v);
+      expect(s.kind).toBe('none-exists');
+      expect(s.kind === 'none-exists' && s.reason).toContain('DOWNSTREAM');
+    }
+  });
+
+  it('an UNKNOWN vertical is unknown, not defaulted into a playbook', async () => {
+    // A typo or a value from an older schema must not silently receive
+    // whichever playbook the fallback happened to be.
+    const { selectPlaybook } = await import('@/lib/skills/vertical-playbook');
+    const s = selectPlaybook('Datacenter');
+    expect(s.kind).toBe('unknown-vertical');
+    expect(s.kind === 'unknown-vertical' && s.reason).toContain('Nothing is substituted');
+  });
+
+  it('no vertical at all is reported, not guessed', async () => {
+    const { selectPlaybook } = await import('@/lib/skills/vertical-playbook');
+    for (const v of [null, undefined, '', '   ']) {
+      expect(selectPlaybook(v).kind).toBe('unknown-vertical');
+    }
+  });
+
+  it('EVERY vertical in lib/types.ts is mapped explicitly — no default branch', async () => {
+    // The forcing function. A vertical added to VERTICALS must be decided here
+    // rather than falling through into whichever playbook the code reached for.
+    const { selectPlaybook } = await import('@/lib/skills/vertical-playbook');
+    const { VERTICALS } = await import('@/lib/types');
+    expect(VERTICALS.length).toBeGreaterThan(0);
+    for (const v of VERTICALS) {
+      const s = selectPlaybook(v);
+      expect(s.kind, `${v} fell through to unknown — add it to PLAYBOOK_FOR`).not.toBe(
+        'unknown-vertical',
+      );
+      if (s.kind === 'none-exists') expect(s.reason.length).toBeGreaterThan(20);
+    }
+  });
+
+  it('narrowing keeps ONE playbook and every non-playbook file', async () => {
+    const { narrowToVertical, selectPlaybook, REFINING, DATA_CENTERS } = await import(
+      '@/lib/skills/vertical-playbook'
+    );
+    const declared = [
+      'competitive-matrix.md',
+      REFINING,
+      DATA_CENTERS,
+      'vertical-playbook-industrial.md',
+      'permitting-playbook.md',
+    ];
+    expect(narrowToVertical(declared, selectPlaybook('O&G-Down'))).toEqual([
+      'competitive-matrix.md',
+      REFINING,
+      'permitting-playbook.md',
+    ]);
+  });
+
+  it('narrowing to NO playbook still keeps the rest of the shelf', async () => {
+    // Defense loses its vertical doctrine, not its competitive matrix.
+    const { narrowToVertical, selectPlaybook } = await import('@/lib/skills/vertical-playbook');
+    const declared = [
+      'competitive-matrix.md',
+      'vertical-playbook-refining.md',
+      'vertical-playbook-data-centers.md',
+      'vertical-playbook-industrial.md',
+    ];
+    expect(narrowToVertical(declared, selectPlaybook('Defense'))).toEqual([
+      'competitive-matrix.md',
+    ]);
+  });
+
+  it('NEVER pattern-matches a filename — the selection is a literal map', async () => {
+    const src = await readFile('lib/skills/vertical-playbook.ts', 'utf8');
+    const code = src.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
+    // No glob, no prefix test, no regex over the shelf.
+    expect(code).not.toContain('startsWith');
+    expect(code).not.toMatch(/vertical-playbook-\$\{/);
+    expect(code).not.toContain("'vertical-*'");
+  });
+});
+
+describe('the shelf a skill loads is narrowed by the deal, never widened', () => {
+  it('a skill that declares all three loads exactly one', async () => {
+    const { knowledgeForSkill } = await import('@/lib/skills/knowledge');
+    const d = knowledgeForSkill('discovery-call-prep', 'Data Center');
+    const playbooks = d.files.filter((f) => f.startsWith('vertical-playbook-'));
+    expect(playbooks).toEqual(['vertical-playbook-data-centers.md']);
+    expect(d.declaredFiles.filter((f) => f.startsWith('vertical-playbook-'))).toHaveLength(3);
+  });
+
+  it('a defense deal loads NONE and the prompt says why', async () => {
+    const { knowledgeBlocksForSkill } = await import('@/lib/skills/knowledge');
+    const block = knowledgeBlocksForSkill('discovery-call-prep', 'Defense');
+    expect(block).not.toContain('PLAYBOOK 2');
+    expect(block).toContain('NO VERTICAL PLAYBOOK LOADED');
+    expect(block).toContain('Do not substitute');
+  });
+
+  it('a skill that declares NO playbook is not warned about a missing one', async () => {
+    // A shelf that cries wolf is a shelf whose warnings get skimmed.
+    const { knowledgeBlocksForSkill } = await import('@/lib/skills/knowledge');
+    expect(knowledgeBlocksForSkill('permitting-analyzer', 'Defense')).not.toContain(
+      'NO VERTICAL PLAYBOOK LOADED',
+    );
+  });
+
+  it('the happy path carries no reassuring sentence', async () => {
+    const { knowledgeBlocksForSkill } = await import('@/lib/skills/knowledge');
+    expect(knowledgeBlocksForSkill('discovery-call-prep', 'O&G-Down')).not.toContain(
+      'NO VERTICAL PLAYBOOK LOADED',
+    );
+  });
+
+  it('a playbook MISSING FROM DISK is reported on EVERY deal, not just its own vertical', async () => {
+    // The ordering property, proven with a state this repo does not contain.
+    //
+    // Two earlier attempts at this test were WRONG, and both are worth
+    // recording. The first asserted against real skill files, where nothing is
+    // broken — so the mutation that computed `unresolved` after narrowing
+    // passed the whole suite. The second used a MISSPELT filename, which
+    // `isVerticalPlaybook` does not recognise as a playbook at all, so
+    // narrowing never dropped it and both orderings agreed.
+    //
+    // The case that actually distinguishes them is a CORRECTLY NAMED playbook
+    // that will not load — deleted from disk, or unreadable. Narrowing drops
+    // it for every vertical but its own, so computing `unresolved` afterwards
+    // reports a broken shelf as clean for five verticals out of six.
+    const { resolveDeclaration, selectPlaybook } = await import(
+      '@/lib/skills/vertical-playbook'
+    );
+    const loadable = (f: string) => f !== 'vertical-playbook-refining.md';
+    const declared = [
+      'competitive-matrix.md',
+      'vertical-playbook-refining.md', // correctly named, gone from disk
+      'vertical-playbook-data-centers.md',
+    ];
+
+    // A data-center deal narrows the missing refining playbook away. It must
+    // STILL be reported — the declaration is broken for everyone.
+    const dc = resolveDeclaration(declared, selectPlaybook('Data Center'), loadable);
+    expect(dc.unresolved).toEqual(['vertical-playbook-refining.md']);
+    expect(dc.files).toEqual(['competitive-matrix.md', 'vertical-playbook-data-centers.md']);
+
+    // A defense deal narrows ALL playbooks away and must still report it.
+    const def = resolveDeclaration(declared, selectPlaybook('Defense'), loadable);
+    expect(def.unresolved).toEqual(['vertical-playbook-refining.md']);
+    expect(def.files).toEqual(['competitive-matrix.md']);
+
+    // And on its OWN vertical it is reported too — the check is not
+    // one-directional.
+    const ref = resolveDeclaration(declared, selectPlaybook('O&G-Down'), loadable);
+    expect(ref.unresolved).toEqual(['vertical-playbook-refining.md']);
+    expect(ref.files).toEqual(['competitive-matrix.md']);
+  });
+
+  it('a clean declaration reports nothing unresolved, so the check is not stuck on', async () => {
+    const { resolveDeclaration, selectPlaybook } = await import(
+      '@/lib/skills/vertical-playbook'
+    );
+    const r = resolveDeclaration(
+      ['competitive-matrix.md', 'vertical-playbook-refining.md'],
+      selectPlaybook('O&G-Down'),
+      () => true,
+    );
+    expect(r.unresolved).toEqual([]);
+  });
+
+  it('the real skills carry no broken declaration', async () => {
+    const { knowledgeForSkill } = await import('@/lib/skills/knowledge');
+    const d = knowledgeForSkill('discovery-call-prep', 'O&G-Down');
+    expect(d.unresolved).toEqual([]);
+    expect(d.declaredFiles.length).toBeGreaterThan(d.files.length);
+  });
+
+  it('the split actually cut the load — one vertical, not three', async () => {
+    const { knowledgeForSkill } = await import('@/lib/skills/knowledge');
+    const wide = knowledgeForSkill('four-lever-calculator').declaredFiles.length;
+    const narrow = knowledgeForSkill('four-lever-calculator', 'O&G-Down').files.length;
+    expect(narrow).toBeLessThan(wide);
+  });
+});
+
+describe('the old combined playbook is gone, not merely unreferenced', () => {
+  it('is off disk', async () => {
+    const { existsSync } = await import('node:fs');
+    expect(existsSync('knowledge/vertical-playbooks.md')).toBe(false);
+  });
+
+  it('is named nowhere in doctrine, skills or the registry', async () => {
+    const prompt = await readFile(PROMPT_PATH, 'utf8');
+    // The footer records the split by name, so the §6 KNOWLEDGE LINE is what
+    // must be clean rather than the whole file.
+    expect(parseSection6Knowledge(prompt)).not.toContain('vertical-playbooks.md');
+    const registry = await readFile('lib/skills/registry.ts', 'utf8');
+    expect(registry).not.toContain("'vertical-playbooks.md'");
+  });
+
+  it('the content survived the split unedited', async () => {
+    // A reference file is filed, not rewritten. Spot-checked on lines unique to
+    // each section, so a silent truncation cannot pass.
+    const refining = await readFile('knowledge/vertical-playbook-refining.md', 'utf8');
+    const dc = await readFile('knowledge/vertical-playbook-data-centers.md', 'utf8');
+    const ind = await readFile('knowledge/vertical-playbook-industrial.md', 'utf8');
+    expect(refining).toContain('crack spread pressure demanding process continuity');
+    expect(refining).not.toContain('Hyperscaler');
+    expect(dc).toContain('Hyperscaler Clean Energy Requirements');
+    expect(dc).not.toContain('crack spread');
+    expect(ind).toContain('CFO is often the key veto point');
   });
 });

@@ -1,6 +1,6 @@
 ---
 name: prospect-originator
-knowledge: [reference-bundle.md, vertical-playbooks.md, ercot-market-primer.md, permitting-playbook.md]
+knowledge: [reference-bundle.md, vertical-playbook-refining.md, vertical-playbook-data-centers.md, vertical-playbook-industrial.md, ercot-market-primer.md, permitting-playbook.md]
 description: >
   Generate a targeted prospect list and origination strategy for a given vertical, geography,
   or trigger condition. Triggers on: "find prospects", "originate", "pipeline generation",

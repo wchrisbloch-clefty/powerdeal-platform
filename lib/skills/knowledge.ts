@@ -7,6 +7,13 @@ import {
 } from './registry';
 import { loadSkill } from './load';
 import type { SkillSlug } from './registry';
+import {
+  selectPlaybook,
+  resolveDeclaration,
+  isVerticalPlaybook,
+  absenceNote,
+  type PlaybookSelection,
+} from './vertical-playbook';
 
 /**
  * DOES THIS LOOK LIKE TEXT?
@@ -258,19 +265,50 @@ export interface DeclaredKnowledge {
   files: string[];
   /** Declared but not loadable — a typo, or a file that never landed. */
   unresolved: string[];
+  /**
+   * Everything the skill's frontmatter names, BEFORE the vertical narrows it.
+   * Kept because `files` is deal-specific and this is not — a caller asking
+   * "does this skill carry vertical doctrine at all" must not get an answer
+   * that changes with whichever deal happened to be open.
+   */
+  declaredFiles: string[];
   /** Null when the skill file itself could not be read or has no key. */
   declared: boolean;
+  /**
+   * Which vertical playbook was chosen, or why none was. Present even for
+   * skills that declare no playbook at all — the selection is about the deal,
+   * not the skill, and a caller inspecting it should not have to know which
+   * skills happen to carry vertical doctrine.
+   */
+  selection: PlaybookSelection;
   error: string | null;
 }
 
-export function knowledgeForSkill(slug: SkillSlug): DeclaredKnowledge {
+/**
+ * ⚠️ THE VERTICAL NARROWS THE SHELF; IT NEVER WIDENS IT.
+ *
+ * v3.1.12 split the vertical playbook into three. A skill DECLARES ALL THREE —
+ * the declaration stays static and auditable, exactly as §6 requires — and the
+ * two that do not match this deal's vertical are dropped here. Nothing is ever
+ * added that the skill did not name.
+ *
+ * Omitting `vertical` loads NO playbook and says so, rather than loading all
+ * three. Loading all three would reproduce the file this split exists to
+ * retire; picking one would be a guess. Absent is reported, per doctrine.
+ */
+export function knowledgeForSkill(
+  slug: SkillSlug,
+  vertical?: string | null,
+): DeclaredKnowledge {
   const skill = loadSkill(slug);
   if (!skill.ready) {
     return {
       slug,
       files: [],
+      declaredFiles: [],
       unresolved: [],
       declared: false,
+      selection: selectPlaybook(vertical),
       error: `Cannot read the declaration: ${skill.error}`,
     };
   }
@@ -280,8 +318,10 @@ export function knowledgeForSkill(slug: SkillSlug): DeclaredKnowledge {
     return {
       slug,
       files: [],
+      declaredFiles: [],
       unresolved: [],
       declared: false,
+      selection: selectPlaybook(vertical),
       error:
         `skills/SKILL-${slug}.md declares no \`knowledge:\` key. Absent is not ` +
         `the same as none — add \`knowledge: []\` if the skill genuinely reasons ` +
@@ -289,12 +329,19 @@ export function knowledgeForSkill(slug: SkillSlug): DeclaredKnowledge {
     };
   }
 
-  const unresolved = declared.filter((f) => !knowledgeIsLoadable(f));
+  // Order matters here — unresolved on the FULL declaration, files on the
+  // narrowed one. Lives in `resolveDeclaration` because proving that ordering
+  // needs a misspelt declaration this repo does not contain.
+  const selection = selectPlaybook(vertical);
+  const { files, unresolved } = resolveDeclaration(declared, selection, knowledgeIsLoadable);
+
   return {
     slug,
-    files: declared.filter((f) => knowledgeIsLoadable(f)),
+    files,
+    declaredFiles: declared,
     unresolved,
     declared: true,
+    selection,
     error: unresolved.length
       ? `Declares ${unresolved.join(', ')}, which ${unresolved.length === 1 ? 'is' : 'are'} not a loadable knowledge file.`
       : null,
@@ -308,8 +355,11 @@ export function knowledgeForSkill(slug: SkillSlug): DeclaredKnowledge {
  * `stage-gate` and `business-case-engine` and must not be confused with a
  * failure. Anything that went wrong is stated instead of dropped.
  */
-export function knowledgeBlocksForSkill(slug: SkillSlug): string {
-  const d = knowledgeForSkill(slug);
+export function knowledgeBlocksForSkill(
+  slug: SkillSlug,
+  vertical?: string | null,
+): string {
+  const d = knowledgeForSkill(slug, vertical);
 
   if (!d.declared) {
     return [
@@ -332,5 +382,15 @@ export function knowledgeBlocksForSkill(slug: SkillSlug): string {
       ].join('\n'),
     );
   }
+  // WHY NO PLAYBOOK IS HERE, WHEN THERE IS NONE. Only when the skill actually
+  // declares one — telling a skill that never carries vertical doctrine that it
+  // is missing vertical doctrine is a warning about nothing, and a shelf that
+  // cries wolf is a shelf whose warnings get skimmed.
+  // Read off the FULL declaration, not the narrowed list — the narrowed list
+  // has the playbooks removed, which is exactly the question being asked.
+  const declaresPlaybook = d.declaredFiles.some((f) => isVerticalPlaybook(f));
+  const note = declaresPlaybook ? absenceNote(d.selection) : null;
+  if (note) blocks.push(note);
+
   return blocks.join('\n\n---\n\n');
 }

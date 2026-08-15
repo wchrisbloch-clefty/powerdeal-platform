@@ -1,6 +1,6 @@
 ---
 name: account-strategy
-knowledge: [vertical-playbooks.md, competitive-matrix.md]
+knowledge: [vertical-playbook-refining.md, vertical-playbook-data-centers.md, vertical-playbook-industrial.md, competitive-matrix.md]
 description: >
   Build or update a comprehensive strategic account plan for a Tier 1 or Tier 2 account.
   Triggers on: "account strategy for [name]", "account plan", "win strategy", "how do we win

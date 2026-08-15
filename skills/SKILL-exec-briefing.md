@@ -1,6 +1,6 @@
 ---
 name: exec-briefing
-knowledge: [vertical-playbooks.md]
+knowledge: [vertical-playbook-refining.md, vertical-playbook-data-centers.md, vertical-playbook-industrial.md]
 description: >
   Generate a crisp executive briefing or CFO one-pager for a specific account, deal, or
   stakeholder. Triggers on: "exec briefing for [account]", "CFO one-pager", "board summary",

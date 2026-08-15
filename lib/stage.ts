@@ -29,9 +29,32 @@ export function stageIndex(stage: DealStage): number {
   return DEAL_STAGES.indexOf(stage);
 }
 
-export type MoveDirection = 'forward' | 'backward' | 'lateral';
+export type MoveDirection = 'forward' | 'backward' | 'lateral' | 'terminal' | 'reopen';
 
+/**
+ * ⚠️ `Archived` IS THE LAST ELEMENT OF `DEAL_STAGES` AND IS NOT THE FURTHEST
+ * ALONG. Any comparison that reads the array positionally inherits that.
+ *
+ * The ladder ends in OUTCOMES, not progress: Closed-Won, Post-Sale, Archived.
+ * A raw index comparison reported `Discovery → Archived` as **forward** —
+ * losing a deal scored as advancing it — and the same array shape produced a
+ * separate live bug in the headline ranker, where a linear weight ranked
+ * headlines about archived accounts above ones in Negotiation.
+ *
+ * So a move INTO `Archived` is `terminal` and a move OUT of it is `reopen`,
+ * neither of which is a position on the ladder. `Closed-Won` and `Post-Sale`
+ * keep their positions: those are genuinely later, and a deal does progress
+ * from one to the other.
+ *
+ * The rule, generally: **never compare `DEAL_STAGES` indices without first
+ * deciding what a terminal state means in that comparison.** See
+ * `IN_FLIGHT_STAGES` in lib/engine/headlines.ts for the same decision made for
+ * ranking, and tests/stage.test.ts for the assertion that holds both.
+ */
 export function directionOf(from: DealStage, to: DealStage): MoveDirection {
+  if (to === 'Archived' && from !== 'Archived') return 'terminal';
+  if (from === 'Archived' && to !== 'Archived') return 'reopen';
+
   const a = stageIndex(from);
   const b = stageIndex(to);
   if (a === b) return 'lateral';
@@ -151,6 +174,13 @@ export function stageOptions(current: DealStage): DealStage[] {
   const i = stageIndex(current);
   const rest = DEAL_STAGES.filter((s) => s !== current);
   const next = DEAL_STAGES[i + 1];
-  if (!next) return rest;
+
+  // ⚠️ `Post-Sale` USED TO LEAD WITH `Archived`, because Archived is the array
+  // element after it. v3.1.11 says this in so many words: "Never treat
+  // `Archived` as something a deal progresses into from `Post-Sale`." It is a
+  // terminal state entered by logging an outcome, from any stage — not the
+  // eleventh rung. It stays REACHABLE in `rest`; it is simply never the
+  // suggested next move.
+  if (!next || next === 'Archived') return rest;
   return [next, ...rest.filter((s) => s !== next)];
 }

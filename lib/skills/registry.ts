@@ -234,7 +234,9 @@ export const KNOWLEDGE: readonly KnowledgeEntry[] = [
   { filename: 'competitive-matrix.md', status: 'present' },
   { filename: 'ercot-market-primer.md', status: 'present' },
   { filename: 'permitting-playbook.md', status: 'present' },
-  { filename: 'vertical-playbooks.md', status: 'present' },
+  { filename: 'vertical-playbook-refining.md', status: 'present' },
+  { filename: 'vertical-playbook-data-centers.md', status: 'present' },
+  { filename: 'vertical-playbook-industrial.md', status: 'present' },
   { filename: 'objection-battlecards.md', status: 'present' },
   { filename: 'reference-bundle.md', status: 'present' },
 ];
