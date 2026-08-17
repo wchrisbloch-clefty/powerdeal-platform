@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { AlertTriangle, ArrowRight, Users, Clock } from 'lucide-react';
 import { getDeals } from '@/lib/data';
-import { portfolioSnapshot, isAtRisk, riskFlags, leadMetric } from '@/lib/deals';
+import { portfolioSnapshot, isAtRisk, riskFlags, leadMetric, LEAD_HINTS } from '@/lib/deals';
 import { formatMw, formatUsd, cn } from '@/lib/utils';
 import { Card, CardBody, CardHeader, CardTitle, EmptyState } from '@/components/ui/card';
 import DealCard from '@/components/ui/deal-card';
@@ -65,23 +65,27 @@ export default async function DashboardPage() {
           value={String(snap.atRisk)}
           tone={snap.atRisk > 0 ? 'danger' : undefined}
           lead={lead === 'atRisk'}
+          hint={LEAD_HINTS.atRisk}
         />
         <SnapshotTile
           label="Stalled > 30d"
           value={String(snap.stalled)}
           tone={snap.stalled > 0 ? 'warn' : undefined}
           lead={lead === 'stalled'}
+          hint={LEAD_HINTS.stalled}
         />
         <SnapshotTile
           label="Single-threaded"
           value={String(snap.singleThreaded)}
           tone={snap.singleThreaded > 0 ? 'warn' : undefined}
           lead={lead === 'singleThreaded'}
+          hint={LEAD_HINTS.singleThreaded}
         />
         <SnapshotTile
           label="Active deals"
           value={String(snap.activeCount)}
           lead={lead === 'activeCount'}
+          hint={LEAD_HINTS.activeCount}
         />
         <SnapshotTile
           label="Avg health"
@@ -258,6 +262,7 @@ function SnapshotTile({
   delta,
   tone,
   lead,
+  hint,
 }: {
   label: string;
   value: string;
@@ -266,12 +271,15 @@ function SnapshotTile({
   tone?: 'danger' | 'warn';
   /** The one metric worth the reader's eye first. At most one per viewport. */
   lead?: boolean;
+  /** What the figure means. Shown on the lead only — it is what pays for the
+   *  extra width, and repeating it on all seven would be noise. */
+  hint?: string;
 }) {
   return (
     <div
       className={cn(
-        'rounded-card border bg-bg-raised p-4',
-        lead ? 'border-rule sm:col-span-2 lg:col-span-2' : 'border-rule-faint',
+        'flex flex-col rounded-card border bg-bg-raised p-4',
+        lead ? 'border-rule sm:col-span-2' : 'border-rule-faint',
       )}
     >
       <p
@@ -291,6 +299,9 @@ function SnapshotTile({
       >
         {label}
       </p>
+      {lead && hint ? (
+        <p className="mt-auto max-w-measure-narrow pt-3 text-sm text-text-dim">{hint}</p>
+      ) : null}
       {delta ? <p className="mt-0.5 text-xs text-text-faint">{delta}</p> : null}
     </div>
   );

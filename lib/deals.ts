@@ -399,6 +399,27 @@ export function leadMetric(snap: PortfolioSnapshot): LeadMetric {
   return 'activeCount';
 }
 
+/**
+ * What the lead figure MEANS, in one line.
+ *
+ * ⚠️ THIS IS WHY THE LEAD TILE IS WIDER, and it was added after looking at the
+ * rendered page rather than at the tests. The first version simply spanned two
+ * columns and put a 48px number in them: half a row of empty card behind two
+ * characters, which read as a layout bug rather than as emphasis. Every
+ * assertion passed. Width has to be earned by content.
+ *
+ * A `Record<LeadMetric, string>` rather than a lookup with a fallback, so
+ * adding a lead metric without a line for it fails the type-check instead of
+ * rendering a promoted number that explains nothing.
+ */
+export const LEAD_HINTS: Record<LeadMetric, string> = {
+  atRisk: 'Health below 5, or no stage movement in 30 days. This is the list to work today.',
+  stalled: 'No stage movement in over 30 days. Every one of these needs a next move or a close.',
+  singleThreaded:
+    'One contact and no second thread. Health is capped at 6 until someone else is engaged.',
+  activeCount: 'Nothing is flagged — no deal is at risk, stalled, or single-threaded.',
+};
+
 // ── Stage presentation ───────────────────────────────────────────
 
 /**

@@ -20,6 +20,8 @@ import {
   hatchPatternId,
   unencodableMessage,
 } from '@/lib/design/chart-palette';
+import { leadMetric, LEAD_HINTS } from '@/lib/deals';
+import type { PortfolioSnapshot } from '@/lib/deals';
 
 /**
  * ═══════════════════════════════════════════════════════════════
@@ -372,6 +374,54 @@ describe('the type scale is a scale, not a list of sizes', () => {
     expect(prose).toContain('var(--measure)');
     expect(prose).toContain('var(--text-read)');
     expect(prose).toContain('var(--font-display)');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+describe('exactly one metric leads, and it is the one worth acting on', () => {
+  const snap = (over: Partial<PortfolioSnapshot> = {}): PortfolioSnapshot => ({
+    activeCount: 21, totalCount: 21, totalMw: 116, totalUsdM: 0,
+    atRisk: 0, stalled: 0, singleThreaded: 0, avgHealth: 6,
+    byBand: { high: 0, mid: 21, low: 0 }, byStage: {}, byVertical: {},
+    ...over,
+  });
+
+  it('ranks by what to do about it, not by magnitude', () => {
+    // 116 MW is a bigger number than 21 at-risk and never leads. A total that
+    // has not moved since Tuesday is not the thing to open the page with.
+    expect(leadMetric(snap({ atRisk: 3, singleThreaded: 21 }))).toBe('atRisk');
+    expect(leadMetric(snap({ stalled: 2, singleThreaded: 21 }))).toBe('stalled');
+    expect(leadMetric(snap({ singleThreaded: 21 }))).toBe('singleThreaded');
+  });
+
+  it('still fills the lead slot on a clean book', () => {
+    // The lead is a POSITION in a layout. Leaving it empty when the last risk
+    // clears would reflow the grid the moment the pipeline got healthy.
+    expect(leadMetric(snap())).toBe('activeCount');
+  });
+
+  it('every lead metric has a line explaining itself', () => {
+    // The lead tile is wider than the others, and the hint is what pays for
+    // the width — the first version spanned two columns behind a two-character
+    // number and read as a layout bug while every assertion passed.
+    for (const m of ['atRisk', 'stalled', 'singleThreaded', 'activeCount'] as const) {
+      expect(LEAD_HINTS[m].length, `${m} has no hint`).toBeGreaterThan(30);
+      expect(LEAD_HINTS[m]).toMatch(/\.$/);
+    }
+    expect(Object.keys(LEAD_HINTS).sort()).toEqual(
+      ['activeCount', 'atRisk', 'singleThreaded', 'stalled'],
+    );
+  });
+
+  it('promotes at most one tile on the page', async () => {
+    // Six tiles each deciding their own prominence is six tiles at maximum
+    // prominence. The page passes `lead={lead === '...'}` against one value,
+    // so only one can be true — asserted here because a second `lead` added by
+    // hand would compile fine.
+    const page = await read('app/app/page.tsx');
+    const leads = [...page.matchAll(/lead=\{([^}]+)\}/g)].map((m) => m[1].trim());
+    expect(leads.length).toBeGreaterThan(1);
+    for (const l of leads) expect(l).toMatch(/^lead === '/);
   });
 });
 
