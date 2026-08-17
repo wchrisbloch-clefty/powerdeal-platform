@@ -118,7 +118,7 @@ function FormattedText({ text }: { text: string }) {
   const lines = text.split('\n');
 
   return (
-    <div className="space-y-1.5 text-sm leading-relaxed text-text">
+    <div className="space-y-1.5 text-sm text-text">
       {lines.map((line, i) => {
         const key = `${i}-${line.slice(0, 12)}`;
         const trimmed = line.trim();

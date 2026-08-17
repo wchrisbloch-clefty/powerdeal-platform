@@ -146,7 +146,7 @@ function MarketWatchRow({ entry, deals }: { entry: MarketWatchEntry; deals: Deal
         </span>
       </div>
 
-      <h3 className="mt-2 font-display text-base leading-snug text-text">
+      <h3 className="mt-2 font-display text-base text-text">
         {entry.url ? (
           <a href={entry.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
             {entry.headline}
@@ -158,7 +158,7 @@ function MarketWatchRow({ entry, deals }: { entry: MarketWatchEntry; deals: Deal
       </h3>
 
       {entry.summary ? (
-        <p className="mt-1.5 text-sm leading-relaxed text-text-dim">{entry.summary}</p>
+        <p className="mt-1.5 text-sm text-text-dim">{entry.summary}</p>
       ) : null}
 
       {hits.length > 0 && (

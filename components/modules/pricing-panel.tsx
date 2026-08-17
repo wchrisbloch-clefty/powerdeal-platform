@@ -128,7 +128,7 @@ export default function PricingPanel({
                   {['Utility', 'State', 'Industrial rate', 'YoY', 'Accounts'].map((h) => (
                     <th
                       key={h}
-                      className="whitespace-nowrap px-3 py-2 text-left font-mono text-2xs uppercase tracking-wider text-text-faint"
+                      className="whitespace-nowrap px-3 py-2 text-left font-mono text-2xs uppercase tracking-label text-text-faint"
                     >
                       {h}
                     </th>

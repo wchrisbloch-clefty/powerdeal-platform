@@ -116,7 +116,7 @@ function VideoCard({ video }: { video: YouTubeItem }) {
         </span>
       </div>
 
-      <h3 className="mt-2 font-display text-base leading-snug text-text">
+      <h3 className="mt-2 font-display text-base text-text">
         <a
           href={video.url}
           target="_blank"
@@ -133,7 +133,7 @@ function VideoCard({ video }: { video: YouTubeItem }) {
           <p className="eyebrow mt-2.5 mb-1">Transcript excerpt</p>
           <p
             className={cn(
-              'rounded-md border border-rule bg-bg p-2.5 text-sm leading-relaxed text-text-dim',
+              'rounded-md border border-rule bg-bg p-2.5 text-sm text-text-dim',
               !expanded && 'line-clamp-4',
             )}
           >
@@ -155,7 +155,7 @@ function VideoCard({ video }: { video: YouTubeItem }) {
         {summary ? (
           <>
             <p className="eyebrow mb-1">Summary</p>
-            <p className="text-sm leading-relaxed text-text-dim">{summary}</p>
+            <p className="text-sm text-text-dim">{summary}</p>
           </>
         ) : (
           <button

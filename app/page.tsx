@@ -82,9 +82,9 @@ export default function LandingPage() {
           <div className="grid gap-10 md:grid-cols-3 md:gap-8">
             {PILLARS.map((p) => (
               <div key={p.n}>
-                <p className="font-mono text-xs tracking-widest text-text-faint">{p.n}</p>
+                <p className="font-mono text-xs tracking-label text-text-faint">{p.n}</p>
                 <h2 className="mt-2 font-display text-xl text-text">{p.title}</h2>
-                <p className="mt-2.5 text-sm leading-relaxed text-text-dim">{p.body}</p>
+                <p className="mt-2.5 text-sm text-text-dim">{p.body}</p>
               </div>
             ))}
           </div>
@@ -107,13 +107,13 @@ export default function LandingPage() {
                 <span className="text-xs text-text-faint">· Power Markets</span>
               </div>
 
-              <h3 className="mt-2.5 font-display text-lg leading-snug text-text">
+              <h3 className="mt-2.5 font-display text-lg text-text">
                 Rate increase authorized: 3%/yr compound through 2027
               </h3>
 
               <ConfidenceRule confidence={0.94} className="my-3" />
 
-              <p className="text-sm leading-relaxed text-text-dim">
+              <p className="text-sm text-text-dim">
                 A commission authorized annual base revenue increases at one of the
                 highest-cost utilities in the country, locking in a compounding rate
                 trajectory through 2027. Industrial customers in the territory now have a

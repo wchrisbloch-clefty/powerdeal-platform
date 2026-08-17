@@ -341,7 +341,7 @@ export default function FeedItemCard({
           </span>
         </div>
 
-        <h3 className="mt-2 font-display text-base leading-snug text-text">
+        <h3 className="mt-2 font-display text-base text-text">
           {item.url ? (
             <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
               {item.title}
@@ -360,7 +360,7 @@ export default function FeedItemCard({
         </div>
 
         {synthesis ? (
-          <p className={cn('text-sm leading-relaxed text-text-dim', !expanded && 'line-clamp-3')}>
+          <p className={cn('text-sm text-text-dim', !expanded && 'line-clamp-3')}>
             {synthesis}
           </p>
         ) : null}

@@ -164,7 +164,7 @@ export default function WeeklyRecapPanel({ className }: { className?: string }) 
                 <div className="mt-3 border-t border-rule pt-3">
                   <p className="eyebrow mb-1.5">The read</p>
                   {recap.narrative.split(/\n{2,}/).map((para, i) => (
-                    <p key={i} className="mb-2 text-sm leading-relaxed text-text-dim last:mb-0">
+                    <p key={i} className="mb-2 text-sm text-text-dim last:mb-0">
                       {para}
                     </p>
                   ))}

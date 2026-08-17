@@ -4,11 +4,28 @@ import { APP_NAME, APP_TAGLINE, BRAND, THEME_STORAGE_KEY } from '@/lib/brand';
 import SwRegister from '@/components/chrome/sw-register';
 import './globals.css';
 
+/**
+ * ⚠️ 700 IS NOT OPTIONAL, AND ITS ABSENCE WAS INVISIBLE.
+ *
+ * This list was ['400','500','600'], so the built CSS emitted three
+ * @font-face rules for Newsreader and none at 700. The Dashboard metric tiles
+ * ask for `font-bold` — 700 — which matched the 600 face and then had the
+ * remaining weight SYNTHESISED by the browser: smeared stems on the largest
+ * type in the product, on the surface whose whole job is numbers.
+ *
+ * The comment above those tiles described "36px/700" the entire time. A
+ * comment asserting something about the build that was never true, in the same
+ * family as the four that named Vercel SSO as the security boundary.
+ *
+ * Newsreader is a variable font whose wght axis runs 200–800. The weight was
+ * already inside the file that was already being downloaded. Nothing here
+ * costs a byte; it just stops the browser inventing a weight.
+ */
 const newsreader = Newsreader({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-newsreader',
-  weight: ['400', '500', '600'],
+  weight: ['400', '500', '600', '700'],
 });
 
 const atkinson = Atkinson_Hyperlegible({

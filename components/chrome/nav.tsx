@@ -258,7 +258,7 @@ export function NavBar() {
           >
             <SETTINGS_ITEM.icon size={17} strokeWidth={1.75} aria-hidden />
           </Link>
-          <p className="hidden font-mono text-2xs uppercase tracking-wider text-text-faint xl:block">
+          <p className="hidden font-mono text-2xs uppercase tracking-label text-text-faint xl:block">
             v{POWERDEAL_VERSION}
           </p>
         </div>

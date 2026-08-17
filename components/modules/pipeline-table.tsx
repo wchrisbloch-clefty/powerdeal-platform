@@ -113,7 +113,7 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
                   scope="col"
                   className={cn(
                     'whitespace-nowrap px-2.5 py-2 text-left font-mono text-2xs',
-                    'uppercase tracking-wider text-text-faint',
+                    'uppercase tracking-label text-text-faint',
                     col.numeric && 'text-right',
                     col.className,
                   )}

@@ -151,7 +151,7 @@ function WishBox({ path }: { path: string }) {
   return (
     <div className="fixed bottom-4 right-4 z-40 w-80 max-w-[calc(100vw-2rem)] rounded-card border border-rule bg-bg-raised p-3 shadow-lg">
       <div className="flex items-baseline justify-between">
-        <p className="text-2xs uppercase tracking-wider text-text-faint">I wish it just…</p>
+        <p className="text-2xs uppercase tracking-label text-text-faint">I wish it just…</p>
         <button
           type="button"
           onClick={() => setOpen(false)}

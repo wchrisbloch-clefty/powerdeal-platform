@@ -47,7 +47,7 @@ export default function ProvenanceChip({
       title={TIER_HINTS[tier]}
       className={cn(
         'inline-flex shrink-0 items-center rounded border px-1.5 py-0.5',
-        'font-mono text-2xs uppercase tracking-wider',
+        'font-mono text-2xs uppercase tracking-label',
         style.className,
         className,
       )}

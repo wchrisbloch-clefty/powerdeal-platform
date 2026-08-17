@@ -63,16 +63,69 @@
      than one brand colour that happens to work in one of them. */
   --color-nav-marker: #2a8028;
 
-  /* Semantic */
+  /* Semantic.
+     ⚠️ EACH TONE NEEDS ITS SURFACE HERE. Only danger had one, so badge.tsx
+     wrote the other two inline as `bg-[rgba(191,143,0,0.12)]` — arbitrary
+     Tailwind values, which are literals that happen to compile. Two
+     consequences, both live:
+
+       · they do not switch with the theme. A warning badge kept its
+         light-theme wash on the dark ground, on every surface that uses one.
+       · the danger badge wrote rgba(192,57,43,0.10) while this token said
+         0.08 — one surface, two values, differing by an amount nobody chose. */
   --color-danger: #b53527;
   --color-danger-bg: rgba(192, 57, 43, 0.08);
   --color-warning: #836200;
+  --color-warning-bg: rgba(191, 143, 0, 0.12);
   --color-success: #227538;
+  --color-success-bg: rgba(39, 133, 63, 0.12);
 
   /* Deal health colors */
   --health-high: #3cad3a; /* 8-10 */
   --health-mid: #bf8f00; /* 5-7  */
   --health-low: #c0392b; /* 1-4  */
+
+  /* ══ CHART SERIES — ORDERED, MEASURED, FOUR ═══════════════════
+     Series one is Bloom green, always. The rest follow in a fixed
+     order so series three is the same colour in every chart on
+     every surface.
+
+     ⚠️ THESE FOUR WERE SEARCHED, NOT CHOSEN, and the difference is
+     not academic. The obvious hand-picked set — green, navy, ochre,
+     violet, clay, steel — scored deuteranopia ΔE 5.4 between the
+     green and the clay: the green-beside-red failure, arrived at
+     immediately after naming it. Five further hand-tuned dark
+     palettes each lost to the search on grayscale separation, by
+     between two and four times.
+
+     LIGHT, on paper:   worst grayscale ΔL* 17.5   worst CVD ΔE 30.9
+     DARK, on ink:      worst grayscale ΔL* 14.0   worst CVD ΔE 27.8
+
+     Grayscale separation is not a nicety here. These charts are
+     printed and photocopied inside customer organisations, and a
+     photocopy IS the L* channel with everything else discarded.
+
+     There is no --chart-5. See lib/design/chart-palette.ts: the
+     fifth series is a hatch over these four, because texture
+     survives both a photocopier and every colour-vision
+     deficiency, and a fifth hue survives neither.
+
+     Green is a legal FILL here and nowhere else in the UI. The rule
+     it lives under is about contrast, not hue: a chart mark carries
+     no text, exactly as the pale-green callout surface in the DOCX
+     theme carries only charcoal. */
+  --chart-1: #3cad3a; /* Bloom green   L* 62.6 */
+  --chart-2: #1d3d4b; /* deep petrol   L* 24.0 */
+  --chart-3: #8350a3; /* violet        L* 43.1 */
+  --chart-4: #d2c0e3; /* pale lilac    L* 80.1 */
+
+  /* ⚠️ EVERY MARK CARRIES THIS HAIRLINE, and it is load-bearing.
+     --chart-4 is 1.69:1 against paper: as a bare fill it has no
+     defined edge, which is precisely the 3:1 non-text threshold the
+     nav marker failed at 2.90:1. The stroke supplies the edge, so
+     the fill is free to sit that high on the lightness ladder. */
+  --chart-stroke: #5a5d6b;
+  --chart-grid: #e1e4ea;
 
   /* Borders + rules */
   --color-rule: #e1e4ea;
@@ -111,45 +164,110 @@
   /* The active marker. 2px reads at a glance without becoming a rule. */
   --nav-active-border: 2px;
 
-  /* ── Type scale ──────────────────────────────────────────────
-     Named on Tailwind's own scale rather than invented names, on
-     purpose: `text-sm` and `text-lg` are already in tailwind-merge's
-     default theme, so redefining their VALUES here avoids the custom
-     class-group collision documented at the top of this file. Only
-     `2xs` is new, and it is declared in cn().
+  /* ══ TYPE SCALE ═══════════════════════════════════════════════
+     TWO SCALES, because a dashboard and a reading surface are
+     different jobs and sharing a size makes one of them wrong.
 
-     Sizes run one step tighter than Tailwind's defaults throughout —
-     this is an instrument read before meetings, not a consumer
-     dashboard, and density is the point. */
+     EVERY STEP CARRIES ITS OWN LINE-HEIGHT AND TRACKING, and they
+     are bound together in tailwind.config.ts so `text-xl` applies
+     all three. One size scaled up and down is not a scale: large
+     type needs tighter leading and negative tracking, small type
+     needs looser leading and a touch of positive tracking, and
+     doing that by hand at the point of use is how a codebase ends
+     up with `leading-relaxed` in fifteen files and no token behind
+     any of them.
+
+     Named on Tailwind's own scale wherever one exists, on purpose:
+     `text-sm` and `text-lg` are already in tailwind-merge's default
+     theme, so redefining their VALUES avoids the custom class-group
+     collision documented at the top of this file. The four NEW
+     names — 2xs, display, read, read-lead — are declared in cn().
+
+     ── UI scale. An instrument read before a meeting; density is
+        the point, and it stays one step tighter than Tailwind. */
   --text-2xs: 0.6875rem;   /* 11px — micro labels, timestamps */
   --text-xs: 0.75rem;      /* 12px — metadata, chips, table meta */
   --text-sm: 0.8125rem;    /* 13px — dense table cells, secondary */
-  --text-base: 0.9375rem;  /* 15px — body */
+  --text-base: 0.9375rem;  /* 15px — UI body */
   --text-lg: 1.0625rem;    /* 17px — card titles */
   --text-xl: 1.375rem;     /* 22px — section headings */
   --text-2xl: 1.75rem;     /* 28px — page titles */
   --text-3xl: 2.25rem;     /* 36px — metric numbers */
+  --text-display: 3rem;    /* 48px — ONE lead figure per page, never two */
 
-  --leading-tight: 1.2;
-  --leading-snug: 1.35;
-  --leading-normal: 1.55;
+  /* ── Reading scale. Long-form prose only: Learn, and any surface
+        where someone reads rather than scans. 18px against the UI
+        scale's 15px, and the leading opens up to match. */
+  --text-read: 1.125rem;       /* 18px — prose body */
+  --text-read-lead: 1.3125rem; /* 21px — the opening paragraph */
+
+  /* Leading, per step.
+     ⚠️ THE CURVE PEAKS AT BODY and tightens in BOTH directions,
+     which is not what it looks like from either end. Below body the
+     type is dense or single-line — an 11px timestamp does not wrap,
+     so its leading is space underneath rather than space between.
+     Above body the eye closes the gaps optically at 28px and 48px
+     and the leading has to come down to compensate. Two attempts to
+     assert this as a monotonic ladder failed against these values;
+     the values were right both times. */
+  --leading-2xs: 1.45;
+  --leading-xs: 1.5;
+  --leading-sm: 1.5;
+  --leading-base: 1.55;
+  --leading-lg: 1.4;
+  --leading-xl: 1.28;
+  --leading-2xl: 1.18;
+  --leading-3xl: 1.05;
+  --leading-display: 1;
+  --leading-read: 1.75;
+  --leading-read-lead: 1.55;
+
+  /* Tracking, per step. Optical sizing by hand: large type is set
+     tight because the eye closes the gaps for you at 48px, small
+     type is opened up because it does not. */
+  --tracking-2xs: 0.01em;
+  --tracking-xs: 0.005em;
+  --tracking-sm: 0;
+  --tracking-base: 0;
+  --tracking-lg: -0.006em;
+  --tracking-xl: -0.012em;
+  --tracking-2xl: -0.018em;
+  --tracking-3xl: -0.022em;
+  --tracking-display: -0.028em;
+  --tracking-read: 0.003em;
+  --tracking-read-lead: 0;
 
   /* Uppercase + letterspacing is for micro-labels only — VERTICAL, GEO
      TIER, AI ACTIONS. Never body, never headings. */
   --tracking-label: 0.06em;
 
-  /* ── Spacing — 4px base grid ─────────────────────────────────
-     Tailwind's default scale is already 4px-based, so these exist to
-     name the grid and to be the single place it changes. */
-  --sp-1: 0.25rem;
-  --sp-2: 0.5rem;
-  --sp-3: 0.75rem;
-  --sp-4: 1rem;
-  --sp-5: 1.25rem;
-  --sp-6: 1.5rem;
-  --sp-8: 2rem;
-  --sp-10: 2.5rem;
-  --sp-12: 3rem;
+  /* ── Reading measure ─────────────────────────────────────────
+     A line longer than about 75 characters loses the reader on the
+     return sweep; shorter than about 65 and the eye jumps too
+     often. `ch` is the width of a `0` in the CURRENT face, so this
+     tracks the type rather than pinning a pixel width that stops
+     being 68 characters the moment the size changes. */
+  --measure: 68ch;
+  /* Sidebars, callouts, anything set beside something else. */
+  --measure-narrow: 54ch;
+
+  /* ══ VERTICAL RHYTHM ══════════════════════════════════════════
+     ⚠️ THE PREVIOUS --sp-1..12 TOKENS WERE DELETED. Nine of them,
+     aliasing Tailwind's own 4px scale under new names, and grep
+     found ZERO uses anywhere in app/, components/ or lib/. They
+     named a grid nothing read — the same defect as the
+     `border-color` class group that was written, probed, found to
+     change nothing, and removed. A token that alters no behaviour
+     reads as protection and is not any.
+
+     Tailwind's default spacing IS the 4px grid, so it needs no
+     alias. What it does NOT give you is rhythm that opens up on a
+     larger screen, which is where "functional rather than
+     considered" actually comes from — these three do, and every
+     consumer breathes without touching a component. */
+  --rhythm-page: 1.5rem;   /* between top-level page sections */
+  --rhythm-block: 1rem;    /* between blocks inside a section */
+  --rhythm-tight: 0.5rem;  /* label to value, icon to text */
 
   /* ── Radius + elevation ──────────────────────────────────────
      Borders over shadows. One shadow level, for true overlays only —
@@ -223,11 +341,30 @@
   --color-danger: #e26758;
   --color-danger-bg: rgba(224, 90, 74, 0.12);
   --color-warning: #d6a419;
+  --color-warning-bg: rgba(214, 164, 25, 0.14);
   --color-success: #3ea45c;
+  --color-success-bg: rgba(62, 164, 92, 0.14);
 
   --health-high: #4cc249;
   --health-mid: #d6a419;
   --health-low: #e05a4a;
+
+  /* ⚠️ A DIFFERENT LADDER, NOT THE SAME HEXES LIFTED A LITTLE.
+     The light palette's deep petrol is 1.64:1 on this ground — it
+     is not dim here, it is INVISIBLE. A single fixed hex list is
+     broken in one theme, always, and which theme it is broken in
+     is decided by whichever one the author had open.
+
+     Same hue families, re-searched against ink with a 3:1 floor on
+     every series: green 8.20, petrol 3.13, mauve 5.18, lilac 12.41.
+     Worst grayscale ΔL* 14.0, worst CVD ΔE 27.8. */
+  --chart-1: #4cc249; /* Bloom green (lifted)  L* 69.9 */
+  --chart-2: #23679b; /* petrol blue           L* 41.9 */
+  --chart-3: #95808f; /* mauve                 L* 55.9 */
+  --chart-4: #e9c6f1; /* pale orchid           L* 84.0 */
+
+  --chart-stroke: #9a9daa;
+  --chart-grid: #2a2d3a;
 
   color-scheme: dark;
 }
@@ -255,4 +392,26 @@
   --prov-reported: #d6a419;
   --prov-inferred: #979aa8;
   --prov-inferred-bg: rgba(154, 157, 170, 0.16);
+}
+
+/* ── Rhythm opens up with the viewport ─────────────────────────
+   The three breakpoints the nav already uses. Spacing that is
+   correct on a phone is cramped on a 27" display, and the usual
+   fix — sm:gap-4 lg:gap-8 sprinkled through every page — puts the
+   rhythm in a hundred components where no two ever quite agree.
+
+   Changing it HERE changes it everywhere at once, which is the
+   only reason to have a token rather than a number. */
+@media (min-width: 768px) {
+  :root {
+    --rhythm-page: 2rem;
+    --rhythm-block: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --rhythm-page: 2.75rem;
+    --rhythm-block: 1.5rem;
+  }
 }

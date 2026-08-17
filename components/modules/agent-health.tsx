@@ -450,5 +450,5 @@ function ModelHealth({ models }: { models: ModelHealthResponse | null }) {
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-  return <th className="pb-1.5 pr-3 font-normal text-2xs uppercase tracking-wider text-text-faint">{children}</th>;
+  return <th className="pb-1.5 pr-3 font-normal text-2xs uppercase tracking-label text-text-faint">{children}</th>;
 }

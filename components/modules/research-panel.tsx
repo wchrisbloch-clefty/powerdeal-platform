@@ -139,7 +139,7 @@ function EmptyResearch() {
         does not run it; you run it locally and POST the JSON here, and PowerDeal
         re-grades everything with its own classifier on arrival.
       </p>
-      <pre className="scrollbar-thin overflow-x-auto rounded-md border border-rule bg-bg p-3 font-mono text-2xs leading-relaxed text-text-dim">
+      <pre className="scrollbar-thin overflow-x-auto rounded-md border border-rule bg-bg p-3 font-mono text-2xs text-text-dim">
 {`# one-time
 /plugin marketplace add mvanhorn/last30days-skill
 
@@ -226,7 +226,7 @@ function PasteFallback() {
             placeholder='{"schema_version":"1.0","query":"...","results":[...]}'
             className={cn(
               'w-full resize-y rounded-md border border-rule bg-bg px-2 py-1.5',
-              'font-mono text-2xs leading-relaxed text-text placeholder:text-text-faint',
+              'font-mono text-2xs text-text placeholder:text-text-faint',
               'focus:border-accent-border focus:outline-none',
             )}
           />

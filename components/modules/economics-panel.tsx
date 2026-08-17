@@ -311,7 +311,7 @@ export default function EconomicsPanel({
                           <span>
                             {c.label}
                             {c.condition ? (
-                              <span className="block text-2xs leading-snug text-text-faint">
+                              <span className="block text-2xs text-text-faint">
                                 {c.condition}
                               </span>
                             ) : null}
@@ -790,7 +790,7 @@ function IncentivePanel({
               ) : null}
 
               {sel.enabled && contribution?.condition ? (
-                <p className="mt-1.5 border-l-2 border-rule pl-2 text-2xs leading-snug text-text-dim">
+                <p className="mt-1.5 border-l-2 border-rule pl-2 text-2xs text-text-dim">
                   {contribution.condition}
                 </p>
               ) : null}

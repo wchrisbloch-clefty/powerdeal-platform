@@ -281,7 +281,7 @@ function ToggleRow({
           <p className={cn('truncate text-sm', row.on ? 'text-text' : 'text-text-dim')}>
             {row.label}
             {!row.toggleable ? (
-              <span className="ml-1.5 text-2xs uppercase tracking-wider text-text-faint">
+              <span className="ml-1.5 text-2xs uppercase tracking-label text-text-faint">
                 always
               </span>
             ) : null}
@@ -289,7 +289,7 @@ function ToggleRow({
           {row.hint ? <p className="text-2xs text-text-faint">{row.hint}</p> : null}
         </div>
 
-        <span className="shrink-0 font-mono text-2xs uppercase tracking-wider text-text-faint">
+        <span className="shrink-0 font-mono text-2xs uppercase tracking-label text-text-faint">
           {row.tier}
         </span>
 

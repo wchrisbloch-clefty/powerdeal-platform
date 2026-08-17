@@ -43,7 +43,7 @@ export function CardTitle({
   ...props
 }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h2 className={cn('font-display text-base leading-tight', className)} {...props}>
+    <h2 className={cn('font-display text-base', className)} {...props}>
       {children}
     </h2>
   );
@@ -79,8 +79,8 @@ export function Stat({
           The old version gave label and value nearly equal weight and a full
           line of padding each, which is what made a six-field grid take the
           vertical space of a paragraph. */}
-      <dt className="text-2xs uppercase leading-tight tracking-label text-text-dim">{label}</dt>
-      <dd className="mt-0.5 truncate text-base leading-snug text-text" title={hint}>
+      <dt className="text-2xs uppercase tracking-label text-text-dim">{label}</dt>
+      <dd className="mt-0.5 truncate text-base text-text" title={hint}>
         {value}
       </dd>
     </div>

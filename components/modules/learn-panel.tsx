@@ -261,7 +261,7 @@ export default function LearnPanel() {
         {answer ? (
           <div
             ref={answerRef}
-            className="whitespace-pre-wrap rounded-card border border-rule bg-bg-raised px-3.5 py-3 text-sm leading-relaxed text-text-dim"
+            className="whitespace-pre-wrap rounded-card border border-rule bg-bg-raised px-3.5 py-3 text-sm text-text-dim"
           >
             {answer}
           </div>

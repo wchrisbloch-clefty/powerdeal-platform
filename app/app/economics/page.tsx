@@ -66,7 +66,7 @@ export default async function EconomicsPage({
           intentionally empty before they conclude it is broken. */}
       <div className="rounded-card border border-rule bg-bg-raised px-3.5 py-2.5">
         <p className="eyebrow">Preset values</p>
-        <p className="mt-1 text-xs leading-normal text-text-dim">
+        <p className="mt-1 text-xs text-text-dim">
           Technology presets ship with the right fields and units but no capex or O&amp;M
           figures. Nothing in this build environment could reach a citable source, and a
           plausible-looking default would render identically to a sourced one — then survive

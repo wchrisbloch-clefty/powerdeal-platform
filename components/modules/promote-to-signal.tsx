@@ -167,7 +167,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={rows}
-        className="w-full resize-y rounded-md border border-rule bg-bg-raised px-2 py-1.5 text-xs leading-relaxed text-text placeholder:text-text-faint focus:border-accent-border focus:outline-none"
+        className="w-full resize-y rounded-md border border-rule bg-bg-raised px-2 py-1.5 text-xs text-text placeholder:text-text-faint focus:border-accent-border focus:outline-none"
       />
     </label>
   );

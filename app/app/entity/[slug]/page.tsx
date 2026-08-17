@@ -211,7 +211,7 @@ export default async function EntityPage({
                     href={w.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-display text-sm leading-snug text-text hover:text-accent-dim"
+                    className="font-display text-sm text-text hover:text-accent-dim"
                   >
                     {w.title}
                   </a>

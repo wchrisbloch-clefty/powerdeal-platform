@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { AlertTriangle, ArrowRight, Users, Clock } from 'lucide-react';
 import { getDeals } from '@/lib/data';
-import { portfolioSnapshot, isAtRisk, riskFlags } from '@/lib/deals';
-import { formatMw, formatUsd } from '@/lib/utils';
+import { portfolioSnapshot, isAtRisk, riskFlags, leadMetric } from '@/lib/deals';
+import { formatMw, formatUsd, cn } from '@/lib/utils';
 import { Card, CardBody, CardHeader, CardTitle, EmptyState } from '@/components/ui/card';
 import DealCard from '@/components/ui/deal-card';
 import HealthRing from '@/components/ui/health-ring';
@@ -14,6 +14,7 @@ export const metadata = { title: 'Dashboard' };
 export default async function DashboardPage() {
   const { data: deals, isSeed, readError } = await getDeals();
   const snap = portfolioSnapshot(deals);
+  const lead = leadMetric(snap);
 
   // The dashboard leads with problems, not totals. Worst health first, because
   // that is the list someone should actually work today.
@@ -23,7 +24,7 @@ export default async function DashboardPage() {
     .slice(0, 6);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-rhythm-page">
       <header>
         <p className="eyebrow">Portfolio</p>
         <h1 className="mt-1 font-display text-2xl text-text">Dashboard</h1>
@@ -51,31 +52,46 @@ export default async function DashboardPage() {
         ) : null}
       </header>
 
-      {/* ── Snapshot bar ── */}
+      {/* ── Snapshot bar ──
+          ONE tile leads and the other five support. Which one is decided by
+          leadMetric() against the whole snapshot, because prominence is a
+          comparison and no tile can see its siblings. */}
       <section
         aria-label="Portfolio snapshot"
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"
+        className="grid grid-cols-2 gap-rhythm-block sm:grid-cols-3 lg:grid-cols-4"
       >
-        <SnapshotTile label="Active deals" value={String(snap.activeCount)} />
-        <SnapshotTile label="Total MW" value={formatMw(snap.totalMw)} />
-        <SnapshotTile label="Pipeline value" value={formatUsd(snap.totalUsdM)} />
-        <SnapshotTile
-          label="Avg health"
-          value={snap.avgHealth ? snap.avgHealth.toFixed(1) : '—'}
-        />
         <SnapshotTile
           label="At risk"
           value={String(snap.atRisk)}
           tone={snap.atRisk > 0 ? 'danger' : undefined}
+          lead={lead === 'atRisk'}
+        />
+        <SnapshotTile
+          label="Stalled > 30d"
+          value={String(snap.stalled)}
+          tone={snap.stalled > 0 ? 'warn' : undefined}
+          lead={lead === 'stalled'}
         />
         <SnapshotTile
           label="Single-threaded"
           value={String(snap.singleThreaded)}
           tone={snap.singleThreaded > 0 ? 'warn' : undefined}
+          lead={lead === 'singleThreaded'}
         />
+        <SnapshotTile
+          label="Active deals"
+          value={String(snap.activeCount)}
+          lead={lead === 'activeCount'}
+        />
+        <SnapshotTile
+          label="Avg health"
+          value={snap.avgHealth ? snap.avgHealth.toFixed(1) : '—'}
+        />
+        <SnapshotTile label="Total MW" value={formatMw(snap.totalMw)} />
+        <SnapshotTile label="Pipeline value" value={formatUsd(snap.totalUsdM)} />
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-rhythm-page lg:grid-cols-3">
         {/* ── Needs attention ── */}
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -111,7 +127,7 @@ export default async function DashboardPage() {
           )}
         </Card>
 
-        <div className="space-y-6">
+        <div className="space-y-rhythm-page">
           {/* ── Health distribution ── */}
           <Card>
             <CardHeader>
@@ -210,29 +226,71 @@ export default async function DashboardPage() {
  * is "36 … active deals", not "active deals … 36": the figure is what the eye
  * is hunting for when someone opens this before a meeting.
  *
- * Weight does the hierarchy, not size alone: 36px/700 against 11px uppercase
- * dim. Two sizes that differ but share a weight read as two labels.
+ * ══ TWO RANKS, BECAUSE SIX TILES AT ONE VOLUME IS SIX TILES NOBODY READS ══
+ *
+ * `lead` promotes ONE tile: 48px against 28px, and the supporting five drop to
+ * the dim text colour. Six numbers shouting equally is not a hierarchy, it is a
+ * list, and "21 at risk" and "116 MW total" are not the same kind of fact — one
+ * is work to do today and the other is a total that has not changed since
+ * Tuesday.
+ *
+ * At most one tile per viewport carries `lead`, which the page decides rather
+ * than each tile: promotion is a comparison between tiles and no tile can see
+ * its siblings.
+ *
+ * ══ THE WEIGHT HERE WAS SYNTHETIC ══
+ *
+ * This read `font-bold` — 700 — against a Newsreader that was loaded at 400,
+ * 500 and 600 only. No 700 face existed, so the browser matched 600 and
+ * smeared the rest algorithmically, on the largest type in the product. The
+ * comment claimed "36px/700" throughout. app/layout.tsx now loads the weight;
+ * tests/design-tokens.test.ts fails the build if a component asks for one that
+ * is not there.
+ *
+ * ⚠️ And the class string was a TEMPLATE LITERAL, so tailwind-merge never ran
+ * on it. Harmless here by luck — nothing collided — and it is the exact
+ * construction that put a primary button's label at 1.98:1. Every conditional
+ * class list goes through cn().
  */
 function SnapshotTile({
   label,
   value,
   delta,
   tone,
+  lead,
 }: {
   label: string;
   value: string;
   /** Comparison line, where one exists — "+3 this week". */
   delta?: string;
   tone?: 'danger' | 'warn';
+  /** The one metric worth the reader's eye first. At most one per viewport. */
+  lead?: boolean;
 }) {
-  const valueClass =
-    tone === 'danger' ? 'text-danger' : tone === 'warn' ? 'text-warning' : 'text-text';
   return (
-    <div className="rounded-card border border-rule bg-bg-raised p-4">
-      <p className={`font-display text-3xl font-bold leading-tight tabular-nums ${valueClass}`}>
+    <div
+      className={cn(
+        'rounded-card border bg-bg-raised p-4',
+        lead ? 'border-rule sm:col-span-2 lg:col-span-2' : 'border-rule-faint',
+      )}
+    >
+      <p
+        className={cn(
+          'font-display font-bold tabular-nums',
+          lead ? 'text-display' : 'text-2xl',
+          tone === 'danger' ? 'text-danger' : tone === 'warn' ? 'text-warning' : 'text-text',
+        )}
+      >
         {value}
       </p>
-      <p className="mt-1 text-2xs uppercase tracking-label text-text-dim">{label}</p>
+      <p
+        className={cn(
+          'mt-1 uppercase tracking-label',
+          lead ? 'text-xs text-text-dim' : 'text-2xs text-text-faint',
+        )}
+      >
+        {label}
+      </p>
       {delta ? <p className="mt-0.5 text-xs text-text-faint">{delta}</p> : null}
     </div>
   );

@@ -34,13 +34,13 @@ export default function DealCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
-            <span className="font-mono text-2xs uppercase tracking-wider text-text-faint">
+            <span className="font-mono text-2xs uppercase tracking-label text-text-faint">
               {deal.deal_id}
             </span>
             <StagePill stage={deal.stage} />
           </div>
 
-          <h3 className="mt-1 truncate font-display text-base leading-snug text-text">
+          <h3 className="mt-1 truncate font-display text-base text-text">
             {deal.company}
           </h3>
 

@@ -116,7 +116,7 @@ export default function SignalCapture({
 
           <label className="block">
             <span className="eyebrow mb-1 block">
-              So what<span className="ml-1.5 normal-case tracking-normal">— the action it forces</span>
+              So what<span className="ml-1.5 normal-case">— the action it forces</span>
             </span>
             <textarea
               rows={2}

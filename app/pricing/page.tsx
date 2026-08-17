@@ -61,7 +61,7 @@ export default function PricingPage() {
       <main className="shell py-16 md:py-24">
         <div className="mx-auto max-w-2xl text-center">
           <div className="mx-auto mb-6 h-0.5 w-12 rounded-full bg-accent" />
-          <h1 className="font-display text-4xl leading-tight text-text md:text-5xl">
+          <h1 className="font-display text-4xl text-text md:text-5xl">
             Pricing
           </h1>
           <p className="mx-auto mt-4 max-w-lg text-lg text-text-dim">

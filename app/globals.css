@@ -18,22 +18,28 @@
     background: var(--color-bg);
     color: var(--color-text);
     font-family: var(--font-body);
-    font-size: 15px;
-    line-height: 1.55;
+    /* Was `15px` / `1.55` written out. The same two numbers already had tokens
+       three files away, which is how a scale ends up with a value that is
+       nearly the scale. */
+    font-size: var(--text-base);
+    line-height: var(--leading-base);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     /* Safe-area padding for iOS PWA in standalone display mode */
     padding-bottom: env(safe-area-inset-bottom);
   }
 
+  /* Headings take the display face and the tracking that belongs to their own
+     step — the size utility supplies both, so nothing is pinned here. A single
+     `letter-spacing: -0.011em` across h1–h4 was one compromise value standing
+     in for four different ones, which is the definition of scaling one size up
+     and down. */
   h1,
   h2,
   h3,
   h4 {
     font-family: var(--font-display);
     font-weight: 500;
-    letter-spacing: -0.011em;
-    line-height: 1.2;
     text-wrap: balance;
   }
 
@@ -66,10 +72,41 @@
   /* Small-caps eyebrow used above every module heading */
   .eyebrow {
     font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.14em;
+    font-size: var(--text-2xs);
+    line-height: var(--leading-2xs);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-faint);
+  }
+
+  /* ── Prose ────────────────────────────────────────────────────
+     The reading scale, the reading face and a capped measure, in one
+     class. Long-form only — Learn, and anywhere someone reads rather
+     than scans.
+
+     ⚠️ THE MEASURE IS THE POINT. A line running the full width of a
+     1400px shell is roughly 190 characters, and the eye loses its
+     place on the return sweep somewhere past 75. Newsreader is a
+     screen-reading serif being used for the job it was drawn for;
+     Atkinson Hyperlegible is a superb UI face and is not this. */
+  .prose {
+    font-family: var(--font-display);
+    font-size: var(--text-read);
+    line-height: var(--leading-read);
+    letter-spacing: var(--tracking-read);
+    max-width: var(--measure);
+    color: var(--color-text);
+  }
+
+  .prose > * + * {
+    margin-top: var(--rhythm-block);
+  }
+
+  .prose-lead {
+    font-size: var(--text-read-lead);
+    line-height: var(--leading-read-lead);
+    letter-spacing: var(--tracking-read-lead);
+    color: var(--color-text-dim);
   }
 
   .rule-line {

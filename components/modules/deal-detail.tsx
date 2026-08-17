@@ -280,7 +280,7 @@ export default function DealDetail({
         <HealthRing score={deal.health_score} size={54} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-2xs uppercase tracking-wider text-text-faint">
+            <span className="font-mono text-2xs uppercase tracking-label text-text-faint">
               {deal.deal_id}
             </span>
             <StagePill stage={deal.stage} />

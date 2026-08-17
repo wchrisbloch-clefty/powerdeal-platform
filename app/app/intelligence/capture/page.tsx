@@ -53,7 +53,7 @@ export default function CapturePage() {
 
         <label className="block">
           <span className="eyebrow mb-1.5 block">
-            Notes <span className="normal-case tracking-normal">optional</span>
+            Notes <span className="normal-case">optional</span>
           </span>
           <textarea
             name="text"

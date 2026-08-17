@@ -80,7 +80,7 @@ export default function WinLossList({
             {e.buyer_verbatim?.trim() ? (
               <blockquote className="flex gap-2">
                 <Quote size={13} className="mt-0.5 shrink-0 text-accent-dim" aria-hidden />
-                <p className="text-sm leading-normal text-text">{e.buyer_verbatim}</p>
+                <p className="text-sm text-text">{e.buyer_verbatim}</p>
               </blockquote>
             ) : (
               <p className="text-sm text-text-dim">

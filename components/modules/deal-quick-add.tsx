@@ -226,7 +226,7 @@ function Field({
       <span className="eyebrow mb-1 block">
         {label}
         {required ? ' *' : ''}
-        {hint ? <span className="ml-1.5 normal-case tracking-normal">{hint}</span> : null}
+        {hint ? <span className="ml-1.5 normal-case">{hint}</span> : null}
       </span>
       {children}
     </label>

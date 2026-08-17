@@ -373,6 +373,32 @@ export function portfolioSnapshot(deals: Deal[]): PortfolioSnapshot {
   };
 }
 
+/**
+ * Which snapshot metric earns the lead position.
+ *
+ * ⚠️ A HIERARCHY IS A COMPARISON, so it cannot live in the tile. Six tiles each
+ * deciding their own prominence is six tiles at maximum prominence — the
+ * flatness the design pass set out to remove. Exactly one wins, here, where the
+ * whole set is visible.
+ *
+ * Ordered by what someone should do about it rather than by magnitude. An
+ * at-risk count is work today; a single-threaded count is work this week; MW
+ * and pipeline value are totals that did not change since Tuesday and never
+ * lead, however large they get.
+ *
+ * ⚠️ AND A ZERO STILL LEADS SOMETHING. Falling through to `activeCount` on a
+ * clean book is deliberate: the lead slot is a position in a layout and must
+ * always be filled, or the grid reflows every time the last risk clears.
+ */
+export type LeadMetric = 'atRisk' | 'singleThreaded' | 'stalled' | 'activeCount';
+
+export function leadMetric(snap: PortfolioSnapshot): LeadMetric {
+  if (snap.atRisk > 0) return 'atRisk';
+  if (snap.stalled > 0) return 'stalled';
+  if (snap.singleThreaded > 0) return 'singleThreaded';
+  return 'activeCount';
+}
+
 // ── Stage presentation ───────────────────────────────────────────
 
 /**

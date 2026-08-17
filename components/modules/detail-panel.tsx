@@ -161,7 +161,7 @@ role="presentation"
             </span>
           </div>
 
-          <h2 className="mt-2.5 font-display text-lg leading-snug text-text">
+          <h2 className="mt-2.5 font-display text-lg text-text">
             {item.url ? (
               <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
                 {item.title}
@@ -173,7 +173,7 @@ role="presentation"
           </h2>
 
           {item.synthesis ? (
-            <p className="mt-2.5 text-sm leading-relaxed text-text-dim">{item.synthesis}</p>
+            <p className="mt-2.5 text-sm text-text-dim">{item.synthesis}</p>
           ) : null}
 
           <div className="mt-3 flex items-center gap-2">
@@ -228,7 +228,7 @@ role="presentation"
                   {keyFacts.facts.map((fact, i) => (
                     <li key={i} className="group flex items-start gap-2">
                       <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-accent" aria-hidden />
-                      <span className="flex-1 text-sm leading-relaxed text-text-dim">{fact}</span>
+                      <span className="flex-1 text-sm text-text-dim">{fact}</span>
                       <button
                         type="button"
                         onClick={() => copy(fact, `f${i}`)}

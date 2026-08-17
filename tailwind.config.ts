@@ -30,44 +30,71 @@ const config: Config = {
         danger: 'var(--color-danger)',
         'danger-bg': 'var(--color-danger-bg)',
         warning: 'var(--color-warning)',
+        'warning-bg': 'var(--color-warning-bg)',
         success: 'var(--color-success)',
+        'success-bg': 'var(--color-success-bg)',
         rule: 'var(--color-rule)',
         'rule-faint': 'var(--color-rule-faint)',
         'health-high': 'var(--health-high)',
         'health-mid': 'var(--health-mid)',
         'health-low': 'var(--health-low)',
+        /**
+         * Chart series — ORDERED. Series one is Bloom green in both themes.
+         * There is no chart-5: see lib/design/chart-palette.ts, where the
+         * fifth series becomes a hatch over these four because a fifth hue
+         * cannot be told from a fourth on a photocopy.
+         */
+        'chart-1': 'var(--chart-1)',
+        'chart-2': 'var(--chart-2)',
+        'chart-3': 'var(--chart-3)',
+        'chart-4': 'var(--chart-4)',
+        'chart-stroke': 'var(--chart-stroke)',
+        'chart-grid': 'var(--chart-grid)',
       },
       fontFamily: {
         display: 'var(--font-display)',
         body: 'var(--font-body)',
         mono: 'var(--font-mono)',
       },
-      maxWidth: {
-        shell: 'var(--shell-max)',
-      },
-      // Role-named, bound to styles/tokens.css. A component should never carry
-      // a raw px value — the scale is the design system's to change.
-      // Redefines Tailwind's OWN scale rather than inventing names — those
-      // are already in tailwind-merge's default theme, so they cannot collide
-      // with colour utilities. `2xs` is the only new name and is declared in
-      // cn(). See the warning at the top of styles/tokens.css.
+      /**
+       * ⚠️ EVERY STEP IS A TRIPLE, NOT A SIZE.
+       *
+       * The array form binds line-height and letter-spacing to the size, so
+       * `text-xl` applies all three and there is no way to take the size
+       * without the rest of the step. That is the whole difference between a
+       * type scale and a list of font sizes.
+       *
+       * It is also how `leading-relaxed` ends up in fifteen files: when the
+       * step carries no leading, every author picks one, and Tailwind's
+       * defaults are right there and are not tokens. Those utilities are gone
+       * and tests/design-tokens.test.ts keeps them gone.
+       *
+       * Names reuse Tailwind's own scale wherever one exists — they are
+       * already in tailwind-merge's default theme, so they cannot collide with
+       * colour utilities. The four new names (2xs, display, read, read-lead)
+       * are declared in cn(). See the warning at the top of styles/tokens.css.
+       */
       fontSize: {
-        '2xs': 'var(--text-2xs)',
-        xs: 'var(--text-xs)',
-        sm: 'var(--text-sm)',
-        base: 'var(--text-base)',
-        lg: 'var(--text-lg)',
-        xl: 'var(--text-xl)',
-        '2xl': 'var(--text-2xl)',
-        '3xl': 'var(--text-3xl)',
-      },
-      lineHeight: {
-        tight: 'var(--leading-tight)',
-        snug: 'var(--leading-snug)',
-        normal: 'var(--leading-normal)',
+        '2xs': ['var(--text-2xs)', { lineHeight: 'var(--leading-2xs)', letterSpacing: 'var(--tracking-2xs)' }],
+        xs: ['var(--text-xs)', { lineHeight: 'var(--leading-xs)', letterSpacing: 'var(--tracking-xs)' }],
+        sm: ['var(--text-sm)', { lineHeight: 'var(--leading-sm)', letterSpacing: 'var(--tracking-sm)' }],
+        base: ['var(--text-base)', { lineHeight: 'var(--leading-base)', letterSpacing: 'var(--tracking-base)' }],
+        lg: ['var(--text-lg)', { lineHeight: 'var(--leading-lg)', letterSpacing: 'var(--tracking-lg)' }],
+        xl: ['var(--text-xl)', { lineHeight: 'var(--leading-xl)', letterSpacing: 'var(--tracking-xl)' }],
+        '2xl': ['var(--text-2xl)', { lineHeight: 'var(--leading-2xl)', letterSpacing: 'var(--tracking-2xl)' }],
+        '3xl': ['var(--text-3xl)', { lineHeight: 'var(--leading-3xl)', letterSpacing: 'var(--tracking-3xl)' }],
+        display: ['var(--text-display)', { lineHeight: 'var(--leading-display)', letterSpacing: 'var(--tracking-display)' }],
+        // Reading scale — long-form prose only.
+        read: ['var(--text-read)', { lineHeight: 'var(--leading-read)', letterSpacing: 'var(--tracking-read)' }],
+        'read-lead': ['var(--text-read-lead)', { lineHeight: 'var(--leading-read-lead)', letterSpacing: 'var(--tracking-read-lead)' }],
       },
       letterSpacing: {
         label: 'var(--tracking-label)',
+      },
+      maxWidth: {
+        shell: 'var(--shell-max)',
+        measure: 'var(--measure)',
+        'measure-narrow': 'var(--measure-narrow)',
       },
       borderRadius: {
         sm: 'var(--radius-sm)',
@@ -99,6 +126,12 @@ const config: Config = {
         'row-spacious': 'var(--row-h-spacious)',
       },
       spacing: {
+        // Vertical rhythm. These CHANGE at md and lg (see the media queries at
+        // the foot of styles/tokens.css), so `gap-rhythm-page` opens up on a
+        // larger screen without a single responsive variant at the call site.
+        'rhythm-page': 'var(--rhythm-page)',
+        'rhythm-block': 'var(--rhythm-block)',
+        'rhythm-tight': 'var(--rhythm-tight)',
         topbar: 'var(--topbar-height)',
         'topbar-stacked': 'var(--topbar-height-stacked)',
         'nav-item': 'var(--nav-item-min-w)',

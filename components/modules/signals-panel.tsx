@@ -209,7 +209,7 @@ function SignalRow({ signal, deals }: { signal: Signal; deals: Deal[] }) {
       </div>
 
       {signal.raw_signal ? (
-        <p className="mt-2 text-sm leading-relaxed text-text">{signal.raw_signal}</p>
+        <p className="mt-2 text-sm text-text">{signal.raw_signal}</p>
       ) : null}
 
       {/* The dual read, side by side. Stacks on narrow screens rather than

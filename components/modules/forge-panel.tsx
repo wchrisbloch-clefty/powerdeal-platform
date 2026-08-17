@@ -223,7 +223,7 @@ export default function ForgePanel({
                   <span className="mt-0.5 block text-xs text-text-dim">
                     {a.description}
                   </span>
-                  <span className="mt-1 block font-mono text-2xs uppercase tracking-wider text-text-faint">
+                  <span className="mt-1 block font-mono text-2xs uppercase tracking-label text-text-faint">
                     {a.formats.join(' · ')}
                   </span>
                 </button>

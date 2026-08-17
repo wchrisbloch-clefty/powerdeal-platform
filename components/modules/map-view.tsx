@@ -253,14 +253,28 @@ export default function MapView({
             weight: 2,
           })
             .bindPopup(
-              `<div style="font-size:12px;min-width:180px">
+              /**
+               * ⚠️ TWO DEFECTS IN THE LINK, IN ONE ATTRIBUTE.
+               *
+               * It read `style="color:#3CAD3A"` — the only raw hex left in any
+               * component, invisible to the token system because it is inside
+               * a string Leaflet injects rather than a className Tailwind
+               * compiles. And the value it hardcoded was the brand green as
+               * TEXT, at 2.90:1 on the popup's paper — under AA, and the same
+               * measurement that took the nav marker off `--color-accent`.
+               *
+               * `--color-accent-dim` is 4.98:1 and follows the theme, which a
+               * literal cannot: this popup rendered light-theme green over a
+               * dark-theme map.
+               */
+              `<div style="font-size:var(--text-xs);min-width:180px">
                  <strong>${escapeHtml(deal.company)}</strong><br/>
-                 <span style="opacity:.7">${escapeHtml(deal.deal_id)} · ${escapeHtml(deal.stage)}</span><br/>
+                 <span style="color:var(--color-text-dim)">${escapeHtml(deal.deal_id)} · ${escapeHtml(deal.stage)}</span><br/>
                  Health: ${deal.health_score.toFixed(1)} / 10<br/>
                  ${deal.utility ? `Utility: ${escapeHtml(deal.utility)}<br/>` : ''}
                  ${deal.size_mw ? `${formatMw(deal.size_mw)}<br/>` : ''}
                  ${deal.next_move ? `<em>${escapeHtml(deal.next_move)}</em><br/>` : ''}
-                 <a href="/app/pipeline/${deal.id}" style="color:#3CAD3A">Open deal →</a>
+                 <a href="/app/pipeline/${deal.id}" style="color:var(--color-accent-dim)">Open deal →</a>
                </div>`,
             )
             .addTo(group);

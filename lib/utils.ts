@@ -17,9 +17,20 @@ import { extendTailwindMerge } from 'tailwind-merge';
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {
-      // Only '2xs' is a NEW font-size name — the rest of the scale reuses
-      // Tailwind's own names, which tailwind-merge already classifies.
-      'font-size': [{ text: ['2xs'] }],
+      /**
+       * NEW font-size names only. The rest of the scale reuses Tailwind's own
+       * names, which tailwind-merge already classifies correctly.
+       *
+       * ⚠️ `read` and `read-lead` are the dangerous pair. Undeclared,
+       * tailwind-merge reads `text-read` as a COLOUR — it has no way to know
+       * otherwise — so `cn('text-read', 'text-text-dim')` would drop the size
+       * and leave prose at whatever it inherited. That is the exact mechanism
+       * that stripped `text-accent-fg` off the primary button and left its
+       * label at 1.98:1, and Learn is the surface where it would matter most:
+       * a reading scale that silently does not apply is a reading surface set
+       * in UI type.
+       */
+      'font-size': [{ text: ['2xs', 'display', 'read', 'read-lead'] }],
       /**
        * ⚠️ `border-b-nav-active` IS A WIDTH, and without this group
        * tailwind-merge classifies it as a border COLOUR — the same
@@ -41,6 +52,11 @@ const twMerge = extendTailwindMerge({
           text: [
             'accent-fg', 'accent-dim', 'text', 'text-dim', 'text-faint',
             'health-high', 'health-mid', 'health-low',
+            // Chart series carry text only in legends and direct labels, but
+            // they are `text-*` names all the same and the group has to know
+            // them or it starts guessing.
+            'chart-1', 'chart-2', 'chart-3', 'chart-4',
+            'chart-stroke', 'chart-grid',
           ],
         },
       ],
