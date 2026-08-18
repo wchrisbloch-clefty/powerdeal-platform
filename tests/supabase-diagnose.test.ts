@@ -244,9 +244,32 @@ describe('a REFUSED read is not an UNCONFIGURED deployment', () => {
     expect(seedBanner.length).toBeGreaterThan(0);
     expect(seedBanner).toHaveLength(files.length);
 
+    /*
+      ⚠️ THE FIRST VERSION OF THIS LOOP ASSERTED `toMatch(/\breadError\b/)` AND
+      A MUTATION SURVIVED IT. Replacing the live branch with
+
+        false ? <ReadFailureBanner readError={null} /> : isSeed ? (…)
+
+      left the word `readError` in the file four times — in the prop type, in
+      the destructure, in a dead ternary — and the check reported clean over a
+      surface that had stopped showing the banner entirely. Presence again,
+      where behaviour was the question.
+
+      So the assertion is about the VALUE FLOWING: every `readError={…}` site
+      must pass an identifier, never a literal, and there must be at least one.
+      A surface cannot satisfy this while holding the diagnosis and not using
+      it.
+    */
     for (const f of seedBanner) {
       const src = await readFile(f, 'utf8');
-      expect(src, `${f} never mentions readError`).toMatch(/\breadError\b/);
+      const sites = [...src.matchAll(/readError=\{([^}]+)\}/g)].map((m) => m[1].trim());
+      expect(sites.length, `${f} never passes readError anywhere`).toBeGreaterThan(0);
+      for (const value of sites) {
+        expect(
+          /^[A-Za-z_$][\w$]*$/.test(value) && value !== 'null' && value !== 'undefined',
+          `${f} passes readError={${value}} — a literal, not the diagnosis`,
+        ).toBe(true);
+      }
     }
   });
 
