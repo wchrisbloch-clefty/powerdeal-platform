@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Download, Plus, X } from 'lucide-react';
 import type { Deal } from '@/lib/types';
 import { VERTICALS, DEAL_STAGES, RELATIONSHIP_TYPES } from '@/lib/types';
-import { portfolioSnapshot } from '@/lib/deals';
+import { leadMetric, LEAD_HINTS, portfolioSnapshot } from '@/lib/deals';
 import { formatMw, formatUsd, cn } from '@/lib/utils';
 import PipelineTable from './pipeline-table';
 import DealQuickAdd from './deal-quick-add';
@@ -57,6 +57,9 @@ export default function PipelineView({
   }, [deals, query, vertical, stage, health, relType, thread]);
 
   const snap = portfolioSnapshot(filtered);
+  // Same function the Dashboard uses, so both surfaces promote the same
+  // metric on the same day rather than each deciding for itself.
+  const lead = leadMetric(snap);
   const activeFilters =
     (query ? 1 : 0) +
     [vertical, stage, relType].filter((v) => v !== 'all').length +
@@ -96,22 +99,46 @@ export default function PipelineView({
         </p>
       )}
 
-      {/* ── Snapshot bar ── */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-        <Tile label="Deals" value={String(filtered.length)} />
-        <Tile label="Active" value={String(snap.activeCount)} />
-        <Tile label="MW" value={formatMw(snap.totalMw)} />
-        <Tile label="Value" value={formatUsd(snap.totalUsdM)} />
+      {/* ── Snapshot bar ──
+          ⚠️ SAME FLATNESS THE DASHBOARD ALREADY FIXED, ON A SECOND SURFACE.
+          Six tiles at one volume: 21 deals, 21 active, 116 MW, $0K, 21 at
+          risk, 21 single-threaded — all identical weight, so the two that are
+          work to do read exactly like the four that are totals.
+
+          `leadMetric` is the same function the Dashboard uses, so the two
+          surfaces promote the same thing on the same day rather than each
+          deciding for itself. */}
+      <section className="grid grid-cols-2 gap-rhythm-block sm:grid-cols-3 lg:grid-cols-4">
         <Tile
           label="At risk"
           value={String(snap.atRisk)}
           tone={snap.atRisk > 0 ? 'danger' : undefined}
+          lead={lead === 'atRisk'}
+          hint={LEAD_HINTS.atRisk}
+        />
+        <Tile
+          label="Stalled > 30d"
+          value={String(snap.stalled)}
+          tone={snap.stalled > 0 ? 'warn' : undefined}
+          lead={lead === 'stalled'}
+          hint={LEAD_HINTS.stalled}
         />
         <Tile
           label="Single-thread"
           value={String(snap.singleThreaded)}
           tone={snap.singleThreaded > 0 ? 'warn' : undefined}
+          lead={lead === 'singleThreaded'}
+          hint={LEAD_HINTS.singleThreaded}
         />
+        <Tile
+          label="Active"
+          value={String(snap.activeCount)}
+          lead={lead === 'activeCount'}
+          hint={LEAD_HINTS.activeCount}
+        />
+        <Tile label="Deals" value={String(filtered.length)} />
+        <Tile label="MW" value={formatMw(snap.totalMw)} />
+        <Tile label="Value" value={formatUsd(snap.totalUsdM)} />
       </section>
 
       {/* ── Filters ── */}
@@ -185,22 +212,37 @@ function Tile({
   label,
   value,
   tone,
+  lead,
+  hint,
 }: {
   label: string;
   value: string;
   tone?: 'danger' | 'warn';
+  /** The one metric worth the eye first. At most one per viewport. */
+  lead?: boolean;
+  /** What the figure means. Earns the extra width; shown on the lead only. */
+  hint?: string;
 }) {
   return (
-    <div className="rounded-card border border-rule bg-bg-raised px-3 py-2">
+    <div
+      className={cn(
+        'flex flex-col rounded-card border bg-bg-raised px-3 py-2',
+        lead ? 'border-rule sm:col-span-2' : 'border-rule-faint',
+      )}
+    >
       <p className="eyebrow">{label}</p>
       <p
         className={cn(
-          'mt-0.5 font-display text-lg tabular-nums',
+          'mt-0.5 font-display tabular-nums',
+          lead ? 'text-display font-bold' : 'text-lg',
           tone === 'danger' ? 'text-danger' : tone === 'warn' ? 'text-warning' : 'text-text',
         )}
       >
         {value}
       </p>
+      {lead && hint ? (
+        <p className="mt-auto max-w-measure-narrow pt-3 text-sm text-text-dim">{hint}</p>
+      ) : null}
     </div>
   );
 }
