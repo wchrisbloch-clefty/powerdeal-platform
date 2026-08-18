@@ -73,6 +73,22 @@ const SURFACES = [
   '/app/forge',
   '/app/learn',
   '/app/settings',
+  /**
+   * ⚠️ A DETAIL PAGE, AND RULE 18 IS WHY IT IS HERE.
+   *
+   * The first run after the gap system shipped came back clean across nine
+   * surfaces — and the gap components appear on NONE of them. The MEDDPICC
+   * slot lives on a deal, the deal detail route was not in this list, and a
+   * check reporting "clean" about a component it never loaded is the same
+   * empty-universe pass this script was built after.
+   *
+   * `seed-def-001` is BAE Systems in the shipped seed, and it is deliberately
+   * the sparsest kind of record this product holds: no MEDDPICC beyond a
+   * champion, no critical event, single-threaded. It is the state 21 real
+   * deals are in, which makes it the right page to render the gap system
+   * against rather than a happy path that would exercise none of it.
+   */
+  '/app/pipeline/seed-def-001',
 ];
 
 const TOUCH_TARGET_MIN = 44;
@@ -89,6 +105,8 @@ const findings = [];
 const overlaps = [];
 /** Outbound fetches this network blocked. A fact about the runner, not the app. */
 const blockedRequests = [];
+/** Rule 18: the gap system must actually appear somewhere in the run. */
+let gapSlotsSeen = 0;
 const note = (surface, breakpoint, kind, detail) =>
   findings.push({ surface, breakpoint, kind, detail });
 
@@ -194,7 +212,15 @@ async function main() {
           nav: Boolean(document.querySelector('nav[aria-label="Main"], nav[aria-label="Primary"]')),
           interactive: document.querySelectorAll('a[href], button').length,
           title: document.title,
+          /**
+           * ⚠️ COUNTED SO THE GAP SYSTEM CANNOT BE "CLEAN" WHILE ABSENT.
+           * Reported per surface below; the run fails if no surface renders a
+           * single gap slot, because that means every assertion about the gap
+           * system was made against a page that does not contain one.
+           */
+          gapSlots: document.querySelectorAll('.border-gap-rule, [class*="border-gap-rule"]').length,
         }));
+        gapSlotsSeen += rendered.gapSlots;
         if (!rendered.nav || rendered.interactive < 8) {
           note(
             surface,
@@ -448,6 +474,12 @@ async function main() {
     await browser.close();
   } finally {
     server.kill('SIGTERM');
+  }
+
+  // ⚠️ RULE 18, APPLIED TO THIS SCRIPT'S OWN NEWEST SUBJECT. A clean report
+  // about a component that never rendered is the empty-universe pass again.
+  if (gapSlotsSeen === 0) {
+    note('(all)', '(all)', 'nothing-to-check', 'no gap slot rendered on any surface — every assertion about the gap system was made against pages that do not contain one');
   }
 
   // ── Report ──

@@ -37,7 +37,25 @@ export default function Badge({
     <span
       title={title}
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5',
+        /**
+         * ⚠️ `shrink-0` WITH NO CAP PUSHED THE PAGE SIDEWAYS.
+         *
+         * A risk flag reading "Standby / departing-load charge unquantified"
+         * renders 347px wide, and `shrink-0` means it will not give any of it
+         * back — so on a 390px phone the deal page scrolled horizontally, 433px
+         * of document in 390px of viewport.
+         *
+         * `shrink-0` is still right: badges in a row must not compress into
+         * each other. What was missing is that a badge WIDER THAN ITS
+         * CONTAINER has to wrap instead, which `max-w-full` plus normal
+         * wrapping gives it. The label is the information here, so it wraps
+         * rather than truncating.
+         *
+         * Invisible for the whole build because the deal detail page was not
+         * in the render check's surface list — nine surfaces reported clean
+         * while a tenth scrolled sideways.
+         */
+        'inline-flex max-w-full shrink-0 items-center gap-1 rounded border px-1.5 py-0.5',
         'font-mono text-2xs uppercase tracking-label',
         TONES[tone],
         className,

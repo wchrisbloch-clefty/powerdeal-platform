@@ -272,7 +272,7 @@ export default function DealDetail({
     <div className="space-y-5">
       <Link
         href="/app/pipeline"
-        className="inline-flex items-center gap-1.5 text-sm text-text-dim hover:text-text"
+        className="inline-flex min-h-tap items-center gap-1.5 text-sm text-text-dim hover:text-text lg:min-h-0"
       >
         <ArrowLeft size={14} /> Pipeline
       </Link>
@@ -312,7 +312,9 @@ export default function DealDetail({
           <p className="mt-1.5">
             <EntityLink
               entity={{ name: deal.company, type: 'company' }}
-              className="text-xs text-text-dim no-underline hover:text-text"
+              // Standalone, in its own paragraph — not a link inside a
+              // sentence, so the inline exemption does not apply to it.
+              className="inline-flex min-h-tap items-center text-xs text-text-dim no-underline hover:text-text lg:min-h-0"
             >
               See all coverage of {deal.company} →
             </EntityLink>
@@ -350,7 +352,10 @@ export default function DealDetail({
                 label="Utility"
                 value={
                   deal.utility && deal.utility.toLowerCase() !== 'multi' ? (
-                    <EntityLink entity={{ name: deal.utility, type: 'utility' }} />
+                    <EntityLink
+                      entity={{ name: deal.utility, type: 'utility' }}
+                      className="inline-flex min-h-tap items-center lg:min-h-0"
+                    />
                   ) : (
                     (deal.utility ?? '—')
                   )
