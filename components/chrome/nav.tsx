@@ -150,7 +150,31 @@ export function NavBar() {
           <Wordmark />
         </Link>
 
-        <nav aria-label="Main" className="min-w-0 flex-1">
+        {/**
+          * ⚠️ THE LIST OVERFLOWED THIS CONTAINER AND THE CONTROLS PAINTED OVER
+          * IT. `min-w-0 flex-1` let the <nav> shrink to whatever was left; the
+          * <ul> inside it did not shrink, because eight items at
+          * `min-w-nav-item` is a hard 512px. So the list ran past its own box
+          * and the trailing cluster drew on top of the last item.
+          *
+          * Learn was unreachable at every width from 768 to 1023 — covered by
+          * the search control, on every surface in the app. Measured, not
+          * inferred: Learn occupied 609–673 while the cluster began at ~594.
+          *
+          * The arithmetic in tokens.css said it fit: "eight at
+          * --nav-item-min-w is 512px of 768px, leaving room for the wordmark".
+          * It counted the wordmark (111px) and never counted the control
+          * cluster (200px). 111 + 512 + 200 = 823 into 712px of content width.
+          * It never fit at any md width; the comment asserted otherwise from
+          * the day it was written.
+          *
+          * `overflow-x-auto` makes the overflow VISIBLE AND NAVIGABLE instead
+          * of silent. Nothing is hidden, nothing is stacked, and all eight stay
+          * reachable — which is what the assertion always claimed and could not
+          * check. At lg the items go inline, the row fits, and no scroll
+          * appears.
+          */}
+        <nav aria-label="Main" className="no-scrollbar min-w-0 flex-1 overflow-x-auto">
           <ul className="flex h-topbar-stacked items-stretch lg:h-topbar">
             {NAV_ITEMS.map((item) => {
               const active = isActive(item.href);

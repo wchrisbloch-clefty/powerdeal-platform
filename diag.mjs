@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const p = await b.newPage();
+p.on('console', (m) => { if (m.type() === 'error') console.log('CONSOLE:', m.text().slice(0, 400)); });
+p.on('pageerror', (e) => console.log('PAGEERROR:', e.message.slice(0, 600)));
+await p.goto('http://localhost:3216/login');
+await p.fill('input[type=password]', 'rc');
+await p.click('button[type=submit]');
+await p.waitForTimeout(4000);
+console.log('URL:', p.url());
+console.log('BODY:', (await p.textContent('body')).slice(0, 200));
+await b.close();

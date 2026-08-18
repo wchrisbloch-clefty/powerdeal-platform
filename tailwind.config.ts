@@ -132,6 +132,9 @@ const config: Config = {
         'rhythm-page': 'var(--rhythm-page)',
         'rhythm-block': 'var(--rhythm-block)',
         'rhythm-tight': 'var(--rhythm-tight)',
+        // Clearance for anything fixed to the bottom of a phone viewport.
+        // The mobile tab bar owns that strip; see the note in tokens.css.
+        'above-tabbar': 'var(--above-tabbar)',
         topbar: 'var(--topbar-height)',
         'topbar-stacked': 'var(--topbar-height-stacked)',
         'nav-item': 'var(--nav-item-min-w)',

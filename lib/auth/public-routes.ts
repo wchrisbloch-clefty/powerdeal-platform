@@ -54,6 +54,24 @@ export const INFRASTRUCTURE_PREFIXES = [
   '/sitemap.xml',
   '/apple-touch-icon',
   '/manifest.webmanifest',
+  /**
+   * ⚠️ THE SERVICE WORKER SCRIPT, and it was broken by the auth gate.
+   *
+   * `/sw.js` was matched, found sessionless, and 307'd to `/login`. A browser
+   * refuses to register a worker whose script came via a redirect — "The script
+   * resource is behind a redirect, which is disallowed" — so registration
+   * failed silently on every load since the gate shipped, taking the PWA's
+   * offline behaviour with it. `sw-register.tsx` catches and logs, so nothing
+   * surfaced.
+   *
+   * Found by the render check reading the browser console, which is the only
+   * place this error ever appeared.
+   *
+   * SAFE TO EXEMPT: it is a static asset in `public/`, it reads no data and
+   * holds no credential. The worker it installs is same-origin and every
+   * request it makes still passes through this middleware.
+   */
+  '/sw.js',
 ];
 
 export function isPublicPath(pathname: string): boolean {

@@ -134,12 +134,37 @@ function WishBox({ path }: { path: string }) {
     }
   }
 
+  /**
+   * ⚠️ IT SAT ON TOP OF THE NAV, AND IT TOOK THE TAPS.
+   *
+   * This was `fixed bottom-4 right-4 z-40`. The mobile tab bar is `fixed
+   * bottom-0 z-30`. So on every phone screen, an opaque pill covered Chat and
+   * More — and being higher in the stack, it also received their touches. Two
+   * of the four primary destinations were unreachable, not merely obscured.
+   *
+   * TWO CHANGES, EITHER OF WHICH ALONE WOULD HAVE LEFT A BUG:
+   *
+   *   · `bottom-above-tabbar` clears the bar plus the safe-area inset, so the
+   *     pill is beside the nav rather than over it. `md:bottom-4` restores the
+   *     corner above md, where no tab bar exists.
+   *   · z-20, BELOW the tab bar rather than above it. Positioning alone would
+   *     still leave a feedback button outranking navigation in the stacking
+   *     order, which is the wrong priority on any surface — the fix would hold
+   *     only until something changed the pill's height.
+   *
+   * Also `min-h-tap`, since it is a touch target and was 34px.
+   *
+   * The nav suite asserted all eight destinations render, and all eight did.
+   * Presence is not reachability — scripts/render-check.mjs now asks
+   * `elementFromPoint` at each target's centre, which is the only check that
+   * can tell the difference.
+   */
   if (!open) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 rounded-full border border-rule bg-bg-raised px-3 py-2 text-2xs text-text-dim shadow-sm transition-colors hover:text-text"
+        className="fixed bottom-above-tabbar right-4 z-20 flex min-h-tap items-center gap-1.5 rounded-full border border-rule bg-bg-raised px-3 py-2 text-2xs text-text-dim shadow-sm transition-colors hover:text-text md:bottom-4"
         aria-label="Record a wish about this surface"
       >
         <Lightbulb size={13} aria-hidden />
@@ -149,7 +174,7 @@ function WishBox({ path }: { path: string }) {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 w-80 max-w-[calc(100vw-2rem)] rounded-card border border-rule bg-bg-raised p-3 shadow-lg">
+    <div className="fixed bottom-above-tabbar right-4 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-card border border-rule bg-bg-raised p-3 shadow-lg md:bottom-4">
       <div className="flex items-baseline justify-between">
         <p className="text-2xs uppercase tracking-label text-text-faint">I wish it just…</p>
         <button

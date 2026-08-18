@@ -68,7 +68,26 @@ describe('every destination is reachable at every breakpoint', () => {
     const bar = src.slice(src.indexOf('export function NavBar'), src.indexOf('export function TabBar'));
     expect(bar).toContain('NAV_ITEMS.map(');
     expect(bar).not.toMatch(/NAV_ITEMS\s*\.\s*filter/);
-    expect(bar).not.toContain('overflow-x-auto');
+
+    /**
+     * ⚠️ THIS USED TO ASSERT `not.toContain('overflow-x-auto')`, and that was
+     * the wrong claim in the wrong place.
+     *
+     * It was trying to guarantee a LAYOUT OUTCOME — everything visible, no
+     * scrolling — from the SOURCE. Source cannot see layout. And the outcome
+     * it guaranteed was false the whole time: the <ul> overflowed its <nav>
+     * silently and the control cluster painted over Learn, so from 768 to 1023
+     * the eighth destination was covered and untappable on every surface.
+     *
+     * The assertion passed because the item rendered. It did render. It was
+     * underneath something.
+     *
+     * Reachability is now checked where it can be checked — by
+     * scripts/render-check.mjs, with `elementFromPoint` at each target's
+     * centre. What is left here is the thing source CAN answer: no item is
+     * filtered out, and the overflow is handled visibly rather than hidden.
+     */
+    expect(bar).toContain('overflow-x-auto');
     expect(bar).not.toContain('slice(');
   });
 
@@ -176,9 +195,36 @@ describe('the iPad-portrait breakpoint is stated, not left to wrap', () => {
     const css = await TOKENS;
     const width = /--nav-item-min-w:\s*(\d+)px/.exec(css);
     expect(width, '--nav-item-min-w is not defined').toBeTruthy();
-    // The arithmetic, asserted rather than asserted-in-a-comment: eight items
-    // plus a wordmark and the controls have to clear an iPad portrait viewport.
-    expect(Number(width![1]) * 8).toBeLessThanOrEqual(768 - 200);
+    /**
+     * ⚠️ THE ARITHMETIC NAMED THE WORDMARK AND NEVER SUBTRACTED IT.
+     *
+     * This read `expect(min * 8).toBeLessThanOrEqual(768 - 200)` — 512 ≤ 568,
+     * a comfortable pass — under a comment saying "eight items plus a wordmark
+     * and the controls have to clear an iPad portrait viewport". The controls
+     * were subtracted. The wordmark, named in the same sentence, was not.
+     *
+     * Measured in Chromium: wordmark 111px, control cluster 200px, and 28px of
+     * page padding each side. So the real sum at the narrowest md width is
+     *
+     *     8 x 64  +  111  +  200  =  823   into   768 - 56 = 712
+     *
+     * It overflows by 111px, and it always did. The test is now written to say
+     * that — the overflow is asserted as REAL, because the fix is to scroll the
+     * list rather than to pretend eight items fit.
+     */
+    const min = Number(width![1]);
+    const WORDMARK = 111;
+    const CONTROLS = 200;
+    const CONTENT_AT_MD = 768 - 56;
+    expect(
+      min * 8 + WORDMARK + CONTROLS,
+      'the row now fits at md — the scrolling nav may no longer be needed',
+    ).toBeGreaterThan(CONTENT_AT_MD);
+
+    // At lg the items go inline and narrower, and there the row must fit
+    // without scrolling — that is the breakpoint where all eight are visible
+    // at once, which is the promise the design actually makes.
+    expect(min * 8 + WORDMARK + CONTROLS).toBeLessThanOrEqual(1024);
   });
 
   it('the bar is taller when stacked, and both heights are tokens', async () => {

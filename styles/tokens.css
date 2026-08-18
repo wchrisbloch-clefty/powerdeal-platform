@@ -148,11 +148,25 @@
                          before padding, against a 375px phone. It
                          does not fit, and the top of a 6.7" phone is
                          not reachable one-handed regardless.
-       md–lg  (768-1023) top bar, icon STACKED over label. Eight at
+       md–lg  (768-1023) top bar, icon STACKED over label, and the
+                         list SCROLLS HORIZONTALLY.
+
+                         ⚠️ This block used to claim "eight at
                          --nav-item-min-w is 512px of 768px, leaving
-                         room for the wordmark. Nothing wraps.
+                         room for the wordmark. Nothing wraps." The
+                         arithmetic counted the wordmark (111px) and
+                         omitted the trailing control cluster (200px):
+                         111 + 512 + 200 = 823 into 712px of content
+                         width at 768. It never fit, at any md width.
+
+                         What actually happened is that the <ul>
+                         overflowed its <nav> and the controls painted
+                         over the last item, so Learn was covered — and
+                         therefore untappable — on every surface from
+                         768 to 1023. The nav suite was green because
+                         it asserts the item RENDERS, and it did.
        >= lg  (1024+)    top bar, icon beside label. Eight visible,
-                         no overflow menu. */
+                         no overflow menu, no scroll. */
   --shell-max: 1400px;
   --topbar-height: 56px;
   /* Taller at md, because the label sits under the icon there. */
@@ -163,6 +177,22 @@
   --nav-item-min-w: 64px;
   /* The active marker. 2px reads at a glance without becoming a rule. */
   --nav-active-border: 2px;
+
+  /* ── Floor for anything pinned to the bottom of the viewport ──
+     ⚠️ THE TAB BAR OWNS THE BOTTOM OF A PHONE. The "I wish it just…"
+     pill was `fixed bottom-4 right-4 z-40` against a tab bar at
+     z-30, so it sat ON TOP of Chat and More — opaque, and higher in
+     the stack, which means it also took their taps. Two of the four
+     primary destinations were unreachable on every mobile screen.
+
+     The nav suite was green: it asserts all eight destinations
+     render, and all eight did. An element rendered underneath
+     another is present and unusable, which is why the render check
+     now asks `elementFromPoint` instead.
+
+     Anything fixed to the bottom uses this, so the clearance is
+     computed once here rather than guessed per component. */
+  --above-tabbar: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 0.75rem);
 
   /* ══ TYPE SCALE ═══════════════════════════════════════════════
      TWO SCALES, because a dashboard and a reading surface are

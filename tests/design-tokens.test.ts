@@ -19,6 +19,7 @@ import {
   encodeSeries,
   hatchPatternId,
   unencodableMessage,
+  PRINT_GREY_LEVELS,
 } from '@/lib/design/chart-palette';
 import { leadMetric, LEAD_HINTS } from '@/lib/deals';
 import type { PortfolioSnapshot } from '@/lib/deals';
@@ -112,6 +113,30 @@ describe('the chart palette is measured, in both themes', () => {
       ).toBeGreaterThanOrEqual(MIN_CVD_DELTA_E);
     },
   );
+
+  it('the floors sit ABOVE their perceptual limits, not merely below current', () => {
+    /**
+     * The user's question, asserted rather than answered in prose: a floor set
+     * below the perceptual limit lets the palette degrade to unusable while
+     * the build stays green.
+     *
+     * CVD: the CIE76 JND is ≈2.3 for adjacent patches. Chart reading is
+     * identification from memory across a page, which needs roughly an order
+     * of magnitude more — so the floor must be well clear of the JND, not
+     * near it.
+     *
+     * Grayscale: one reproducible print step is ≈100/PRINT_GREY_LEVELS.
+     *
+     * ⚠️ A quantization model was written to check this against the failure
+     * rather than the line, and DELETED — bucket boundaries have arbitrary
+     * phase, so it passed the five-hue palette that ΔL* correctly rejects.
+     * Made phase-independent it becomes "a gap of at least one bucket", which
+     * is this floor. See the note in chart-palette.ts.
+     */
+    const CIE76_JND = 2.3;
+    expect(MIN_CVD_DELTA_E).toBeGreaterThan(CIE76_JND * 5);
+    expect(MIN_GRAYSCALE_DELTA_L).toBeGreaterThan(100 / PRINT_GREY_LEVELS);
+  });
 
   it('specifically: no two series collapse under deuteranopia', () => {
     // Named on its own because this is the failure that was DESCRIBED in the

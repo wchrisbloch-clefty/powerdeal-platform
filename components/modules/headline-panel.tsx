@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, ExternalLink, RefreshCw } from 'lucide-react';
 import type { Headline } from '@/lib/engine/headlines';
-import type { SeedCopy, SeedState } from '@/lib/seed-state';
+import type { HeadlinesPayload, SeedCopy } from '@/lib/seed-state';
 import { relativeTime, cn } from '@/lib/utils';
 import Button from '@/components/ui/button';
 
@@ -26,15 +26,14 @@ import Button from '@/components/ui/button';
  * state. This build has shipped that three times.
  */
 
-interface Response {
-  headlines: Headline[];
-  summary: string | null;
-  feed_state: SeedState;
-  feed_copy: SeedCopy;
-  deal_state: SeedState;
-  deal_copy: SeedCopy;
-  considered: number;
-}
+/**
+ * ⚠️ IMPORTED, NOT REDECLARED. This was a private interface that agreed with
+ * the route by hand, and they stopped agreeing: the route's unconfigured
+ * branch omitted `feed_copy`, this file read `feed_copy.title`, and the
+ * Intelligence tab went blank on every deployment without a Supabase key.
+ * One type, both ends.
+ */
+type Response = HeadlinesPayload<Headline>;
 
 const TONE_STYLES: Record<SeedCopy['tone'], string> = {
   alert: 'border-danger/40 bg-danger/5 text-danger',

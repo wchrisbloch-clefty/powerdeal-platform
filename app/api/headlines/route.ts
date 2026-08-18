@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { rankHeadlines, headlineSummary } from '@/lib/engine/headlines';
+import type { Headline } from '@/lib/engine/headlines';
 import { classifySeedState, describeSeedState } from '@/lib/seed-state';
+import type { HeadlinesPayload, SeedState } from '@/lib/seed-state';
 import type { Deal, FeedItem } from '@/lib/types';
 import { explainFailure, keyShape } from '@/lib/supabase/diagnose';
 
@@ -31,18 +33,32 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const supabase = getAdminClient();
   if (!supabase) {
-    return NextResponse.json({
+    /**
+     * ⚠️ THIS BRANCH SHIPPED WITHOUT `feed_copy` OR `deal_copy`, and the panel
+     * reads `feed_copy.title` exactly when the state is `unreadable`. So the
+     * response built to EXPLAIN a missing key crashed the client instead, and
+     * the whole Intelligence tab rendered as a blank error page on any
+     * deployment without one — which is the state this product promises to
+     * boot in.
+     *
+     * The annotation is the fix, not the added fields. `NextResponse.json()`
+     * takes anything; `HeadlinesPayload` makes an omission a type error here
+     * rather than a white screen in a browser.
+     */
+    const unreadable: SeedState = {
+      kind: 'unreadable',
+      reason: 'SUPABASE_SERVICE_ROLE_KEY is not set, so nothing can be read.',
+    };
+    const payload: HeadlinesPayload<Headline> = {
       headlines: [],
       summary: null,
-      feed_state: {
-        kind: 'unreadable',
-        reason: 'SUPABASE_SERVICE_ROLE_KEY is not set, so nothing can be read.',
-      },
-      deal_state: {
-        kind: 'unreadable',
-        reason: 'SUPABASE_SERVICE_ROLE_KEY is not set, so nothing can be read.',
-      },
-    });
+      feed_state: unreadable,
+      feed_copy: describeSeedState(unreadable, 'swept items'),
+      deal_state: unreadable,
+      deal_copy: describeSeedState(unreadable, 'deals'),
+      considered: 0,
+    };
+    return NextResponse.json(payload);
   }
 
   const [feedRes, dealRes] = await Promise.all([
@@ -92,7 +108,9 @@ export async function GET() {
     dealsReadable: dealState.kind !== 'unreadable',
   });
 
-  return NextResponse.json({
+  // Annotated, so this return and the early one above cannot drift apart
+  // again. See the note on HeadlinesPayload.
+  const payload: HeadlinesPayload<Headline> = {
     headlines,
     summary: headlineSummary(headlines),
     feed_state: feedState,
@@ -104,5 +122,6 @@ export async function GET() {
      * that shows 12 of 60 without saying so reads as "there are 12".
      */
     considered: items.length,
-  });
+  };
+  return NextResponse.json(payload);
 }

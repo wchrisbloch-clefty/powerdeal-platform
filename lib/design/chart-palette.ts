@@ -111,14 +111,62 @@ export function unencodableMessage(count: number): string {
 
 // ── The thresholds the palette is held to ──────────────────────
 /**
- * Both are floors the CURRENT palette clears with room, and neither is set at
- * the current value: a threshold pinned to what happens to be true today
- * passes forever and tests nothing. Light measures 17.5 / 30.9 and dark 14.0 /
- * 27.8, so either can move a little before the build goes red, and a careless
- * hue swap cannot.
+ * ⚠️ WHERE THESE TWO NUMBERS COME FROM, BECAUSE "BELOW CURRENT" IS NOT A
+ * REASON.
+ *
+ * A floor set just under today's measurement tests compliance with an
+ * arbitrary line. Worse, if that line sits BELOW the perceptual limit, the
+ * palette can degrade all the way to unusable while the build stays green —
+ * the check would be measuring nothing and reporting a pass.
+ *
+ * So each is anchored to a failure model, and the anchor is stated plainly
+ * enough to be argued with. Neither is a citation; both are engineering
+ * estimates, and saying so is the point.
+ *
+ * ── MIN_CVD_DELTA_E = 20 ──
+ * The CIE76 just-noticeable difference is ≈2.3 for two large patches sitting
+ * edge to edge under controlled light. That is the wrong task. Reading a chart
+ * means holding a colour from a legend in memory and matching it to a mark
+ * somewhere else on the page, across a gap, at small size — identification
+ * from memory, not discrimination side by side, and it needs roughly an order
+ * of magnitude more separation. 20 is ≈9x the JND and sits at the low end of
+ * the range usually quoted for reliable categorical identification.
+ *
+ * ── MIN_GRAYSCALE_DELTA_L = 12 ──
+ * Anchored to REPRODUCTION, not to the eye. L* is scaled so 100 spans black to
+ * white; a photocopier or laser printer halftones to roughly ten reliably
+ * distinguishable grey levels, so one reproducible step is ≈10 L*. 12 is one
+ * step plus a margin for the tone compression a second-generation copy adds.
+ *
+ * Both floors are ABOVE their perceptual/reproduction limit rather than below
+ * it, which is the property that matters: a palette that satisfies them is
+ * usable, not merely compliant. And both sit under the current measurements
+ * (light 17.5 / 30.9, dark 14.0 / 27.8) so a deliberate hue change has room to
+ * move without a careless one passing.
+ *
+ * ⚠️ A QUANTIZATION MODEL WAS WRITTEN HERE AND DELETED. The idea was to bucket
+ * each series into the grey levels a copier resolves and assert no collision —
+ * testing the failure rather than the line. It does not work: bucket
+ * boundaries have an arbitrary phase relative to the values, so two colours
+ * 9.1 apart can straddle one and land in different buckets. It passed the
+ * five-hue palette that ΔL* correctly rejects.
+ *
+ * Made phase-independent, the statement becomes "the gap must be at least one
+ * bucket wide" — which is exactly the floor below. The model collapsed into
+ * the thing it was meant to justify, so it was removed rather than kept as
+ * reassurance, on the same grounds as the border-color class group.
  */
 export const MIN_GRAYSCALE_DELTA_L = 12;
 export const MIN_CVD_DELTA_E = 20;
+
+/**
+ * How many grey levels a photocopy can be relied on to hold apart.
+ *
+ * Deliberately pessimistic. A good laser printer does better; a second- or
+ * third-generation copy passed around inside a customer's procurement team
+ * does worse, and that is the artifact this palette has to survive.
+ */
+export const PRINT_GREY_LEVELS = 10;
 
 /** Series marks must have a defined edge against the ground behind them. */
 export const MIN_STROKE_CONTRAST = 3;

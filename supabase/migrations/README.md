@@ -1,10 +1,10 @@
 # Migration checklist
 
-Every migration in this directory must satisfy all sixteen. They are not style
+Every migration in this directory must satisfy all seventeen. They are not style
 preferences — each one is here because its absence caused a real, silent
 failure in this project.
 
-Rules 4 and 6 through 16 generalise past migrations to anything this build ships;
+Rules 4 and 6 through 17 generalise past migrations to anything this build ships;
 they are kept here because this is the file that gets read before something goes
 out.
 
@@ -255,26 +255,55 @@ legitimately while one assertion still holds the shape and cannot go vacuous.
 So: simulate the end state, not just the trigger. Rule 4 asks whether the check
 can fail; this asks whether it can be made to pass again.
 
-## 13. Never `git checkout` a file with uncommitted work
+## 13. Commit before mutating. Always. No exceptions.
 
 `git checkout <file>` reverts to HEAD and there is no undo. It has now destroyed
-uncommitted work in this project **twice** — once during mutation testing, once
-restoring after a simulated end-state run, taking a full set of new test blocks
-that then had to be rebuilt from scratch.
+uncommitted work in this project **four times** — mutation testing, restoring
+after a simulated end-state run, and twice in a single design-token batch, the
+second of those less than an hour after the first.
 
-Both times the intent was "undo my temporary edit", and both times the file also
+Every time the intent was "undo my temporary edit". Every time the file also
 held work that was not temporary.
 
-Use a copy instead. Before any mutation or simulation:
+This rule used to say *use a scratch copy and `diff -q` to prove the restore*.
+That advice is fine and it did not work, which is the more useful fact. It
+failed because the moment it has to reach is **inside the mutation loop** —
+a tight `mutate → test → restore` cycle, often a single shell line per
+mutation, written while thinking about the mutation rather than about the
+file. A rule that requires remembering an extra step at exactly the moment
+attention is elsewhere is a rule that will be skipped, and it was: the loop
+reached for `git checkout` both times because `git checkout` is what fits on
+that line.
+
+So the rule is now the thing that makes the loop safe **without** requiring
+anything of it:
+
+> **Commit all real work before the first mutation. Then `git checkout` is
+> always correct, because there is never anything in the file but the
+> mutation.**
+
+This inverts the discipline. The old rule asked the risky operation to be
+performed carefully; the new one removes the risk from the operation. Nothing
+has to be remembered mid-loop, no scratch directory has to be managed, and the
+restore stays the one-liner that will get written anyway.
 
 ```sh
-cp <file> "$SCRATCH/<file>.bak"   # …mutate, test…
-cp "$SCRATCH/<file>.bak" <file>   # restore
-diff -q "$SCRATCH/<file>.bak" <file>   # and prove it
+git commit -am "…"          # everything real, FIRST
+# now the loop is safe:
+sed -i 's/…/…/' file.ts     # mutate
+grep -c 'mutated form' file.ts   # rule 6: confirm it applied
+npm test
+git checkout -- file.ts     # restore — cannot lose anything
 ```
 
-The `diff -q` matters as much as the restore — rule 6 says confirm a mutation
-applied, and this is the same claim in reverse: confirm it was undone.
+Corollary, and it is where both recent failures actually happened: **a commit
+before the loop only protects work that existed before the loop.** Fixing
+something mid-loop and then continuing to mutate re-opens the same hole. Any
+real edit made after the first mutation gets its own commit before the next
+one.
+
+`git status --short` at the end of the loop, expecting a clean tree, is the
+cheap check that the whole cycle behaved.
 
 ## 14. Never trust a declared type over the bytes
 
@@ -391,3 +420,53 @@ Three properties, none optional:
 
 The general form: when declaration and reality live in different systems, put a
 comparator where it can see both, and make it say which one it could not read.
+
+## 17. A check that inspects properties has not seen the artifact
+
+Rule 16 said some facts live where the suite cannot reach. This is the sharper
+version for anything with a rendered output: **the suite can read every property
+of the thing and still not know what it looks like.**
+
+The Dashboard's lead tile spanned two grid columns and put a 48px number in
+them. Half a row of empty card behind two characters. It read as a layout bug,
+not as emphasis — and the full design-token suite was green, correctly. The
+type scale was right. The token was applied. The contrast passed. Every
+assertion inspected a property, and the defect was not in any property; it was
+in the relationship between the number, the space around it, and the six tiles
+beside it, which is exactly the class of fact that only exists once the thing
+is drawn.
+
+The same shape had already appeared twice in the same batch:
+
+- `document.fonts.check('700 …')` returned `true` for weight 800, which was
+  never loaded. It answers "would a face be used", not "is that face real" — a
+  property inspected, a question dodged. The advance-width curve (6.99 / 7.75 /
+  7.87 across 400→700) is the measurement that actually discriminates, and it
+  required rendering.
+- The feedback pill sits at `z-40`; the mobile tab bar at `z-30`. Two nav
+  destinations were covered by an opaque button that also took their taps. The
+  nav suite asserts all eight destinations are present, and all eight were
+  present. **An element rendered underneath another is present and unusable.**
+
+So: presence is not reachability, and properties are not appearance.
+
+Rendering is part of the loop, not a spot check at the end. Every batch that
+touches a surface runs `scripts/render-check.mjs` at all three breakpoints —
+1440 desktop, 834 iPad, 390 mobile — and it fails the run, not just reports:
+
+- **Occlusion.** For every interactive target, `elementFromPoint` at its centre
+  must return that element or a descendant. This is the assertion that catches
+  a covered nav item, and it is the reachability check that "does it render"
+  can never be.
+- **Touch-target size.** Below the desktop breakpoint, every interactive box
+  clears 44px.
+- **Horizontal overflow.** `scrollWidth > clientWidth` on the document is
+  always a defect and is invisible to every source-level test.
+
+What it deliberately does NOT do is diff screenshots. A pixel baseline goes red
+on every legitimate change, gets regenerated without being read, and becomes a
+rule-10 test that cannot fail. These three ask questions with real answers
+instead.
+
+The general form: when the artifact is rendered, assert against the render.
+Everything upstream of the render is a claim about it.

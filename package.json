@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "render-check": "node scripts/render-check.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

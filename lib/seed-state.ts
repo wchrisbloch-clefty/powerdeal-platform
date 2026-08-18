@@ -156,3 +156,40 @@ export function shouldShowState(state: SeedState): boolean {
 export function isTrustworthy(state: SeedState): boolean {
   return state.kind !== 'unreadable';
 }
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * THE HEADLINES PAYLOAD — ONE TYPE, BOTH ENDS.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * ⚠️ THIS EXISTS BECAUSE THE TWO ENDS DRIFTED AND TOOK A SURFACE DOWN.
+ *
+ * `/api/headlines` has an early return for the unconfigured case. It sent
+ * `feed_state` and `deal_state` and omitted `feed_copy` and `deal_copy`. The
+ * panel reads `data.feed_copy.title` precisely when the state is `unreadable`
+ * — so with no `SUPABASE_SERVICE_ROLE_KEY`, the read that was supposed to
+ * EXPLAIN the missing key instead threw `Cannot read properties of undefined`,
+ * and the entire Intelligence tab rendered as a blank error page.
+ *
+ * The degraded path was the crashing path, which is the worst possible place
+ * for it: a deployment with no keys is the state this product promises to
+ * boot in, and Intelligence was simply gone.
+ *
+ * Nothing caught it. `NextResponse.json()` accepts any object, the panel
+ * declared its own private `Response` interface, and the two agreed only by
+ * hand. TypeScript had no reason to look.
+ *
+ * So the shape lives here and BOTH ends import it: the route annotates its
+ * returns with it, the panel types its state with it. Omitting a field is now
+ * a type error at the point of omission rather than a blank screen in
+ * production.
+ */
+export interface HeadlinesPayload<H> {
+  headlines: H[];
+  summary: string | null;
+  feed_state: SeedState;
+  feed_copy: SeedCopy;
+  deal_state: SeedState;
+  deal_copy: SeedCopy;
+  considered: number;
+}
