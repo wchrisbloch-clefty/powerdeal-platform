@@ -1,10 +1,10 @@
 # Migration checklist
 
-Every migration in this directory must satisfy all eighteen. They are not style
+Every migration in this directory must satisfy all nineteen. They are not style
 preferences — each one is here because its absence caused a real, silent
 failure in this project.
 
-Rules 4 and 6 through 18 generalise past migrations to anything this build ships;
+Rules 4 and 6 through 19 generalise past migrations to anything this build ships;
 they are kept here because this is the file that gets read before something goes
 out.
 
@@ -490,7 +490,33 @@ scope it had not actually examined.
 The generalisation:
 
 > Any check reporting on N things must assert that N things were actually
-> inspected, and treat "nothing to inspect" as its loudest possible finding.
+> inspected, treat "nothing to inspect" as its loudest possible finding, and
+> **state how N was derived**.
+
+### The harder half is knowing what N is
+
+The first form of this rule was not enough, and it took three failures to see
+why. Each time the check was **honest about its own scope while the scope was
+wrong**:
+
+- nine surfaces reported clean while the gap system lived on a tenth that was
+  not in the list
+- ten reported clean while eight Intelligence tabs were on none of them — found
+  only because a mutation restoring a duplicate `<h1>` SURVIVED, since the panel
+  it lived in never rendered
+- the deal detail page reported nothing for the life of the build while
+  scrolling sideways on mobile, 433px of document in a 390px viewport
+
+In all three the inspection was complete. It was complete over the wrong N.
+
+An enumeration is a claim, and a hardcoded list is the weakest kind: it looks
+identical whether it is exhaustive or whether somebody stopped typing. So the
+list must carry its derivation — where the surfaces came from, why these and
+not others, what is deliberately excluded. `render-check` names its source
+(the nav's own destinations, plus a detail page and every `?tab=` value) and
+its exclusions (third-party Leaflet chrome, inline links in prose), so an
+incomplete enumeration is visible as a CHOICE rather than invisible as a
+default.
 
 In practice that is two guards, and both are needed:
 
@@ -530,3 +556,44 @@ Two things generalise. `pkill -f` patterns need to not match themselves —
 plausible common cause is exactly the kind of evidence that stops an
 investigation early: 144 *usually* is a timeout, which is what made it such an
 effective place for something else to hide.
+
+## 19. A check is subject to every defect class it tests for
+
+The render check exists to catch elements that are present but unreachable. Its
+own guard for "did this surface render at all" asked:
+
+```js
+document.querySelector('nav[aria-label="Main"]')
+```
+
+The desktop nav is `hidden md:block`. `hidden` is CSS; the element is in the
+DOM at every width. So on a phone that guard passed on an **invisible element**,
+and the tab bar that actually renders there was never checked — the exact
+defect the check was written to find, in the check.
+
+It was not alone:
+
+- The assertion that "no primary action is hand-rolled" scanned for `<button>`
+  with an accent ground. The second instance was a `<Link>` — the same defect
+  wearing a different tag, and the scan was keyed to the tag rather than the
+  role.
+- The assertion that "at most one snapshot tile leads" scanned the page for
+  every `lead={…}`, so it broke the moment a different component arrived with a
+  correct `lead` prop of its own. A source scan keyed to a bare prop name cannot
+  tell two components apart.
+- `render-check` served whatever was in `.next` — the registered-≠-running
+  pattern (rule 1) inside the verification layer itself. A run after an edit
+  described code that no longer existed, and reported a duplicate `<h1>` that
+  had already been removed.
+
+So: **when you write a check, apply its own rule to it.** If it tests for
+reachability, ask whether the check itself confuses presence with reachability.
+If it tests that declaration matches reality, ask which of the two the check is
+reading. If it tests for staleness, ask what the check is holding stale.
+
+The reason this keeps happening is not carelessness. A check is written in the
+same session, by the same person, in the same frame of mind as the thing it
+checks — so it inherits the assumptions rather than challenging them. The only
+reliable escape is mutation: break the thing deliberately and see whether the
+check notices. Every item above was found that way or by an unrelated
+investigation walking past it.

@@ -12,7 +12,7 @@ import type {
   Deal, Signal, MarketWatchEntry, StageTransition, DealCompetitor,
 } from '@/lib/types';
 import { meddpiccBreakdown, riskFlags, utilityRiskFlags } from '@/lib/deals';
-import { fromMeddpicc } from '@/lib/design/gaps';
+import { resolveKind, nextGaps, noGapMessage } from '@/lib/design/next-gap';
 import { GapInline } from '@/components/ui/gap';
 import { formatMw, formatUsd, formatDate, relativeTime, cn } from '@/lib/utils';
 import { nonAttainmentForState, primacyFor } from '@/lib/geo/epa-api';
@@ -113,6 +113,48 @@ export default function DealDetail({
   const [closing, setClosing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  /**
+   * The operator's own record of which fields they checked and found empty.
+   *
+   * Held locally so the mark responds to the tap, and reconciled against what
+   * the write actually returned — never assumed. `writeError` is shown BESIDE
+   * the mark rather than instead of it, the same rule the Learn panel follows:
+   * a failed save must not blank the thing it failed to save.
+   */
+  const [verifiedEmpty, setVerifiedEmpty] = useState<string[]>(deal.verified_empty ?? []);
+  const [markBusy, setMarkBusy] = useState<string | null>(null);
+  const [markError, setMarkError] = useState<string | null>(null);
+
+  async function recordVerifiedEmpty(field: string, verified: boolean) {
+    const next = verified
+      ? [...new Set([...verifiedEmpty, field])]
+      : verifiedEmpty.filter((f) => f !== field);
+    const previous = verifiedEmpty;
+    setMarkBusy(field);
+    setMarkError(null);
+    setVerifiedEmpty(next);
+    try {
+      const res = await fetch(`/api/deals/${deal.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verified_empty: next }),
+      });
+      if (!res.ok) {
+        // ⚠️ REVERT ON FAILURE. Leaving the mark switched would show the
+        // operator a record that does not exist — the optimistic-update
+        // version of every silent failure in this build.
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        setVerifiedEmpty(previous);
+        setMarkError(body?.error ?? `The write did not land (${res.status}).`);
+      }
+    } catch (err) {
+      setVerifiedEmpty(previous);
+      setMarkError((err as Error).message);
+    } finally {
+      setMarkBusy(null);
+    }
+  }
   /**
    * The card currently on screen: its posture and the day it was built.
    *
@@ -319,6 +361,49 @@ export default function DealDetail({
               See all coverage of {deal.company} →
             </EntityLink>
           </p>
+          {/* ── The next move, not the checklist ──
+              ⚠️ ONE OR TWO, ORDERED BY WHAT MATTERS AT THIS STAGE. The
+              MEDDPICC card below shows all eight and that is right for a
+              scorecard — it is the wrong thing to put at the top of a page,
+              because eight gaps at equal weight tell the reader what they have
+              not done rather than what to do next.
+
+              When the stage's fields are all recorded this renders the plain
+              sentence instead. It never reaches down the list for a
+              lower-priority field to keep the slot full. */}
+          <div className="mt-3 border-t border-rule pt-3">
+            <p className="eyebrow">Next move at {deal.stage}</p>
+            {(() => {
+              const next = nextGaps({ ...deal, verified_empty: verifiedEmpty });
+              if (next.length === 0) {
+                return (
+                  <p className="mt-1 max-w-measure text-sm text-text-dim">
+                    {noGapMessage(deal.stage)}
+                  </p>
+                );
+              }
+              return (
+                <ul className="mt-1 space-y-1">
+                  {next.map((g) => (
+                    <li key={g.field} className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                      <span className="font-medium text-text">{g.label}</span>
+                      <GapInline
+                        kind={g.kind}
+                        onConfirm={(v) => void recordVerifiedEmpty(g.field, v)}
+                        busy={markBusy === g.field}
+                      />
+                      <span className="text-text-dim">{g.hint}</span>
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()}
+            {markError ? (
+              /* Beside the mark, never instead of it. */
+              <p className="mt-1.5 text-xs text-danger">Not saved — {markError}</p>
+            ) : null}
+          </div>
+
           {flags.length > 0 && (
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {flags.map((f) => (
@@ -470,7 +555,11 @@ export default function DealDetail({
                       'Confirmed'
                     ) : (
                       <span className="inline-flex items-baseline gap-2">
-                        <GapInline kind={fromMeddpicc(f.state)} />
+                        <GapInline
+                          kind={resolveKind(f.state, f.key, verifiedEmpty)}
+                          onConfirm={(v) => void recordVerifiedEmpty(f.key, v)}
+                          busy={markBusy === f.key}
+                        />
                         <span className="text-text-faint">{f.hint}</span>
                       </span>
                     )}

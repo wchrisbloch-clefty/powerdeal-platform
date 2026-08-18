@@ -473,3 +473,50 @@ describe('the two chrome rows never stack', () => {
     expect(src).not.toContain('<Sidebar');
   });
 });
+
+describe('the render check enumerates what the product claims to have', () => {
+  /**
+   * ⚠️ RULE 18: AN ENUMERATION IS A CLAIM, AND THIS ONE HAS BEEN WRONG TWICE
+   * WHILE REPORTING CLEAN — nine surfaces while the gap system lived on a
+   * tenth, ten while eight Intelligence tabs were on none of them.
+   *
+   * `render-check` states how its list was derived. This holds the derivation
+   * to the source it names, so adding a nav destination or an Intelligence tab
+   * without adding a surface fails HERE rather than quietly shrinking N.
+   */
+  it('covers every nav destination', async () => {
+    const script = await readFile('scripts/render-check.mjs', 'utf8');
+    const list = /const SURFACES = \[([\s\S]*?)\n\];/.exec(script)![1];
+    const surfaces = [...list.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+
+    for (const item of NAV_ITEMS) {
+      expect(surfaces, `${item.href} is a destination the render check never visits`).toContain(
+        item.href,
+      );
+    }
+    expect(surfaces).toContain(SETTINGS_ITEM.href);
+  });
+
+  it('covers every Intelligence tab, because a tabbed surface is several', async () => {
+    const script = await readFile('scripts/render-check.mjs', 'utf8');
+    const tabsSrc = await readFile('components/modules/intel-tabs.tsx', 'utf8');
+    const tabs = [...tabsSrc.matchAll(/\{ id: '([a-z-]+)', label:/g)].map((m) => m[1]);
+    expect(tabs.length).toBeGreaterThan(1);
+
+    for (const id of tabs) {
+      const expected = `/app/intelligence?tab=${id}`;
+      // The default tab is reached at the bare path.
+      const ok = script.includes(expected) || id === 'headlines';
+      expect(ok, `Intelligence tab "${id}" is never rendered by the check`).toBe(true);
+    }
+  });
+
+  it('states its derivation and its exclusions, so an omission is a choice', async () => {
+    // A hardcoded list looks identical whether it is exhaustive or whether
+    // somebody stopped typing. The derivation is what tells them apart.
+    const script = await readFile('scripts/render-check.mjs', 'utf8');
+    const header = script.slice(0, script.indexOf('const SURFACES = ['));
+    expect(header).toMatch(/DERIVED FROM/);
+    expect(header).toMatch(/DELIBERATELY EXCLUDED/);
+  });
+});

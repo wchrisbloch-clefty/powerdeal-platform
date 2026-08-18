@@ -116,25 +116,60 @@ export function GapSlot({
  */
 export function GapInline({
   kind,
+  onConfirm,
+  busy,
   className,
 }: {
   kind: GapKind;
+  /**
+   * ⚠️ THE MARK IS THE CONTROL, and that placement is the design.
+   *
+   * "Not checked" on twenty-one deals is a false statement about whether the
+   * operator looked. A settings toggle or an edit form would fix it somewhere
+   * else; making the wrong words the button fixes the wrong statement exactly
+   * where the wrong statement is.
+   *
+   * Supplied only where a write can land. Without it the mark renders as text,
+   * which is what the pipeline table and any read-only surface want.
+   */
+  onConfirm?: (nextVerified: boolean) => void;
+  busy?: boolean;
   className?: string;
 }) {
   if (!isGap(kind)) return null;
   const p = PRESENTATION[kind];
+
+  const shell = cn(
+    'inline-flex border-b pb-px text-sm',
+    TONE_RULE[p.tone],
+    TONE_MARK[p.tone],
+    p.rule === 'dotted' ? 'border-dotted' : 'border-solid',
+    className,
+  );
+
+  // Only the two states the operator can move between are switchable. A
+  // `blocked` or `unavailable` mark is not the reader's to change, and a
+  // control that does nothing is worse than none.
+  const switchable = kind === 'unchecked' || kind === 'missing';
+  if (!onConfirm || !switchable) return <span className={shell}>{p.mark}</span>;
+
+  const verified = kind === 'missing';
   return (
-    <span
-      className={cn(
-        'inline-flex border-b pb-px text-sm',
-        TONE_RULE[p.tone],
-        TONE_MARK[p.tone],
-        p.rule === 'dotted' ? 'border-dotted' : 'border-solid',
-        className,
-      )}
+    <button
+      type="button"
+      onClick={() => onConfirm(!verified)}
+      disabled={busy}
+      // Nothing gates. The control is optional, reversible, and its absence
+      // leaves the field exactly as it is.
+      title={
+        verified
+          ? 'You recorded this as checked and empty. Click to return it to unchecked.'
+          : 'Checked it and there is genuinely nothing? Record that.'
+      }
+      className={cn(shell, 'min-h-tap items-end text-left hover:text-text disabled:opacity-50 lg:min-h-0')}
     >
       {p.mark}
-    </span>
+    </button>
   );
 }
 

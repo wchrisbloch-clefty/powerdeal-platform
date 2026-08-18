@@ -62,7 +62,48 @@ const BREAKPOINTS = [
   { name: 'mobile', width: 390, height: 844, touch: true },
 ];
 
-/** Every surface with chrome on it. */
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * HOW THIS LIST WAS DERIVED. Rule 18 — an enumeration is a claim.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * A hardcoded list looks identical whether it is exhaustive or whether someone
+ * stopped typing, and this one has been wrong twice while reporting clean:
+ * nine surfaces while the gap system lived on a tenth, ten while eight
+ * Intelligence tabs were on none of them. So the derivation is stated, and an
+ * omission has to be an argument rather than an oversight.
+ *
+ * DERIVED FROM, in order:
+ *
+ *   1. `NAV_ITEMS` in components/chrome/nav.tsx — the eight destinations the
+ *      product itself claims to have — plus `SETTINGS_ITEM`, which sits apart
+ *      from the eight in both bars.
+ *   2. Every `?tab=` value in `INTEL_TABS`, because a tabbed surface is
+ *      several surfaces: each tab is a link loading only its own data, and
+ *      only the default was ever rendered.
+ *   3. One DETAIL page, because the collection pages exercise none of the
+ *      record-level components. `seed-def-001` is chosen as the SPARSEST
+ *      record the seed holds — the state 21 real deals are in — rather than a
+ *      happy path that would render no gaps at all.
+ *
+ * DELIBERATELY EXCLUDED, each an argument rather than an omission:
+ *
+ *   · `/login` — outside the shell, has no nav, and is covered by
+ *     tests/auth.test.ts against the route manifest.
+ *   · `/app/ccus` and `/app/pricing-intel` — bare `redirect()` calls into the
+ *     Intelligence tabs, which ARE in the list. Nothing renders at either.
+ *   · `/app/entity/[slug]` and `/app/social` — no seed record reaches them, so
+ *     including them would add two surfaces that render an empty state and
+ *     nothing else. This is the weakest exclusion here and is the first place
+ *     to look when something slips through.
+ *
+ * ⚠️ NOT DERIVED AUTOMATICALLY FROM THE ROUTE TREE, and that is a choice with
+ * a cost. A filesystem walk would be exhaustive by construction and would need
+ * a fixture for every dynamic segment — inventing ids for routes no seed
+ * record reaches. The manual list is legible and can go stale; the automatic
+ * one cannot go stale and would need fabricated data to run. Legible won, and
+ * the assertion that the count matches NAV_ITEMS is what keeps it honest.
+ */
 const SURFACES = [
   '/app',
   '/app/pipeline',

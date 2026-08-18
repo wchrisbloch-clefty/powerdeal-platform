@@ -199,6 +199,15 @@ export interface DealCompetitor {
 // ── Deal (the Pipeline Spine row) ───────────────────────────────
 
 export interface Deal {
+  /**
+   * Field keys the operator has confirmed are genuinely empty.
+   *
+   * ⚠️ TURNS "not checked" INTO "not recorded" AND NOTHING ELSE. Never read by
+   * scoring — see supabase/migrations/20260818_verified_empty.sql. Optional and
+   * opt-in per field; an empty array is the honest default, because
+   * "unchecked" is true of everything until the operator says otherwise.
+   */
+  verified_empty?: string[] | null;
   id: string;
   deal_id: string; // human key: DC-001, DEF-001, OG-010
   company: string;

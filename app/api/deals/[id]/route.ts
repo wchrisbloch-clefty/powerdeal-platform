@@ -4,7 +4,7 @@ import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { getDeal, getSignalsForDeal, getMarketWatchForDeal, getStageTransitions } from '@/lib/data';
 import { computeHealthScore, computeMeddpiccScore } from '@/lib/deals';
 import { competitorCountForDeal } from '@/lib/competitive';
-import { DEAL_STAGES, VERTICALS, RELATIONSHIP_TYPES } from '@/lib/types';
+import { MEDDPICC_FIELDS, DEAL_STAGES, VERTICALS, RELATIONSHIP_TYPES } from '@/lib/types';
 import type { Deal } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -45,6 +45,17 @@ const UpdateDeal = z
     next_move: z.string().max(1000).nullable(),
     next_move_date: z.string().nullable(),
     key_risk: z.string().max(1000).nullable(),
+    /**
+     * ⚠️ CONSTRAINED TO REAL FIELD KEYS, not free text.
+     *
+     * The column is `text[]` with no enum behind it, which is the price of one
+     * array over ten booleans. So the validation lives here: an unknown key
+     * would sit in the array forever, matching nothing, silently doing nothing
+     * — a stored value that looks like a record and is not one.
+     */
+    verified_empty: z
+      .array(z.enum(MEDDPICC_FIELDS.map((f) => f.key) as [string, ...string[]]))
+      .max(MEDDPICC_FIELDS.length),
     metrics_known: z.boolean(),
     economic_buyer: z.string().max(200).nullable(),
     decision_criteria: z.string().max(2000).nullable(),
