@@ -8,6 +8,7 @@ import { formatDate, cn } from '@/lib/utils';
 import { Card, CardBody, CardHeader, CardTitle, EmptyState } from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
 import ProvenanceChip from '@/components/ui/provenance-chip';
+import PageHeader from '@/components/chrome/page-header';
 
 const STATUS_TONE: Record<PrimacyStatus, 'success' | 'warning' | 'neutral'> = {
   granted: 'success',
@@ -32,10 +33,7 @@ export default function CcusTracker({
 
   return (
     <div className="space-y-5">
-      <header>
-        <p className="eyebrow">Carbon capture</p>
-        <h1 className="mt-1 font-display text-2xl text-text">CCUS Tracker</h1>
-      </header>
+      <PageHeader eyebrow="Carbon capture" title="CCUS Tracker" />
 
       {/* ── Status header ── */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -9,6 +9,7 @@ import { MAP_LAYERS, LAYER_GROUPS, RATE_LEGEND, layersByCategory } from '@/lib/g
 import { VERTICALS } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import Button from '@/components/ui/button';
+import PageHeader from '@/components/chrome/page-header';
 
 // Leaflet reads `window` at import time — never server-render it.
 const MapView = dynamic(() => import('./map-view'), {
@@ -68,20 +69,18 @@ export default function MapsPanel({
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">Infrastructure</p>
-          <h1 className="mt-1 font-display text-2xl text-text">Maps</h1>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="md:hidden"
-          onClick={() => setPanelOpen(true)}
-        >
-          <Layers size={14} /> Layers
-        </Button>
-      </header>
+      <PageHeader eyebrow="Infrastructure" title="Maps"
+        action={
+          <Button
+            variant="secondary"
+            size="sm"
+            className="md:hidden"
+            onClick={() => setPanelOpen(true)}
+          >
+            <Layers size={14} /> Layers
+          </Button>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-[236px_1fr]">
         {/* ── Controls: sidebar on desktop, bottom sheet on mobile ── */}

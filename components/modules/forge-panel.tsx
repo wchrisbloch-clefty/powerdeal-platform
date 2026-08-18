@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import Button from '@/components/ui/button';
 import AiOutput from '@/components/ui/ai-output';
 import type { ForgeFormat } from '@/lib/forge/generate';
+import PageHeader from '@/components/chrome/page-header';
 
 interface ForgeAction {
   id: string;
@@ -157,10 +158,7 @@ export default function ForgePanel({
 
   return (
     <div className="space-y-5">
-      <header>
-        <p className="eyebrow">Document Forge</p>
-        <h1 className="mt-1 font-display text-2xl text-text">Forge</h1>
-      </header>
+      <PageHeader eyebrow="Document Forge" title="Forge" />
 
       <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
         {/* ── Left: selector ── */}

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Button from '@/components/ui/button';
+import PageHeader from '@/components/chrome/page-header';
 
 export const metadata = { title: 'Capture' };
 
@@ -16,16 +17,18 @@ export const metadata = { title: 'Capture' };
  */
 export default function CapturePage() {
   return (
-    <div className="mx-auto max-w-lg space-y-5">
-      <div>
-        <p className="eyebrow">Intelligence</p>
-        <h1 className="mt-1 font-display text-2xl text-text">Capture</h1>
-        <p className="mt-2 text-sm text-text-dim">
-          Paste anything worth keeping — a headline, a link, a note from a call.
-          It is graded, summarised and mapped to your accounts on the way in.
-          Shared items from your phone land here too.
-        </p>
-      </div>
+    <div className="mx-auto max-w-lg space-y-rhythm-page">
+      <PageHeader
+        eyebrow="Intelligence"
+        title="Capture"
+        lead={
+          <p className="text-sm text-text-dim">
+            Paste anything worth keeping — a headline, a link, a note from a call.
+            It is graded, summarised and mapped to your accounts on the way in.
+            Shared items from your phone land here too.
+          </p>
+        }
+      />
 
       <form
         action="/app/capture"

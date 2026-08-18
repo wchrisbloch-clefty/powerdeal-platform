@@ -31,6 +31,7 @@ import CcusTracker from '@/components/modules/ccus-tracker';
 import PricingPanel from '@/components/modules/pricing-panel';
 import ResearchPanel from '@/components/modules/research-panel';
 import { EmptyState } from '@/components/ui/card';
+import PageHeader from '@/components/chrome/page-header';
 
 export const metadata = { title: 'Intelligence' };
 export const dynamic = 'force-dynamic';
@@ -55,11 +56,8 @@ export default async function IntelligencePage({
   const tab: IntelTab = isIntelTab(raw) ? raw : DEFAULT_TAB;
 
   return (
-    <div className="space-y-5">
-      <header>
-        <p className="eyebrow">Market Watch</p>
-        <h1 className="mt-1 font-display text-2xl text-text">Intelligence</h1>
-      </header>
+    <div className="space-y-rhythm-page">
+      <PageHeader eyebrow="Market Watch" title="Intelligence" />
 
       <IntelTabs active={tab} />
 

@@ -9,6 +9,7 @@ import DealCard from '@/components/ui/deal-card';
 import HealthRing from '@/components/ui/health-ring';
 import Badge from '@/components/ui/badge';
 import Button from '@/components/ui/button';
+import PageHeader from '@/components/chrome/page-header';
 
 export const metadata = { title: 'Dashboard' };
 
@@ -26,32 +27,37 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-rhythm-page">
-      <header>
-        <p className="eyebrow">Portfolio</p>
-        <h1 className="mt-1 font-display text-2xl text-text">Dashboard</h1>
-        {/* ⚠️ TWO STATES, TWO SENTENCES. They used to share one.
-            "Connect Supabase" is the right instruction for a deployment that
-            has no key and the WRONG one for a deployment whose key is being
-            refused — it sends the reader to connect something already
-            connected. And it is nearly invisible: SEED_DEALS holds exactly 21
-            deals and so does the live pipeline, so a rejected key renders 21
-            plausible rows under a banner that reads like setup advice. */}
-        {readError ? (
-          <p className="mt-1.5 rounded-card border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-            <span className="font-medium">These are NOT your deals.</span> The database
-            refused the query, so the rows below are template data standing in for a
-            pipeline that could not be read. {readError}
-          </p>
-        ) : isSeed ? (
-          <p className="mt-1.5 text-sm text-text-dim">
-            Showing template data.{' '}
-            <Link href="/app/settings" className="text-accent-dim underline underline-offset-2">
-              Connect Supabase
-            </Link>{' '}
-            to load your real pipeline.
-          </p>
-        ) : null}
-      </header>
+      <PageHeader
+        eyebrow="Portfolio"
+        title="Dashboard"
+        lead={
+          <>
+
+            {/* ⚠️ TWO STATES, TWO SENTENCES. They used to share one.
+                "Connect Supabase" is the right instruction for a deployment that
+                has no key and the WRONG one for a deployment whose key is being
+                refused — it sends the reader to connect something already
+                connected. And it is nearly invisible: SEED_DEALS holds exactly 21
+                deals and so does the live pipeline, so a rejected key renders 21
+                plausible rows under a banner that reads like setup advice. */}
+            {readError ? (
+              <p className="mt-1.5 rounded-card border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
+                <span className="font-medium">These are NOT your deals.</span> The database
+                refused the query, so the rows below are template data standing in for a
+                pipeline that could not be read. {readError}
+              </p>
+            ) : isSeed ? (
+              <p className="mt-1.5 text-sm text-text-dim">
+                Showing template data.{' '}
+                <Link href="/app/settings" className="text-accent-dim underline underline-offset-2">
+                  Connect Supabase
+                </Link>{' '}
+                to load your real pipeline.
+              </p>
+            ) : null}
+          </>
+        }
+      />
 
       {/* ── Snapshot bar ──
           ONE tile leads and the other five support. Which one is decided by

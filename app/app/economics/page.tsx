@@ -4,6 +4,7 @@ import { looseScenarios, scenariosOn } from '@/lib/economics/scenarios';
 import { emptyGrid } from '@/lib/economics/presets';
 import type { Deal } from '@/lib/types';
 import type { Scenario } from '@/lib/economics/types';
+import PageHeader from '@/components/chrome/page-header';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,15 +52,18 @@ export default async function EconomicsPage({
   if (!deal) scenarios = await looseScenarios();
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="font-display text-2xl text-text">Economics</h1>
-        <p className="mt-1 text-sm text-text-dim">
-          Levelized cost of energy, with the heat-rate chain and the redundancy multiplier
-          shown rather than buried. Compare by pinning two configurations, not by moving one
-          slider across technologies.
-        </p>
-      </header>
+    <div className="space-y-rhythm-page">
+      <PageHeader
+        eyebrow="Cost model"
+        title="Economics"
+        lead={
+          <p className="text-sm text-text-dim">
+            Levelized cost of energy, with the heat-rate chain and the redundancy multiplier
+            shown rather than buried. Compare by pinning two configurations, not by moving one
+            slider across technologies.
+          </p>
+        }
+      />
 
       {/* Stated once, on the surface, rather than only in a source comment.
           Someone opening this for the first time needs to know the presets are

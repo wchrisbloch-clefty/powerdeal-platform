@@ -9,6 +9,7 @@ import { STATE_CENTROIDS } from '@/lib/geo/states';
 import { rateColor, RATE_LEGEND } from '@/lib/geo/layers';
 import { pct, cn } from '@/lib/utils';
 import { Card, CardBody, CardHeader, CardTitle, EmptyState } from '@/components/ui/card';
+import PageHeader from '@/components/chrome/page-header';
 
 export default function PricingPanel({
   rates,
@@ -236,10 +237,7 @@ export default function PricingPanel({
 
 function Header() {
   return (
-    <header>
-      <p className="eyebrow">Cost of grid power</p>
-      <h1 className="mt-1 font-display text-2xl text-text">Pricing Intelligence</h1>
-    </header>
+    <PageHeader eyebrow="Cost of grid power" title="Pricing Intelligence" />
   );
 }
 

@@ -94,6 +94,13 @@ const SURFACES = [
 const TOUCH_TARGET_MIN = 44;
 
 /**
+ * `--text-2xl`, the page-title step, resolved to px. Written as the computed
+ * value because that is what the browser reports — if the token changes, this
+ * fails and is meant to: the step moving is a design decision, not a drift.
+ */
+const PAGE_TITLE_SIZE = '28px';
+
+/**
  * ⚠️ THE SELECTOR IS THE SCOPE OF THE CHECK. Anything not matched here is not
  * checked at all, so it is deliberately broad rather than a list of the
  * controls that were remembered.
@@ -209,8 +216,27 @@ async function main() {
          * itself the loudest finding.
          */
         const rendered = await page.evaluate(() => ({
-          nav: Boolean(document.querySelector('nav[aria-label="Main"], nav[aria-label="Primary"]')),
-          interactive: document.querySelectorAll('a[href], button').length,
+          /**
+           * ⚠️ VISIBLE, NOT MERELY PRESENT — and this guard had the exact bug
+           * it exists to catch.
+           *
+           * `querySelector('nav[aria-label="Main"]')` finds the desktop bar on
+           * a phone, because `hidden md:block` is CSS and the element is still
+           * in the DOM. So on mobile this passed on the strength of an
+           * invisible element, and the tab bar that actually renders there was
+           * never checked. If the tab bar vanished entirely, the guard would
+           * have said the surface rendered.
+           *
+           * Same shape as the `<Link>` painted as a button: keyed to what the
+           * markup IS rather than to what it DOES. A nav that occupies no
+           * pixels is not navigation.
+           */
+          nav: [...document.querySelectorAll('nav')].some((n) => {
+            const r = n.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          }),
+          // `[role="button"]` counts: a div wired as a control is a control.
+          interactive: document.querySelectorAll('a[href], button, [role="button"]').length,
           title: document.title,
           /**
            * ⚠️ COUNTED SO THE GAP SYSTEM CANNOT BE "CLEAN" WHILE ABSENT.
@@ -219,6 +245,31 @@ async function main() {
            * system was made against a page that does not contain one.
            */
           gapSlots: document.querySelectorAll('.border-gap-rule, [class*="border-gap-rule"]').length,
+          /**
+           * ⚠️ ONE PAGE TITLE PER SURFACE, AT ONE SIZE, MEASURED.
+           *
+           * The eyebrow-plus-h1 block was hand-copied into six files, and
+           * where it was not copied it drifted: Learn's page title was
+           * `text-lg` (card-title size, three steps down), Economics had no
+           * eyebrow, Chat had no header at all — and the Intelligence surface
+           * rendered the title TWICE, once from the page and once from the
+           * feed panel mounted inside it, two <h1>s reading "Intelligence"
+           * directly under each other.
+           *
+           * A source scan cannot see any of that: each file looked right on
+           * its own, and the duplicate lived in two files neither author had
+           * open. Counting rendered <h1>s and reading their computed size is
+           * the only check that catches all four.
+           */
+          headings: [...document.querySelectorAll('h1')]
+            .filter((h) => {
+              const r = h.getBoundingClientRect();
+              return r.width > 0 && r.height > 0;
+            })
+            .map((h) => ({
+              text: (h.textContent || '').trim().slice(0, 30),
+              size: getComputedStyle(h).fontSize,
+            })),
         }));
         gapSlotsSeen += rendered.gapSlots;
         if (!rendered.nav || rendered.interactive < 8) {
@@ -230,6 +281,24 @@ async function main() {
               `the surface did not render, so nothing below it was actually checked`,
           );
         }
+        if (rendered.headings.length !== 1) {
+          note(
+            surface,
+            bp.name,
+            'page-title',
+            `${rendered.headings.length} visible <h1> — ${
+              rendered.headings.map((h) => `"${h.text}" @${h.size}`).join(', ') || 'none'
+            }. Every surface has exactly one page title.`,
+          );
+        } else if (rendered.headings[0].size !== PAGE_TITLE_SIZE) {
+          note(
+            surface,
+            bp.name,
+            'page-title',
+            `"${rendered.headings[0].text}" is ${rendered.headings[0].size}, not the page-title step (${PAGE_TITLE_SIZE})`,
+          );
+        }
+
         for (const e of surfaceErrors) {
           /**
            * ⚠️ ENVIRONMENTAL, NOT A DEFECT — AND NAMED RATHER THAN DROPPED.

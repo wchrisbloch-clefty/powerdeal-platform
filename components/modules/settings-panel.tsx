@@ -15,6 +15,7 @@ import UsageReport from './usage-report';
 import SpineExport from './spine-export';
 import SourcesPanel from './sources-panel';
 import type { VerticalConfig } from '@/lib/verticals/types';
+import PageHeader from '@/components/chrome/page-header';
 
 const DEFAULTS: Required<Pick<UserSettings, 'watchlist'>> = {
   watchlist: { accounts: [], topics: [], verticals: [], utilities: [] },
@@ -95,16 +96,14 @@ export default function SettingsPanel({
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">Customization</p>
-          <h1 className="mt-1 font-display text-2xl text-text">Settings</h1>
-        </div>
-        <Button variant="primary" size="sm" onClick={save} disabled={saving}>
-          {saved ? <Check size={14} /> : null}
-          {saving ? 'Saving…' : saved ? 'Saved' : 'Save changes'}
-        </Button>
-      </header>
+      <PageHeader eyebrow="Customization" title="Settings"
+        action={
+          <Button variant="primary" size="sm" onClick={save} disabled={saving}>
+            {saved ? <Check size={14} /> : null}
+            {saving ? 'Saving…' : saved ? 'Saved' : 'Save changes'}
+          </Button>
+        }
+      />
 
       {!canPersist && (
         <p className="rounded-card border border-rule bg-bg-raised px-3.5 py-2.5 text-sm text-text-dim">

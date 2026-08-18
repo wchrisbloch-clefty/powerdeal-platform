@@ -1,5 +1,6 @@
 import LearnPanel from '@/components/modules/learn-panel';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import PageHeader from '@/components/chrome/page-header';
 
 export const metadata = { title: 'Learn' };
 export const dynamic = 'force-dynamic';
@@ -18,14 +19,20 @@ export const dynamic = 'force-dynamic';
  */
 export default function LearnPage() {
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-lg text-text">Learn</h1>
-        <p className="mt-0.5 text-xs text-text-dim">
-          Explain it, drill it, roleplay it, compare it, or pick up where you left
-          off. One box — it reads the question.
-        </p>
-      </div>
+    <div className="space-y-rhythm-page">
+      <PageHeader
+        eyebrow="Practice"
+        title="Learn"
+        lead={
+          /* The reading scale, on the surface the brief calls out as needing to
+             be the most spacious in the platform. Everywhere else this line is
+             `text-sm`; here it is prose and is set as prose. */
+          <p className="prose-lead text-text-dim">
+            Explain it, drill it, roleplay it, compare it, or pick up where you left
+            off. One box — it reads the question.
+          </p>
+        }
+      />
 
       <Card>
         <CardHeader>

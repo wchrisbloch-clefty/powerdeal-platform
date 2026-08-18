@@ -208,9 +208,15 @@ export default function IntelFeed({
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="eyebrow">Market Watch</p>
-          <h1 className="mt-1 font-display text-2xl text-text">Intelligence</h1>
-          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-text-faint">
+          {/* ⚠️ THE PAGE TITLE WAS RENDERED TWICE. This panel carried its own
+              "Market Watch / Intelligence" header, and so does the page it is
+              mounted inside — two <h1>s on one surface, both saying the same
+              word, one directly under the other. Neither author saw the
+              other's, which is what a hand-copied pattern in six files buys
+              you.
+              The panel keeps its STATE line, because that is genuinely the
+              panel's to report, and drops the title, which is the page's. */}
+          <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-text-faint">
             <span>
               {live ? 'Live from' : 'Seed content —'} {vertical.sources.length} configured sources ·
               updated {relativeTime(fetchedAt)}

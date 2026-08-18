@@ -9,6 +9,7 @@ import { formatMw, formatUsd, cn } from '@/lib/utils';
 import PipelineTable from './pipeline-table';
 import DealQuickAdd from './deal-quick-add';
 import Button from '@/components/ui/button';
+import PageHeader from '@/components/chrome/page-header';
 
 type HealthFilter = 'all' | 'high' | 'mid' | 'low';
 type ThreadFilter = 'all' | 'multi' | 'single';
@@ -73,22 +74,20 @@ export default function PipelineView({
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">Pipeline Spine</p>
-          <h1 className="mt-1 font-display text-2xl text-text">Pipeline</h1>
-        </div>
-        <div className="flex gap-2">
-          <a href="/api/deals/export" download>
-            <Button variant="secondary" size="sm">
-              <Download size={14} /> Export CSV
+      <PageHeader eyebrow="Pipeline Spine" title="Pipeline"
+        action={
+          <div className="flex gap-2">
+            <a href="/api/deals/export" download>
+              <Button variant="secondary" size="sm">
+                <Download size={14} /> Export CSV
+              </Button>
+            </a>
+            <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
+              <Plus size={14} /> Add deal
             </Button>
-          </a>
-          <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
-            <Plus size={14} /> Add deal
-          </Button>
-        </div>
-      </header>
+          </div>
+        }
+      />
 
       {isSeed && (
         <p className="rounded-card border border-rule bg-bg-raised px-3.5 py-2.5 text-sm text-text-dim">

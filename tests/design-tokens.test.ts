@@ -443,8 +443,25 @@ describe('exactly one metric leads, and it is the one worth acting on', () => {
     // prominence. The page passes `lead={lead === '...'}` against one value,
     // so only one can be true — asserted here because a second `lead` added by
     // hand would compile fine.
+    /**
+     * ⚠️ SCOPED TO `<SnapshotTile>`, and the first version was not.
+     *
+     * It scanned the page for every `lead={…}` and required each to be a
+     * `lead === '…'` comparison. Then `PageHeader` arrived with its own `lead`
+     * prop — the lead PARAGRAPH, a ReactNode — and the assertion failed on a
+     * component it was never about.
+     *
+     * Both names are correct in their own component. What was wrong is a
+     * source scan keyed to a bare prop name, which cannot tell two components
+     * apart: the same defect as keying to a tag rather than a role, one level
+     * down.
+     */
     const page = await read('app/app/page.tsx');
-    const leads = [...page.matchAll(/lead=\{([^}]+)\}/g)].map((m) => m[1].trim());
+    const tiles = [...page.matchAll(/<SnapshotTile[\s\S]*?\/>/g)].map((m) => m[0]);
+    expect(tiles.length).toBeGreaterThan(1);
+    const leads = tiles
+      .flatMap((t) => [...t.matchAll(/lead=\{([^}]+)\}/g)])
+      .map((m) => m[1].trim());
     expect(leads.length).toBeGreaterThan(1);
     for (const l of leads) expect(l).toMatch(/^lead === '/);
   });

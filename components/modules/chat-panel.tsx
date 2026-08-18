@@ -112,7 +112,7 @@ export default function ChatPanel({
   }
 
   return (
-    <div className="flex h-[calc(100vh-var(--topbar-height)-6rem)] flex-col gap-4 md:h-[calc(100vh-var(--topbar-height)-4rem)] md:flex-row">
+    <div className="flex h-full min-h-0 flex-col gap-rhythm-block md:flex-row">
       {/* ── Quick actions ── */}
       <aside className="shrink-0 space-y-2 md:w-52">
         <p className="eyebrow">Quick actions</p>
