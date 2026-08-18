@@ -77,7 +77,7 @@ export default function UtilityPanel({
   const open = utility.risks.filter((r) => !r.answered);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-rhythm-page">
       <div>
         <div className="flex items-baseline justify-between">
           <p className="eyebrow flex items-center gap-1.5">

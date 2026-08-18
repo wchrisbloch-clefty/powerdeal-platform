@@ -205,7 +205,7 @@ export default function IntelFeed({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-rhythm-page">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           {/* ⚠️ THE PAGE TITLE WAS RENDERED TWICE. This panel carried its own

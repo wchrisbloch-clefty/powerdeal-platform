@@ -97,7 +97,7 @@ export default function CompetitivePanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-rhythm-page">
       {/* ── The grid ── */}
       <div>
         <div className="flex items-baseline justify-between">

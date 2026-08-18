@@ -186,7 +186,7 @@ export default function SourcesPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-rhythm-page">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="max-w-xl text-sm text-text-dim">
           Everything the feed can pull from, grouped by channel. Core sources are

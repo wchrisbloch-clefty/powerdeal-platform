@@ -197,7 +197,7 @@ export default function EconomicsPanel({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-rhythm-page">
       {/* ── Deal context ── */}
       {deal ? (
         <div className="rounded-card border border-accent-border bg-accent-bg px-3.5 py-2.5">

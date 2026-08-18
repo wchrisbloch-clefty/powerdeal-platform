@@ -31,7 +31,7 @@ export default function CcusTracker({
   );
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-rhythm-page">
       {/* ⚠️ A SECTION HEADING, NOT A PAGE TITLE. This rendered <PageHeader>,
         which was right when this panel had its own route — and
         app/app/ccus/page.tsx is now a bare redirect into the Intelligence

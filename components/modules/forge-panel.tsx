@@ -157,7 +157,7 @@ export default function ForgePanel({
   const canDownload = action.dataOnly || Boolean(ai.text && !ai.streaming);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-rhythm-page">
       <PageHeader eyebrow="Document Forge" title="Forge" />
 
       <div className="grid gap-5 lg:grid-cols-[300px_1fr]">

@@ -311,7 +311,7 @@ export default function DealDetail({
   }, [params]);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-rhythm-page">
       <Link
         href="/app/pipeline"
         className="inline-flex min-h-tap items-center gap-1.5 text-sm text-text-dim hover:text-text lg:min-h-0"

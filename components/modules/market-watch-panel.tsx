@@ -68,7 +68,7 @@ export default function MarketWatchPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-rhythm-page">
       <p className="text-sm text-text-dim">
         Only what hit an account, ranked by impact. The raw stream is on{' '}
         <Link href="/app/intelligence" className="text-accent-dim underline underline-offset-2">

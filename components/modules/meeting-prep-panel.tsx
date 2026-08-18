@@ -56,7 +56,7 @@ export default function MeetingPrepPanel({
   const open = checklist.filter((i) => i.status === 'open');
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-rhythm-page">
       <div>
         <div className="flex items-baseline justify-between">
           <p className="eyebrow">Meeting type</p>

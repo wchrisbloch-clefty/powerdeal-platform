@@ -51,7 +51,7 @@ export default function VideoPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-rhythm-page">
       <p className="text-sm text-text-dim">
         Watchlist videos, transcript-backed where the uploader published
         captions. <span className="font-mono">{videos.filter((v) => v.hasTranscript).length}</span>{' '}

@@ -73,7 +73,7 @@ export default function PipelineView({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-rhythm-page">
       <PageHeader eyebrow="Pipeline Spine" title="Pipeline"
         action={
           <div className="flex gap-2">

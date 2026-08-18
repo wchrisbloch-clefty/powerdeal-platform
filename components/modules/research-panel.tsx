@@ -33,7 +33,7 @@ export default function ResearchPanel({
   const [open, setOpen] = useState<string | null>(runs[0]?.generatedAt ?? null);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-rhythm-page">
       {runs.length === 0 ? <EmptyResearch /> : null}
 
       {runs.map((run) => {

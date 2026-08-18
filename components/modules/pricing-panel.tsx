@@ -39,7 +39,7 @@ export default function PricingPanel({
 
   if (!configured) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-rhythm-page">
         <Header />
         <EmptyState
           kind="unchecked"
@@ -51,7 +51,7 @@ export default function PricingPanel({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-rhythm-page">
       <Header />
 
       {/* ── Rate map ── */}

@@ -95,7 +95,7 @@ export default function SettingsPanel({
 
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-rhythm-page">
       <PageHeader eyebrow="Customization" title="Settings"
         action={
           <Button variant="primary" size="sm" onClick={save} disabled={saving}>

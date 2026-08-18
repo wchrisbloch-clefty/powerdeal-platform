@@ -68,7 +68,7 @@ export default function MapsPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-rhythm-page">
       <PageHeader eyebrow="Infrastructure" title="Maps"
         action={
           <Button

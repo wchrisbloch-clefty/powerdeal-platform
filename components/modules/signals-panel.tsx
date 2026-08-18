@@ -73,7 +73,7 @@ export default function SignalsPanel({
   }, [signals, deals]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-rhythm-page">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="max-w-xl text-sm text-text-dim">
           Every signal carries two readings: what it means for the account, and

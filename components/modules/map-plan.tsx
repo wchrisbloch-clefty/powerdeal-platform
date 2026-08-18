@@ -152,7 +152,7 @@ export default function MapPlanPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-rhythm-page">
       {/* Guidance, never blocking — the MAP generates and edits regardless. */}
       {!businessCaseExists ? (
         <p className="rounded-card border border-rule bg-bg-raised px-3 py-2 text-xs text-text-dim">

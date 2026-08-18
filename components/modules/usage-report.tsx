@@ -83,7 +83,7 @@ export default function UsageReport() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-rhythm-page">
       <div className="flex flex-wrap items-baseline gap-2">
         <p className="text-sm text-text-dim">{data.headline}</p>
         <Button variant="ghost" size="sm" onClick={load} className="ml-auto">
