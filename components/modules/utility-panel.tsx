@@ -333,7 +333,7 @@ function Field({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-sm border border-rule bg-bg px-2.5 py-1.5 text-sm text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+        className="w-full rounded-sm border border-rule bg-bg px-2.5 py-1.5 text-sm text-text placeholder:text-text-faint focus:border-accent-mark focus:outline-none"
       />
     </div>
   );

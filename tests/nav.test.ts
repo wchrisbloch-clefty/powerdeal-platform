@@ -341,17 +341,17 @@ describe('contrast audit — every nav state, both themes', () => {
       const p = await palette(theme);
       // Non-text indicators. Both are drawn in accent against the bar ground.
       // ⚠️ NOT --color-accent. The brand green on white is 2.90:1 — this
-      // assertion caught it. --color-nav-marker is the semantic token that
+      // assertion caught it. --color-accent-mark is the semantic token that
       // resolves per theme.
-      const ratio = contrast(p['color-nav-marker'], p['color-bg']);
-      expect(ratio, `${theme} nav-marker on bg is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(3);
+      const ratio = contrast(p['color-accent-mark'], p['color-bg']);
+      expect(ratio, `${theme} accent-mark on bg is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(3);
     });
   }
 
   it('active is signalled TWO ways, so hue alone is never the only cue', async () => {
     const src = await NAV;
     expect(src).toContain("const NAV_ACTIVE = 'text-text font-medium'");
-    expect(src).toContain("active ? 'border-nav-marker' : 'border-transparent'");
+    expect(src).toContain("active ? 'border-accent-mark' : 'border-transparent'");
   });
 
   it('focus-visible is its OWN treatment, not the active one', async () => {
@@ -407,16 +407,16 @@ describe('token discipline', () => {
      * survived. That is the same shape as the 1.98:1 button bug going
      * unnoticed: the thing to prove is the OUTPUT.
      *
-     * `border-b-nav-active` is a WIDTH and `border-nav-marker` is a COLOUR,
+     * `border-b-nav-active` is a WIDTH and `border-accent-mark` is a COLOUR,
      * and both are `border-*`. Undeclared, tailwind-merge treats them as one
      * group and drops the first — the active underline then renders at the
      * wrong width or with no colour, silently.
      */
     const { cn } = await import('@/lib/utils');
 
-    const border = cn('border-b-nav-active', 'border-nav-marker');
+    const border = cn('border-b-nav-active', 'border-accent-mark');
     expect(border, 'the width was dropped').toContain('border-b-nav-active');
-    expect(border, 'the colour was dropped').toContain('border-nav-marker');
+    expect(border, 'the colour was dropped').toContain('border-accent-mark');
 
     // The size/colour pair the nav puts on every item.
     const label = cn('text-2xs', 'text-text-dim');
@@ -429,8 +429,8 @@ describe('token discipline', () => {
     // Border COLOUR needs no declaration: tailwind-merge already classifies an
     // unknown `border-<name>` as one. Asserted so that stays true, and so the
     // deleted `border-color` group is not re-added as a no-op.
-    expect(cn('border-transparent', 'border-nav-marker')).toBe('border-nav-marker');
-    expect(cn('border-nav-marker', 'border-rule')).toBe('border-rule');
+    expect(cn('border-transparent', 'border-accent-mark')).toBe('border-accent-mark');
+    expect(cn('border-accent-mark', 'border-rule')).toBe('border-rule');
   });
 
   it('no new custom colour or font-size token was introduced undeclared', async () => {

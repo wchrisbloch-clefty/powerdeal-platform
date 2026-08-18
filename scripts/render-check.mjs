@@ -87,6 +87,8 @@ const INTERACTIVE = 'a[href], button, [role="button"], input, select, textarea';
 const findings = [];
 /** Informational: content under fixed chrome at scroll 0. Not a failure. */
 const overlaps = [];
+/** Outbound fetches this network blocked. A fact about the runner, not the app. */
+const blockedRequests = [];
 const note = (surface, breakpoint, kind, detail) =>
   findings.push({ surface, breakpoint, kind, detail });
 
@@ -202,11 +204,65 @@ async function main() {
               `the surface did not render, so nothing below it was actually checked`,
           );
         }
-        for (const e of surfaceErrors) note(surface, bp.name, 'page-error', e);
+        for (const e of surfaceErrors) {
+          /**
+           * ⚠️ ENVIRONMENTAL, NOT A DEFECT — AND NAMED RATHER THAN DROPPED.
+           *
+           * A blocked outbound fetch says something about the network this
+           * check is running on, not about the app. In this sandbox every
+           * Leaflet basemap tile fails that way, 20 per map surface, and left
+           * in the findings list they bury the ones that are ours.
+           *
+           * Counted and reported on their own line, because a filter that
+           * silently swallows a class of error is how a real one hides inside
+           * it. If the count is unexpectedly zero on a surface that should
+           * fetch, that is worth noticing too.
+           */
+          if (/ERR_TUNNEL_CONNECTION_FAILED|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|ERR_PROXY/.test(e)) {
+            blockedRequests.push(`${bp.name} ${surface}`);
+          } else {
+            note(surface, bp.name, 'page-error', e);
+          }
+        }
 
         const result = await page.evaluate(
           ({ selector, min, isTouch }) => {
-            const out = { occluded: [], overlapped: [], small: [], overflow: null };
+            const out = { occluded: [], overlapped: [], small: [], lining: [], overflow: null };
+
+            /**
+             * ⚠️ TABULAR FIGURES, CHECKED AS A COMPUTED STYLE.
+             *
+             * Numbers are the product here, and proportional figures make a
+             * column of them ragged — a 1 is narrower than a 0 in almost every
+             * face, so `116` and `221` do not line up. Whether a number is set
+             * in tabular figures is a RENDERED fact: `tabular-nums` can be
+             * applied and then dropped by tailwind-merge, or inherited, or
+             * overridden. Source cannot answer it. `getComputedStyle` can.
+             *
+             * Scoped to numbers inside tables and lists, which is where
+             * alignment is the whole point. A lone figure in a sentence does
+             * not need it and flagging one would train the reader to ignore
+             * this check.
+             */
+            const NUMERIC = /^[$€£]?-?[\d,]+(\.\d+)?\s*(%|¢|x|d|MW|kW|GW|kWh|MWh|B|M|K)?$/;
+            for (const scope of document.querySelectorAll('table, ul, ol, [role="table"]')) {
+              for (const el of scope.querySelectorAll('*')) {
+                if (el.children.length > 0) continue;
+                const text = el.textContent?.trim() ?? '';
+                if (text.length < 2 || !NUMERIC.test(text)) continue;
+                if (!/\d/.test(text)) continue;
+                const r = el.getBoundingClientRect();
+                if (r.width === 0 || r.height === 0) continue;
+                const variant = getComputedStyle(el).fontVariantNumeric || '';
+                if (!variant.includes('tabular-nums')) {
+                  out.lining.push({
+                    text: text.slice(0, 20),
+                    tag: el.tagName.toLowerCase(),
+                    parent: (el.parentElement?.className || '').toString().slice(0, 50),
+                  });
+                }
+              }
+            }
 
             const doc = document.documentElement;
             if (doc.scrollWidth > doc.clientWidth) {
@@ -240,15 +296,39 @@ async function main() {
               // filtered out of the report, so the exclusion is visible.
               if (el.closest('.leaflet-container, .leaflet-control')) continue;
 
-              const cx = Math.min(Math.max(r.left + r.width / 2, 1), innerWidth - 1);
-              const cy = Math.min(Math.max(r.top + r.height / 2, 1), innerHeight - 1);
-              const hit = document.elementFromPoint(cx, cy);
+              /**
+               * ⚠️ TEST REACHABILITY, NOT VISIBILITY AT SCROLL ZERO.
+               *
+               * `getBoundingClientRect` ignores clipping, so an element inside
+               * a horizontally scrolled container reports coordinates it is not
+               * actually painted at, and a naive hit-test at those coordinates
+               * finds whatever IS painted there. That is a real distinction and
+               * not a technicality: an item clipped by a scroll container can
+               * be reached by scrolling; an item under an opaque sibling cannot
+               * be reached at all.
+               *
+               * So: hit-test where it is, and if that fails, scroll it into
+               * view and hit-test again. What survives BOTH is genuinely
+               * unreachable.
+               */
+              const hitAt = (box) => {
+                const x = Math.min(Math.max(box.left + box.width / 2, 1), innerWidth - 1);
+                const y = Math.min(Math.max(box.top + box.height / 2, 1), innerHeight - 1);
+                return document.elementFromPoint(x, y);
+              };
+              const reaches = (h) => h && (el.contains(h) || h.contains(el));
+
+              let hit = hitAt(r);
+              if (!reaches(hit)) {
+                el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+                hit = hitAt(el.getBoundingClientRect());
+              }
 
               // ⚠️ `contains` BOTH WAYS. A label inside a button is a legitimate
               // hit for that button, and a button inside a link likewise — the
               // question is whether the tap reaches this control, not whether
               // it lands on this exact node.
-              if (hit && !el.contains(hit) && !hit.contains(el)) {
+              if (!reaches(hit)) {
                 /**
                  * ⚠️ ONLY PINNED TARGETS COUNT, and the distinction is the
                  * difference between a bug and a scroll position.
@@ -299,6 +379,15 @@ async function main() {
         for (const o of result.overlapped) {
           overlaps.push(`${bp.name} ${surface}: ${o.target} sits under ${o.covering} at scroll 0`);
         }
+        // Deduped: one row per distinct parent, or a 21-row table reports 21
+        // times and buries everything else.
+        const seenLining = new Set();
+        for (const l of result.lining) {
+          const key = `${l.tag}:${l.parent}`;
+          if (seenLining.has(key)) continue;
+          seenLining.add(key);
+          note(surface, bp.name, 'proportional-figures', `"${l.text}" in <${l.tag}> is not tabular-nums`);
+        }
         for (const s of result.small) {
           note(surface, bp.name, 'touch-target', `${s.target} is ${s.size}, under ${TOUCH_TARGET_MIN}px`);
         }
@@ -325,6 +414,15 @@ async function main() {
   }
 
   // ── Report ──
+  if (blockedRequests.length > 0) {
+    const bySurface = {};
+    for (const b of blockedRequests) bySurface[b] = (bySurface[b] ?? 0) + 1;
+    console.log(
+      `render-check: ${blockedRequests.length} outbound request(s) blocked by this network — ` +
+        `not app defects: ${Object.entries(bySurface).map(([k, v]) => `${k} x${v}`).join(', ')}`,
+    );
+  }
+
   if (overlaps.length > 0) {
     console.log(`render-check: ${overlaps.length} element(s) under fixed chrome at scroll 0 — informational, scrolling reveals them.`);
   }

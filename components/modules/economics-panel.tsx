@@ -251,7 +251,7 @@ export default function EconomicsPanel({
                 id="tech"
                 value={tech}
                 onChange={(e) => loadPreset(e.target.value as TechKey)}
-                className="mt-1.5 min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2 text-sm text-text focus:border-accent focus:outline-none"
+                className="mt-1.5 min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2 text-sm text-text focus:border-accent-mark focus:outline-none"
               >
                 {PRESETS.map((p) => (
                   <option key={p.key} value={p.key}>
@@ -761,7 +761,7 @@ function IncentivePanel({
                         ) as Sourced,
                       })
                     }
-                    className="w-20 rounded-sm border border-rule bg-bg px-1.5 py-1 text-right font-mono text-sm text-text tabular-nums focus:border-accent focus:outline-none disabled:opacity-40"
+                    className="w-20 rounded-sm border border-rule bg-bg px-1.5 py-1 text-right font-mono text-sm text-text tabular-nums focus:border-accent-mark focus:outline-none disabled:opacity-40"
                   />
                   <span className="w-16 font-mono text-2xs text-text-faint">{def.unit}</span>
                 </div>
@@ -781,7 +781,7 @@ function IncentivePanel({
                         fuelPathway: e.target.value as IncentiveSelection['fuelPathway'],
                       })
                     }
-                    className="min-h-tap-sm rounded-sm border border-rule bg-bg px-2 text-xs text-text focus:border-accent focus:outline-none"
+                    className="min-h-tap-sm rounded-sm border border-rule bg-bg px-2 text-xs text-text focus:border-accent-mark focus:outline-none"
                   >
                     <option value="pipeline-natural-gas">Pipeline natural gas</option>
                     <option value="renewable-fuel">Renewable fuel</option>
@@ -885,7 +885,7 @@ function RailButton({
   return (
     <button
       onClick={onClick}
-      className="inline-flex min-h-tap-sm items-center gap-1.5 rounded-sm border border-rule px-2.5 text-xs text-text transition-colors duration-fast hover:border-accent hover:text-accent-dim"
+      className="inline-flex min-h-tap-sm items-center gap-1.5 rounded-sm border border-rule px-2.5 text-xs text-text transition-colors duration-fast hover:border-accent-mark hover:text-accent-dim"
     >
       <Icon size={13} strokeWidth={1.75} aria-hidden />
       {label}

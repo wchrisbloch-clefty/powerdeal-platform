@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { seriesStyle } from '@/components/ui/chart-series';
 import type { SensitivityRow } from '@/lib/economics/sensitivity';
 
 /**
@@ -54,7 +55,22 @@ export default function SensitivityView({
           return (
             <li key={row.field}>
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm text-text">{row.label}</span>
+                {/* ⚠️ RANK IS CARRIED BY WEIGHT, NOT BY HUE.
+                    The top bar used to be `bg-accent` against `bg-text-dim`
+                    for the rest, which read as "series one" in a chart that
+                    has no series: every bar measures the SAME quantity, LCOE
+                    swing, for a different lever. Colouring the leader
+                    differently said "different series" and meant "rank one".
+                    Length and sort order already encode rank; the label
+                    carries the emphasis. */}
+                <span
+                  className={cn(
+                    'text-sm',
+                    row === rows[0] ? 'font-medium text-text' : 'text-text-dim',
+                  )}
+                >
+                  {row.label}
+                </span>
                 <span className="font-mono text-xs text-text-dim tabular-nums">
                   {lo.toFixed(2)} – {hi.toFixed(2)}¢
                   <span className="ml-2 text-text">±{(row.swing / 2).toFixed(2)}</span>
@@ -63,12 +79,9 @@ export default function SensitivityView({
 
               <div className="mt-1 h-2.5 w-full overflow-hidden rounded-sm bg-bg-overlay">
                 <div
-                  className={cn(
-                    'h-full rounded-sm transition-[width] duration-base',
-                    // The top lever is the headline; the rest are context.
-                    row === rows[0] ? 'bg-accent' : 'bg-text-dim',
-                  )}
-                  style={{ width: `${share}%` }}
+                  className="h-full rounded-sm border transition-[width] duration-base"
+                  // One measure, one series — so one colour, for every row.
+                  style={{ width: `${share}%`, ...seriesStyle(0)! }}
                 />
               </div>
 

@@ -92,7 +92,7 @@ export default function LoginForm({
               className={cn(
                 'h-tap w-full rounded-md border border-rule bg-bg-raised pl-8 pr-3 text-sm text-text',
                 'placeholder:text-text-faint focus:border-accent-border focus:outline-none',
-                'focus-visible:ring-2 focus-visible:ring-accent',
+                'focus-visible:ring-2 focus-visible:ring-accent-mark',
               )}
             />
           </div>
@@ -103,7 +103,7 @@ export default function LoginForm({
             className={cn(
               'mt-3 inline-flex h-tap w-full items-center justify-center gap-2 rounded-md',
               'border border-rule bg-bg-raised text-sm text-text disabled:opacity-40',
-              'hover:border-accent-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+              'hover:border-accent-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-mark',
             )}
           >
             {state === 'working' ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null}

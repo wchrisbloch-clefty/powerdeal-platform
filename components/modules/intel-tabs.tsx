@@ -71,7 +71,7 @@ export default function IntelTabs({ active }: { active: IntelTab }) {
             aria-current={isActive ? 'page' : undefined}
             className={cn(
               'inline-flex min-h-tap items-center whitespace-nowrap rounded-md px-3 text-sm transition-colors sm:min-h-tap-sm',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-bg',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-mark focus-visible:ring-offset-1 focus-visible:ring-offset-bg',
               isActive
                 // Filled pill rather than an underline: an underline here would
                 // echo the top bar's active treatment and the two levels would

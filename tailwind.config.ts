@@ -26,7 +26,7 @@ const config: Config = {
         'accent-bg': 'var(--color-accent-bg)',
         'accent-border': 'var(--color-accent-border)',
         'accent-fg': 'var(--color-accent-fg)',
-        'nav-marker': 'var(--color-nav-marker)',
+        'accent-mark': 'var(--color-accent-mark)',
         danger: 'var(--color-danger)',
         'danger-bg': 'var(--color-danger-bg)',
         warning: 'var(--color-warning)',

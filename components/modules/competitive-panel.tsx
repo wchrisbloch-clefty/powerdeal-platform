@@ -264,7 +264,7 @@ function ToggleRow({
           onClick={onToggle}
           className={cn(
             'relative h-5 w-9 shrink-0 rounded-full border transition-colors duration-fast',
-            row.on ? 'border-accent bg-accent' : 'border-rule bg-bg-overlay',
+            row.on ? 'border-accent-mark bg-accent-mark' : 'border-rule bg-bg-overlay',
             row.toggleable ? 'cursor-pointer' : 'cursor-default opacity-70',
             pending && 'opacity-50',
           )}
@@ -410,7 +410,7 @@ function Area({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-sm border border-rule bg-bg px-2.5 py-1.5 text-sm text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+        className="w-full rounded-sm border border-rule bg-bg px-2.5 py-1.5 text-sm text-text placeholder:text-text-faint focus:border-accent-mark focus:outline-none"
       />
       {hint ? <p className="mt-0.5 text-2xs text-text-faint">{hint}</p> : null}
     </div>
@@ -464,7 +464,7 @@ function AddNamed({
         autoFocus
         placeholder="Wärtsilä via Burns &amp; McDonnell"
         onChange={(e) => setName(e.target.value)}
-        className="min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+        className="min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text placeholder:text-text-faint focus:border-accent-mark focus:outline-none"
       />
       <div className="flex flex-wrap items-center gap-1.5">
         {COMPETITOR_TIERS.map((t) => (

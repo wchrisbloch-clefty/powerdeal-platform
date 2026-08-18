@@ -50,7 +50,7 @@ const twMerge = extendTailwindMerge({
       'text-color': [
         {
           text: [
-            'accent-fg', 'accent-dim', 'text', 'text-dim', 'text-faint',
+            'accent-fg', 'accent-dim', 'accent-mark', 'text', 'text-dim', 'text-faint',
             'health-high', 'health-mid', 'health-low',
             // Chart series carry text only in legends and direct labels, but
             // they are `text-*` names all the same and the group has to know

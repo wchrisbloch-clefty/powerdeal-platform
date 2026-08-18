@@ -134,7 +134,7 @@ export default function LogOutcome({
               value={buyerVerbatim}
               onChange={(e) => setBuyerVerbatim(e.target.value)}
               placeholder="&ldquo;We agreed it was better but nobody would own the capital this year.&rdquo;"
-              className="w-full rounded-sm border border-rule bg-bg px-2.5 py-2 text-sm text-text placeholder:text-text-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              className="w-full rounded-sm border border-rule bg-bg px-2.5 py-2 text-sm text-text placeholder:text-text-faint focus:border-accent-mark focus:outline-none focus:ring-1 focus:ring-accent-mark"
             />
             <p className="mt-1 text-2xs text-text-faint">
               Their words, not a summary. A buyer&rsquo;s own sentence about why they did not
@@ -197,7 +197,7 @@ function Field({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text focus:border-accent focus:outline-none"
+        className="min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text focus:border-accent-mark focus:outline-none"
       />
       {hint ? <p className="mt-1 text-2xs text-text-faint">{hint}</p> : null}
     </div>

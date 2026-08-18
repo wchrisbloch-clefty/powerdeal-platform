@@ -105,7 +105,7 @@ function useIsActive() {
  */
 const NAV_BASE =
   'inline-flex items-center justify-center transition-colors ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-bg';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-mark focus-visible:ring-offset-1 focus-visible:ring-offset-bg';
 
 const NAV_ACTIVE = 'text-text font-medium';
 const NAV_IDLE = 'text-text-dim hover:text-text';
@@ -143,7 +143,7 @@ export function NavBar() {
           href="/app"
           className={cn(
             'flex shrink-0 items-center rounded pr-1',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-mark',
           )}
           aria-label="PowerDeal — dashboard"
         >
@@ -169,12 +169,21 @@ export function NavBar() {
           * the day it was written.
           *
           * `overflow-x-auto` makes the overflow VISIBLE AND NAVIGABLE instead
-          * of silent. Nothing is hidden, nothing is stacked, and all eight stay
-          * reachable — which is what the assertion always claimed and could not
-          * check. At lg the items go inline, the row fits, and no scroll
-          * appears.
+          * of silent. Nothing is stacked, and all eight stay reachable — which
+          * is what the assertion always claimed and could not check.
+          *
+          * ⚠️ `scrollbar-thin`, NOT `no-scrollbar`. The first version of this
+          * fix hid the scrollbar, which left Learn clipped with no affordance —
+          * the exact failure the original comment on this component warned
+          * about ("hidden content with no affordance is the layout where people
+          * lose their place"), reintroduced by the fix for a different failure.
+          * The render check caught it, because a clipped item still fails a
+          * hit-test at its own coordinates.
+          *
+          * At lg the items go inline, the row fits, and the container reverts
+          * to visible so nothing clips.
           */}
-        <nav aria-label="Main" className="no-scrollbar min-w-0 flex-1 overflow-x-auto">
+        <nav aria-label="Main" className="scrollbar-thin min-w-0 flex-1 overflow-x-auto lg:overflow-visible">
           <ul className="flex h-topbar-stacked items-stretch lg:h-topbar">
             {NAV_ITEMS.map((item) => {
               const active = isActive(item.href);
@@ -196,7 +205,7 @@ export function NavBar() {
                       // not — a border that appears on activation shifts every
                       // sibling by 2px.
                       'border-b-nav-active',
-                      active ? 'border-nav-marker' : 'border-transparent',
+                      active ? 'border-accent-mark' : 'border-transparent',
                       active ? NAV_ACTIVE : NAV_IDLE,
                     )}
                   >

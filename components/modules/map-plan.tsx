@@ -308,7 +308,7 @@ export default function MapPlanPanel({
                   placeholder={ownerOf(m)}
                   value={m.owner ?? ''}
                   onChange={(e) => patch(m.id, { owner: e.target.value || null })}
-                  className="min-h-tap-sm w-28 rounded-sm border border-rule bg-bg px-1.5 text-xs text-text focus:border-accent focus:outline-none"
+                  className="min-h-tap-sm w-28 rounded-sm border border-rule bg-bg px-1.5 text-xs text-text focus:border-accent-mark focus:outline-none"
                 />
 
                 <input
@@ -316,14 +316,14 @@ export default function MapPlanPanel({
                   aria-label={`${m.label} date`}
                   value={m.date ?? ''}
                   onChange={(e) => setPending({ id: m.id, date: e.target.value })}
-                  className="min-h-tap-sm rounded-sm border border-rule bg-bg px-1.5 font-mono text-xs text-text focus:border-accent focus:outline-none"
+                  className="min-h-tap-sm rounded-sm border border-rule bg-bg px-1.5 font-mono text-xs text-text focus:border-accent-mark focus:outline-none"
                 />
 
                 <select
                   aria-label={`${m.label} status`}
                   value={m.status}
                   onChange={(e) => patch(m.id, { status: e.target.value as MilestoneStatus })}
-                  className="min-h-tap-sm rounded-sm border border-rule bg-bg px-1.5 text-xs text-text focus:border-accent focus:outline-none"
+                  className="min-h-tap-sm rounded-sm border border-rule bg-bg px-1.5 text-xs text-text focus:border-accent-mark focus:outline-none"
                 >
                   {MILESTONE_STATUSES.map((s) => (
                     <option key={s} value={s}>
@@ -369,7 +369,7 @@ export default function MapPlanPanel({
         <button
           onClick={save}
           disabled={busy}
-          className="inline-flex min-h-tap-sm items-center gap-1.5 rounded-sm border border-rule px-2.5 text-xs text-text hover:border-accent disabled:opacity-50"
+          className="inline-flex min-h-tap-sm items-center gap-1.5 rounded-sm border border-rule px-2.5 text-xs text-text hover:border-accent-mark disabled:opacity-50"
         >
           <Save size={13} strokeWidth={1.75} aria-hidden />
           {busy ? 'Working…' : 'Save plan'}
@@ -377,7 +377,7 @@ export default function MapPlanPanel({
         <button
           onClick={exportDocx}
           disabled={busy}
-          className="inline-flex min-h-tap-sm items-center gap-1.5 rounded-sm border border-rule px-2.5 text-xs text-text hover:border-accent disabled:opacity-50"
+          className="inline-flex min-h-tap-sm items-center gap-1.5 rounded-sm border border-rule px-2.5 text-xs text-text hover:border-accent-mark disabled:opacity-50"
         >
           <Download size={13} strokeWidth={1.75} aria-hidden />
           Export DOCX

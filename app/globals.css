@@ -43,10 +43,14 @@
     text-wrap: balance;
   }
 
-  /* Keyboard focus must stay visible — accent ring is the one place
-     the Bloom green is allowed to appear more than once per viewport. */
+  /* ⚠️ THE FOCUS RING WAS 2.90:1 ON PAPER.
+     Keyboard focus must stay visible, and this is the one place the Bloom
+     green is allowed more than once per viewport — but it is a non-text
+     indicator on EVERY focusable element in the product, and it was set in raw
+     `--color-accent`: the same 2.90:1 that took the nav marker off that token,
+     on by far the largest surface it has appeared on. */
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-accent-mark);
     outline-offset: 2px;
     border-radius: 3px;
   }
@@ -123,9 +127,11 @@
     border-radius: 1px;
     overflow: hidden;
   }
+  /* A 2px bar carrying a value with no text on it — a mark, not an accent.
+     Same reasoning as the nav underline. */
   .confidence-fill {
     height: 100%;
-    background: var(--color-accent);
+    background: var(--color-accent-mark);
     border-radius: 1px;
   }
 }

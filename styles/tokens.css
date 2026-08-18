@@ -51,17 +51,27 @@
   --color-accent-fg: #0f1117;
   --color-accent-border: rgba(60, 173, 58, 0.22);
 
-  /* ── Nav active marker ───────────────────────────────────────
+  /* ── Green that is safe as a NON-TEXT MARK ───────────────────
      ⚠️ NOT `--color-accent`. The brand green on white is 2.90:1,
-     under the 3:1 WCAG asks of a non-text indicator — and the nav
-     underline is exactly that: a 2px bar carrying "you are here"
-     with no text of its own.
+     under the 3:1 WCAG asks of any non-text indicator.
 
-     `--color-accent-dim` on white is 4.98:1. In dark the brand
-     green is already 8.20:1 on the bar ground, so the dark block
-     below uses it unchanged. A semantic token per theme, rather
-     than one brand colour that happens to work in one of them. */
-  --color-nav-marker: #2a8028;
+     This was `--color-nav-marker`, introduced for one 2px bar. The
+     audit that followed found the SAME 2.90:1 in three more places,
+     every one of them a non-text indicator and every one reaching
+     for raw `--color-accent`:
+
+       · the global :focus-visible outline — the keyboard focus
+         indicator for EVERY focusable element in the product
+       · ~10 `focus:border-accent` / `focus:ring-accent` inputs
+       · the confidence meter fill, and the market-watch meter
+
+     A token named for one component could not be reused by any of
+     them without lying, so it is named for the GUARANTEE instead:
+     brand green, dimmed enough to carry meaning with no text of its
+     own. `--color-accent-dim` on white is 4.98:1; in dark the brand
+     green is already 8.20:1 on ink, so the dark block uses it
+     unchanged. */
+  --color-accent-mark: #2a8028;
 
   /* Semantic.
      ⚠️ EACH TONE NEEDS ITS SURFACE HERE. Only danger had one, so badge.tsx
@@ -366,7 +376,7 @@
   --color-accent-fg: #0f1117;
   --color-accent-border: rgba(76, 194, 73, 0.26);
   /* 8.20:1 on --color-bg. No dimming needed here. */
-  --color-nav-marker: #4cc249;
+  --color-accent-mark: #4cc249;
 
   --color-danger: #e26758;
   --color-danger-bg: rgba(224, 90, 74, 0.12);

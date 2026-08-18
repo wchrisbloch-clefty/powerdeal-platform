@@ -202,7 +202,7 @@ function ImpactMeter({ rank }: { rank: number }) {
       <Gauge size={11} className="text-text-faint" aria-hidden />
       <span className="flex h-1 w-10 overflow-hidden rounded-full bg-bg-overlay">
         <span
-          className={cn('h-full rounded-full', clamped >= 8 ? 'bg-accent' : 'bg-text-faint')}
+          className={cn('h-full rounded-full', clamped >= 8 ? 'bg-accent-mark' : 'bg-text-faint')}
           style={{ width: `${clamped * 10}%` }}
         />
       </span>

@@ -632,6 +632,61 @@ describe('nothing typographic or chromatic is hardcoded outside tokens.css', () 
     expect(offenders).toEqual([]);
   });
 
+  it('no NON-TEXT INDICATOR reaches for raw brand green', async () => {
+    /**
+     * ⚠️ THE SAME 2.90:1, FOUR TIMES, ON FOUR SURFACES.
+     *
+     * Brand green on paper is 2.90:1, under the 3:1 that any non-text
+     * indicator needs. It was found and fixed on the nav underline; the audit
+     * that followed found it again on:
+     *
+     *   · `:focus-visible` — the keyboard focus ring for EVERY focusable
+     *     element in the product, which is the largest surface of the four
+     *   · ten `focus:border-accent` / `focus:ring-accent` inputs
+     *   · the confidence meter fill and the market-watch meter
+     *
+     * `--color-accent-mark` is the token that clears the threshold. This stops
+     * the raw one coming back to a focus ring, an outline or a meter.
+     *
+     * ⚠️ SCOPED TO INDICATORS, NOT TO GREEN. `text-accent` on an aria-hidden
+     * icon beside its own label is decoration and stays legal; `bg-accent` on
+     * a chart mark is legal by the palette's own rule. A blanket ban would be
+     * easier to write and would be a different, wrong rule.
+     */
+    const offenders: string[] = [];
+
+    const css = await read('app/globals.css');
+    for (const m of css.matchAll(/(outline|background)[^;]*var\(--color-accent\)/g)) {
+      offenders.push(`app/globals.css: ${m[0]}`);
+    }
+
+    for (const { path, src } of await sources()) {
+      // Focus indicators and meter fills, in class strings.
+      for (const m of src.matchAll(
+        /(?:focus|focus-visible|hover):(?:border|ring|outline)-accent(?![-\w])/g,
+      )) {
+        offenders.push(`${path}: ${m[0]}`);
+      }
+    }
+
+    expect(offenders, 'raw --color-accent used as a non-text indicator').toEqual([]);
+  });
+
+  it('and the mark token actually clears 3:1 in BOTH themes', () => {
+    // The rename is only worth anything if the value behind it passes. Nav
+    // asserts this too; repeated here because this is the file that now
+    // forbids the raw token, and a ban pointing at a replacement that also
+    // fails would be theatre.
+    for (const theme of ['light', 'dark'] as const) {
+      const mark = tokenValue(theme, '--color-accent-mark');
+      const ratio = contrastRatio(mark, GROUND[theme]);
+      expect(ratio, `${theme}: accent-mark is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(3);
+    }
+    // And it must NOT simply be the accent under a new name — that was the
+    // whole defect.
+    expect(tokenValue('light', '--color-accent-mark')).not.toBe(tokenValue('light', '--color-accent'));
+  });
+
   it('the dead --sp-* aliases are gone, not merely unused', async () => {
     // Nine tokens naming Tailwind's own 4px grid under new names, read by
     // nothing. Same class as the border-color group that was probed, found to
