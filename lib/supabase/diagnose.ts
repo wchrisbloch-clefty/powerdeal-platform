@@ -38,45 +38,80 @@ export interface KeyFacts {
   privileged: boolean;
   /** Human label for the diagnosis line. Never contains the key. */
   label: string;
+  /**
+   * ⚠️ THE CLAIM, READ RATHER THAN ASSUMED. Null for a new-scheme key (they
+   * are opaque identifiers, not tokens, and carry no iat at all) and for
+   * anything that will not decode.
+   *
+   * This exists because the clock-skew branch used to state "the token's
+   * issued-at time is AHEAD of the database's clock" without ever looking at
+   * it. The message said iat, so the diagnosis repeated it. Decoding a JWT
+   * payload needs no secret — the signature is what needs the secret — so the
+   * claim was there to be checked the whole time.
+   */
+  iat: number | null;
 }
 
-function decodeRole(jwt: string): string | null {
+/**
+ * Legacy Supabase keys carry a FIXED, ROUND iat rather than a real issuance
+ * time. Observed on this project's own anon key: iat 1700000000 exactly
+ * (2023-11-14T22:13:20Z) and exp 2000000000 exactly (2033-05-18T03:33:20Z).
+ *
+ * That matters for the clock-skew story. If the iat is a placeholder from
+ * years ago rather than a timestamp from the moment of issue, then "issued at
+ * future" cannot be describing it unless the database clock is years behind —
+ * and it means re-issuing the key does NOT move the iat closer to now, which
+ * is the opposite of what the original diagnosis assumed.
+ */
+export const LEGACY_PLACEHOLDER_IAT = 1_700_000_000;
+
+function decodeClaims(jwt: string): { role: string | null; iat: number | null } {
   try {
     const payload = jwt.split('.')[1];
-    if (!payload) return null;
+    if (!payload) return { role: null, iat: null };
     const json = JSON.parse(
       Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'),
-    ) as { role?: string };
-    return typeof json.role === 'string' ? json.role : null;
+    ) as { role?: string; iat?: number };
+    return {
+      role: typeof json.role === 'string' ? json.role : null,
+      iat: typeof json.iat === 'number' ? json.iat : null,
+    };
   } catch {
     // A key that will not decode is not a JWT. Reported as unrecognised rather
     // than assumed to be one.
-    return null;
+    return { role: null, iat: null };
   }
 }
 
 export function keyShape(raw: string | undefined | null): KeyFacts {
   const key = raw?.trim();
   if (!key) {
-    return { scheme: 'absent', privileged: false, label: 'not set' };
+    return { scheme: 'absent', privileged: false, label: 'not set', iat: null };
   }
   if (key.startsWith('sb_secret_')) {
-    return { scheme: 'new-secret', privileged: true, label: 'new-scheme secret key (sb_secret_…)' };
+    return {
+      scheme: 'new-secret',
+      privileged: true,
+      label: 'new-scheme secret key (sb_secret_…)',
+      iat: null,
+    };
   }
   if (key.startsWith('sb_publishable_')) {
     return {
       scheme: 'new-publishable',
       privileged: false,
       label: 'new-scheme PUBLISHABLE key (sb_publishable_…) — not privileged',
+      iat: null,
     };
   }
   if (key.startsWith('eyJ')) {
-    const role = decodeRole(key);
+    const { role, iat } = decodeClaims(key);
     if (role === 'service_role') {
       return {
         scheme: 'legacy-service-role',
         privileged: true,
         label: 'legacy service_role JWT',
+        iat,
       };
     }
     if (role === 'anon') {
@@ -84,15 +119,17 @@ export function keyShape(raw: string | undefined | null): KeyFacts {
         scheme: 'legacy-anon',
         privileged: false,
         label: 'legacy ANON JWT — not privileged',
+        iat,
       };
     }
     return {
       scheme: 'legacy-jwt-unknown-role',
       privileged: false,
       label: `legacy JWT with role "${role ?? 'undecodable'}"`,
+      iat,
     };
   }
-  return { scheme: 'unrecognised', privileged: false, label: 'unrecognised key format' };
+  return { scheme: 'unrecognised', privileged: false, label: 'unrecognised key format', iat: null };
 }
 
 /**
@@ -122,6 +159,19 @@ export interface DiagnoseInput {
   key: KeyFacts;
 }
 
+/**
+ * Injectable clock. The one impure thing in this file, isolated to a single
+ * line so the purity claim in the header stays true of everything else — and
+ * so the iat comparison below can be tested at a fixed instant rather than
+ * relative to whenever the suite happens to run.
+ */
+export let nowSeconds = (): number => Math.floor(Date.now() / 1000);
+
+/** Test seam. Call with nothing to restore the real clock. */
+export function setNowSeconds(fn?: () => number): void {
+  nowSeconds = fn ?? (() => Math.floor(Date.now() / 1000));
+}
+
 export function diagnose({ client, message, key }: DiagnoseInput): Diagnosis {
   const m = message.toLowerCase();
   const where = `${client} client, ${key.label}`;
@@ -135,14 +185,61 @@ export function diagnose({ client, message, key }: DiagnoseInput): Diagnosis {
    * changes nothing, and a freshly-issued key makes it MORE likely, not less —
    * a key minted seconds ago carries an `iat` closest to the skew boundary.
    */
-  if (m.includes('issued at future') || m.includes('iat') || m.includes('not yet valid')) {
+  /*
+    ⚠️ `m.includes('iat')` WAS A BARE SUBSTRING TEST AND IT MISFIRED ON FOUR
+    ORDINARY WORDS: assoc-iat-ed, init-iat-ed, negot-iat-ion, different-iat-ed.
+    "no rows associated with that key" and "connection initiated but refused"
+    both classified as CLOCK SKEW — and clock skew is the one diagnosis in this
+    file that tells the reader their key is FINE and sends them to look at a
+    clock. A day of the wrong investigation, which is precisely the failure
+    this module exists to prevent.
+
+    It also never caught the message it was written for: 'JWT issued at future'
+    contains no 'iat' substring at all. The clause earned nothing and cost the
+    two most misleading false positives available. Word-boundary now.
+  */
+  if (m.includes('issued at future') || /\biat\b/.test(m) || m.includes('not yet valid')) {
+    /*
+      ⚠️ AND NOW IT CHECKS THE CLAIM INSTEAD OF REPEATING THE MESSAGE.
+
+      The old text asserted the iat was ahead of the database clock because the
+      error said so. It never decoded the token. When the iat is READABLE AND IN
+      THE PAST — which it is for every legacy Supabase key, since they carry a
+      fixed placeholder rather than a real issuance time — the message is not
+      describing this key, and "check your clocks" sends the reader after
+      something that cannot be the cause.
+    */
+    const now = nowSeconds();
+    if (key.iat !== null && key.iat < now) {
+      const age = Math.round((now - key.iat) / 86400);
+      return {
+        cause: 'clock-skew',
+        detail:
+          `${where}: the message says the token was issued in the future, but this ` +
+          `key's iat decodes to ${new Date(key.iat * 1000).toISOString()} — ${age} days ` +
+          `in the PAST. For that to be "future" the database clock would have to be ` +
+          `wrong by the same amount, which no managed instance is. Legacy Supabase ` +
+          `keys also carry a fixed placeholder iat, so re-issuing this key does not ` +
+          `move it. Read the error as coming from a DIFFERENT client — the anon key, ` +
+          `an edge function, or a session-minted token — or switch this slot to an ` +
+          `sb_secret_ key, which is not a token and has no iat to reject. ` +
+          `Run scripts/key-clock.mjs to see both clocks.`,
+      };
+    }
     return {
       cause: 'clock-skew',
       detail:
-        `${where}: the token's issued-at time is AHEAD of the database's clock. ` +
-        `This is clock skew, not a bad key — rotating it will not help, and a ` +
-        `just-issued key makes it more likely because its iat sits closest to ` +
-        `the boundary. Check the two clocks, or re-issue the key once they agree.`,
+        `${where}: the token's issued-at time is reported AHEAD of the database's ` +
+        `clock, and this key's iat could not be read to confirm it. This is clock ` +
+        `skew, not a bad key — rotating it will not help. ` +
+        // ⚠️ THE OLD TEXT SAID A JUST-ISSUED KEY MAKES THIS MORE LIKELY, because
+        // its iat would sit closest to the boundary. True of tokens minted at
+        // issue time, and NOT of legacy Supabase keys, which carry a fixed
+        // placeholder iat. Re-issuing does not move it, so the advice pointed
+        // at a mechanism that is not running here.
+        `Run scripts/key-clock.mjs to print both clocks and this key's actual iat. ` +
+        `The durable fix is an sb_secret_ key: an opaque identifier rather than a ` +
+        `token, carrying no iat, so it cannot be rejected this way.`,
     };
   }
 

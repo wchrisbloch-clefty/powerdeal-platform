@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
-import { keyShape, diagnose, explainFailure } from '@/lib/supabase/diagnose';
+import {
+  keyShape,
+  diagnose,
+  explainFailure,
+  setNowSeconds,
+  LEGACY_PLACEHOLDER_IAT,
+} from '@/lib/supabase/diagnose';
 import { rankHeadlines } from '@/lib/engine/headlines';
 import type { Deal, FeedItem } from '@/lib/types';
 
@@ -64,13 +70,126 @@ describe('each cause sends the reader somewhere different', () => {
 
   it('"JWT issued at future" is CLOCK SKEW, and says rotating will not help', () => {
     // The observed production error. Rotating the key is the obvious move and
-    // the wrong one — a just-issued key makes it MORE likely, because its iat
-    // sits closest to the skew boundary.
+    // the wrong one.
     const d = diagnose({ client: 'service-role', message: 'JWT issued at future', key: svc });
     expect(d.cause).toBe('clock-skew');
     expect(d.detail).toContain('AHEAD of the database');
     expect(d.detail).toContain('rotating it will not help');
-    expect(d.detail).toContain('just-issued key makes it more likely');
+  });
+
+  it('no diagnosis claims a just-issued key would make this worse', () => {
+    /*
+      ⚠️ THAT SENTENCE WAS IN HERE AND IT WAS WRONG FOR THIS PROJECT'S KEYS.
+      "A just-issued key makes it more likely, because its iat sits closest to
+      the boundary" describes a token minted at issue time. Legacy Supabase
+      keys carry a FIXED PLACEHOLDER iat — this project's anon key decodes to
+      1700000000 exactly — so re-issuing does not move the iat at all, and the
+      advice pointed at a mechanism that is not running.
+
+      Asserted across every cause rather than the one branch it lived in,
+      because the phrasing is the kind that gets copied to a sibling.
+    */
+    const messages = [
+      'JWT issued at future',
+      'invalid claim: iat',
+      'token is not yet valid',
+      'JWT expired',
+      'invalid api key',
+    ];
+    for (const message of messages) {
+      const d = diagnose({ client: 'service-role', message, key: svc });
+      expect(d.detail, message).not.toContain('just-issued');
+      expect(d.detail, message).not.toContain('closest to');
+    }
+  });
+
+  it('a decodable iat in the PAST contradicts the message instead of repeating it', () => {
+    /*
+      ⚠️ THE DIAGNOSIS USED TO ASSERT THE THING THE ERROR CLAIMED, WITHOUT
+      LOOKING. "The token's issued-at time is AHEAD of the database's clock" was
+      printed on the strength of the message saying so. Decoding a JWT payload
+      needs no secret — the signature is what needs the secret — so the claim
+      was checkable the whole time and never checked.
+
+      This matters here specifically. The operator has rotated nothing, and
+      LEGACY SUPABASE KEYS CARRY A FIXED PLACEHOLDER iat, not a real issuance
+      time: this project's own anon key decodes to iat 1700000000 exactly and
+      exp 2000000000 exactly. So the old advice — "re-issue the key once the
+      clocks agree" — was doubly wrong: re-issuing does not move a placeholder,
+      and the placeholder is years in the past, which no managed database clock
+      is behind.
+    */
+    const past =
+      'eyJhbGciOiJIUzI1NiJ9.' +
+      Buffer.from(
+        JSON.stringify({ role: 'service_role', iat: LEGACY_PLACEHOLDER_IAT }),
+      ).toString('base64url') +
+      '.sig';
+
+    setNowSeconds(() => LEGACY_PLACEHOLDER_IAT + 100 * 86400);
+    try {
+      const d = diagnose({
+        client: 'service-role',
+        message: 'JWT issued at future',
+        key: keyShape(past),
+      });
+      expect(d.cause).toBe('clock-skew');
+      expect(d.detail).toContain('100 days');
+      expect(d.detail).toContain('in the PAST');
+      // Named the next place to look rather than the wrong one.
+      expect(d.detail).toContain('DIFFERENT client');
+      expect(d.detail).toContain('sb_secret_');
+      // And it must NOT still be printing the unverified sentence.
+      expect(d.detail).not.toContain("issued-at time is AHEAD");
+    } finally {
+      setNowSeconds();
+    }
+  });
+
+  it('a key with no readable iat keeps the original clock-skew advice', () => {
+    // Nothing to contradict the message with, so the branch stays as it was —
+    // minus the "re-issue the key" instruction, which was never sound.
+    const d = diagnose({ client: 'service-role', message: 'JWT issued at future', key: svc });
+    expect(d.cause).toBe('clock-skew');
+    expect(d.detail).toContain('AHEAD of the database');
+    expect(d.detail).toContain('sb_secret_');
+  });
+
+  it('an sb_secret_ key carries no iat, which is why migrating removes the failure', () => {
+    const k = keyShape('sb_secret_abc123');
+    expect(k.iat).toBeNull();
+    expect(k.privileged).toBe(true);
+  });
+
+  it('ordinary words containing "iat" are NOT clock skew', () => {
+    /*
+      ⚠️ THE MATCHER WAS `m.includes('iat')` AND THESE FOUR ALL HIT IT.
+      assoc-IAT-ed, init-IAT-ed, negot-IAT-ion, different-IAT-ed. Two of them
+      are things a database plausibly says, and clock skew is the single worst
+      thing to say wrongly here: it is the one diagnosis that tells the reader
+      their key is FINE and sends them to look at a clock. That is a day of the
+      wrong investigation, which is the failure this whole module exists to
+      prevent — the feed-health probe reporting "unparseable non-HTML" and
+      sending two people to look at publisher feeds.
+
+      It also never caught the real message. 'JWT issued at future' contains no
+      'iat' substring; the first clause always did that work alone.
+    */
+    const decoys = [
+      'no rows associated with that key',
+      'connection initiated but refused',
+      'negotiation with the upstream failed',
+      'differentiated row estimate unavailable',
+    ];
+    for (const message of decoys) {
+      const d = diagnose({ client: 'service-role', message, key: svc });
+      expect(d.cause, `"${message}" classified as ${d.cause}`).not.toBe('clock-skew');
+    }
+
+    // And the claim name itself, standing alone, still is.
+    expect(
+      diagnose({ client: 'service-role', message: 'invalid claim: iat', key: svc }).cause,
+    ).toBe('clock-skew');
   });
 
   it('and names the client and key scheme, which the raw message never did', () => {
