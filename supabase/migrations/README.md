@@ -258,9 +258,10 @@ can fail; this asks whether it can be made to pass again.
 ## 13. Commit before mutating. Always. No exceptions.
 
 `git checkout <file>` reverts to HEAD and there is no undo. It has now destroyed
-uncommitted work in this project **four times** — mutation testing, restoring
-after a simulated end-state run, and twice in a single design-token batch, the
-second of those less than an hour after the first.
+uncommitted work in this project **five times** — mutation testing, restoring
+after a simulated end-state run, twice in a single design-token batch (the
+second less than an hour after the first), and once as a **defensive prelude**,
+which is the one this rule did not cover.
 
 Every time the intent was "undo my temporary edit". Every time the file also
 held work that was not temporary.
@@ -304,6 +305,42 @@ one.
 
 `git status --short` at the end of the loop, expecting a clean tree, is the
 cheap check that the whole cycle behaved.
+
+### The fifth one was not in the loop. It was the line before it.
+
+```sh
+git checkout -- lib/supabase/diagnose.ts 2>/dev/null; cat > mut.py <<'PY'
+```
+
+Written to "start from a clean slate" before a fresh mutation run, after an
+earlier run had left the tree in a state I did not trust. It reverted forty
+minutes of uncommitted work on that exact file — the whole reason the mutation
+run existed.
+
+Two things the rule as written did not say:
+
+**A `git checkout` is not safer for being defensive.** The loop-restore version
+at least has an obvious pairing with a mutation. A prelude has nothing to pair
+with, which is what makes it feel free. It is the same destructive operation
+with less to remind you.
+
+**"Clean the tree first" is the wrong response to an untrusted tree.** The
+correct response is `git status --short` and `git diff` — look at what is there
+before deciding it is disposable. The instinct to reset came from not knowing
+what the tree held, and the fix for not knowing is to look, not to delete.
+
+The rule already had the answer and I skipped it: **commit first**. The diff was
+real work; it should have been a commit before any mutation run, defensive
+prelude or not. Restated so it covers this shape too:
+
+> **No `git checkout <path>` runs against a tree with uncommitted work in it,
+> for any reason — restore, cleanup, or starting fresh. Commit, then reset is
+> free. Do not commit, and no reason is good enough.**
+
+And the loop itself no longer uses `git checkout` at all. It reads the original
+into memory, writes the mutation, tests, writes the original back, and asserts
+the file matches byte-for-byte. That version cannot reach anything it did not
+read first — which is the property `git checkout` never had.
 
 ## 14. Never trust a declared type over the bytes
 
