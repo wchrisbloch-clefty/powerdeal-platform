@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import {
   directionOf, evaluateMove, isTerminal, stageIndex, stageOptions,
 } from '@/lib/stage';
@@ -287,5 +287,71 @@ describe('nothing treats a terminal stage as a rung on the ladder', () => {
     const code = deals.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
     expect(code).not.toContain("'Economic Proposal', 'Negotiation'");
     expect(code).not.toContain('export function stageIndex');
+  });
+});
+
+describe('nothing new may read DEAL_STAGES positionally', () => {
+  /**
+   * ⚠️ FOUR SEPARATE BUGS, ONE ARRAY. `Archived` is the last element of
+   * `DEAL_STAGES` and is not the furthest along, and everything that reads the
+   * array by position inherits that:
+   *
+   *   1. `directionOf` scored `Discovery → Archived` as **forward** — losing a
+   *      deal counted as advancing it
+   *   2. the headline ranker's linear weight put archived accounts above
+   *      Negotiation
+   *   3. `stageOptions('Post-Sale')` suggested `Archived` as the next rung
+   *   4. `STAGE_PRIORITY` — caught by the type system rather than by a bug,
+   *      because a `Record<DealStage, …>` cannot be indexed positionally at all
+   *
+   * The four are fixed. Nothing stops a fifth, so positional access is now an
+   * allowlist: two functions in lib/stage.ts, each of which handles the
+   * terminal stages BEFORE it compares indices. A new site is a deliberate
+   * addition to this list, with the same decision made explicitly.
+   */
+  const ALLOWED = ['lib/stage.ts'];
+
+  it('only the sanctioned module indexes the array', async () => {
+    const files: string[] = [];
+    async function walk(dir: string) {
+      for (const e of await readdir(dir, { withFileTypes: true })) {
+        if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+        const path = `${dir}/${e.name}`;
+        if (e.isDirectory()) await walk(path);
+        else if (/\.tsx?$/.test(e.name)) files.push(path);
+      }
+    }
+    await walk('lib');
+    await walk('app');
+    await walk('components');
+
+    const offenders: string[] = [];
+    for (const path of files) {
+      if (ALLOWED.some((a) => path.endsWith(a))) continue;
+      const src = (await readFile(path, 'utf8'))
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*/g, '');
+      if (/DEAL_STAGES\s*\.\s*indexOf|DEAL_STAGES\s*\[/.test(src)) {
+        offenders.push(path);
+      }
+    }
+    expect(offenders, 'positional access to DEAL_STAGES outside lib/stage.ts').toEqual([]);
+  });
+
+  it('and the sanctioned module decides what terminal means BEFORE comparing', async () => {
+    // The allowlist is only safe because of this. `directionOf` returns
+    // terminal/reopen for Archived before it ever reads an index.
+    const src = await readFile('lib/stage.ts', 'utf8');
+    const fn = src.slice(src.indexOf('export function directionOf'));
+    const body = fn.slice(0, fn.indexOf('\n}'));
+    expect(body.indexOf("to === 'Archived'")).toBeLessThan(body.indexOf('stageIndex(from)'));
+    expect(body.indexOf("from === 'Archived'")).toBeLessThan(body.indexOf('stageIndex(from)'));
+  });
+
+  it('stageOptions never suggests Archived as a next rung', () => {
+    // The third bite, asserted directly rather than through the source.
+    for (const stage of DEAL_STAGES) {
+      expect(stageOptions(stage)[0], `${stage} suggests Archived`).not.toBe('Archived');
+    }
   });
 });
