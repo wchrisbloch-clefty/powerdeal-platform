@@ -251,7 +251,7 @@ export default function SourcesPanel({
                     checked={source.status === 'blocked' ? false : on}
                     disabled={source.status === 'blocked'}
                     onChange={() => toggle(source, kind)}
-                    className="mt-1.5 h-5 w-5 shrink-0 accent-[color:var(--color-accent)] xl:h-3.5 xl:w-3.5"
+                    className="mt-1.5 h-5 w-5 shrink-0 accent-[color:var(--color-accent-mark)] xl:h-3.5 xl:w-3.5"
                   />
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-1.5">

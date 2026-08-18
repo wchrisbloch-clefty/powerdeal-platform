@@ -182,7 +182,7 @@ export default function MapsPanel({
                 max={10}
                 value={minHealth}
                 onChange={(e) => setMinHealth(Number(e.target.value))}
-                className="w-full accent-[color:var(--color-accent)]"
+                className="h-tap w-full accent-[color:var(--color-accent-mark)] lg:h-6"
               />
             </label>
 
@@ -261,7 +261,9 @@ function Toggle({
     <label
       title={hint}
       className={cn(
-        'flex cursor-pointer items-start gap-2 text-xs',
+        // The tap target is this LABEL, not the 20px box inside it — clicking
+        // anywhere here toggles. Below lg it has to clear the 44px floor.
+        'flex min-h-tap cursor-pointer items-start gap-2 text-xs lg:min-h-0',
         disabled && 'cursor-not-allowed opacity-45',
       )}
     >
@@ -270,7 +272,7 @@ function Toggle({
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-5 w-5 shrink-0 accent-[color:var(--color-accent)] xl:h-3.5 xl:w-3.5"
+        className="mt-0.5 h-5 w-5 shrink-0 accent-[color:var(--color-accent-mark)] xl:h-3.5 xl:w-3.5"
       />
       {swatch ? (
         <span

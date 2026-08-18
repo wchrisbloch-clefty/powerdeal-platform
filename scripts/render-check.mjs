@@ -380,7 +380,24 @@ async function main() {
                 (el.parentElement?.textContent?.trim().length ?? 0) >
                   (el.textContent?.trim().length ?? 0) + 8;
 
-              if (isTouch && !inlineInProse && (r.width < min || r.height < min)) {
+              /**
+               * ⚠️ A LABEL-WRAPPED CONTROL'S TARGET IS THE LABEL.
+               *
+               * A checkbox is 20x20 by construction and inflating it to 44px
+               * would give a giant box beside a small word. What the finger
+               * actually hits is the <label>, because clicking anywhere in it
+               * toggles the control — so the label is the target, and that is
+               * what has to clear the floor.
+               *
+               * Credited only when the label GENUINELY clears it, so this
+               * cannot be used to wave through a small control in a small
+               * label.
+               */
+              const label = el.closest('label');
+              const labelBox = label?.getBoundingClientRect();
+              const labelCovers = Boolean(labelBox && labelBox.height >= min && labelBox.width >= min);
+
+              if (isTouch && !inlineInProse && !labelCovers && (r.width < min || r.height < min)) {
                 out.small.push({
                   target: describe(el),
                   size: `${Math.round(r.width)}x${Math.round(r.height)}`,

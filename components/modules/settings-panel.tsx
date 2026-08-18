@@ -352,12 +352,12 @@ export default function SettingsPanel({
                 ['weekly_recap', 'Weekly recap'],
               ] as [keyof typeof notify, string][]
             ).map(([key, label]) => (
-              <label key={key} className="flex min-h-tap cursor-pointer items-center gap-2 xl:min-h-0.5 text-sm">
+              <label key={key} className="flex min-h-tap cursor-pointer items-center gap-2 text-sm lg:min-h-0">
                 <input
                   type="checkbox"
                   checked={notify[key]}
                   onChange={(e) => setNotify((n) => ({ ...n, [key]: e.target.checked }))}
-                  className="h-5 w-5 accent-[color:var(--color-accent)] xl:h-3.5 xl:w-3.5"
+                  className="h-5 w-5 accent-[color:var(--color-accent-mark)] xl:h-3.5 xl:w-3.5"
                 />
                 <span className="text-text-dim">{label}</span>
               </label>

@@ -761,7 +761,7 @@ function IncentivePanel({
                         ) as Sourced,
                       })
                     }
-                    className="w-20 rounded-sm border border-rule bg-bg px-1.5 py-1 text-right font-mono text-sm text-text tabular-nums focus:border-accent-mark focus:outline-none disabled:opacity-40"
+                    className="w-20 min-h-tap rounded-sm border border-rule bg-bg px-1.5 py-1 text-right font-mono text-sm text-text tabular-nums lg:min-h-tap-sm focus:border-accent-mark focus:outline-none disabled:opacity-40"
                   />
                   <span className="w-16 font-mono text-2xs text-text-faint">{def.unit}</span>
                 </div>
