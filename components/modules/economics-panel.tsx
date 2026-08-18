@@ -19,7 +19,7 @@ import {
   hasFourCpExposure,
   presetFor,
 } from '@/lib/economics/presets';
-import { deltaRows, exportJson, summaryText } from '@/lib/economics/format';
+import { deltaRows, exportJson, soften, summaryText } from '@/lib/economics/format';
 import { userValue } from '@/lib/economics/types';
 import { GROUP_COPY } from '@/lib/economics/model-inputs';
 import type {
@@ -695,8 +695,24 @@ function Incomplete({ missing }: { missing: { field: string; label: string }[] }
     <div className="mt-2">
       <p className="font-mono text-3xl text-text-faint tabular-nums">—</p>
       <p className="mt-1 text-xs text-text-dim">
+        {/*
+          ⚠️ WAS `.join(', ').toLowerCase()`, WHICH RENDERED "capex $/kw, o&m
+          $/kw-yr". Units are not prose: kW is a kilowatt and kw is nothing,
+          and O&M lowercased stops being an abbreviation. The lowercasing was
+          there to make the labels read as a sentence fragment after "Needs" —
+          it bought a comma's worth of grammar and cost the units their meaning,
+          on the one line that tells the reader what to go and find.
+
+          Only the first character of the first label is lowered, and only when
+          it is a plain ASCII capital followed by a lowercase letter — so
+          "Efficiency" softens to "efficiency" and "O&M" and "Capex $/kW" are
+          left exactly as their sources wrote them.
+        */}
         {missing.length > 0
-          ? `Needs ${missing.map((m) => m.label).join(', ').toLowerCase()}.`
+          ? `Needs ${soften(missing[0].label)}${missing
+              .slice(1)
+              .map((m) => `, ${m.label}`)
+              .join('')}.`
           : 'Fill the inputs to see a result.'}
       </p>
     </div>

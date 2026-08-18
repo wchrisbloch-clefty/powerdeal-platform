@@ -133,3 +133,23 @@ export function activeConditions(selections: IncentiveSelection[]): string[] {
     })
     .filter((t): t is string => Boolean(t));
 }
+
+/**
+ * Lowercase a label's leading word only when doing so cannot destroy meaning.
+ *
+ * ⚠️ EXISTS BECAUSE `Needs ${labels.join(', ').toLowerCase()}` RENDERED
+ * "Needs efficiency, capex $/kw, o&m $/kw-yr". kW is a kilowatt; kw is
+ * nothing. O&M lowercased stops being an abbreviation. The lowercasing bought
+ * a comma's worth of grammar after "Needs" and cost the units their meaning,
+ * on the one line whose job is telling the reader which figure to go and find.
+ *
+ * ⚠️ AND IT LIVES HERE RATHER THAN IN THE PANEL BECAUSE A MUTATION SURVIVED.
+ * The first version was a local helper in economics-panel.tsx, and the test
+ * re-declared its own identical copy to check the boundary cases. Replacing
+ * the panel's version with a plain `label.toLowerCase()` left every assertion
+ * passing — the test was exercising a duplicate of the code, not the code.
+ * A check that has its own copy of the thing it checks is checking nothing.
+ */
+export function soften(label: string): string {
+  return /^[A-Z][a-z]/.test(label) ? label[0].toLowerCase() + label.slice(1) : label;
+}

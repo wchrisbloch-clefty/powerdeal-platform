@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
+import { soften } from '@/lib/economics/format';
 import {
   COST_DRIVERS,
   CONSTRAINTS,
@@ -226,6 +227,51 @@ describe('the panel renders the split it declares', () => {
     expect(src).not.toContain('eyebrow mb-1');
     expect(src).not.toContain('eyebrow">Technology inputs');
     expect(src).not.toContain('eyebrow">Financial assumptions');
+  });
+
+  it('the missing-inputs line does not lowercase units into nonsense', async () => {
+    /*
+      ⚠️ IT RENDERED "Needs efficiency, capex $/kw, o&m $/kw-yr." — caught by
+      looking at the mobile render, not by any assertion. `.toLowerCase()` on
+      the joined labels bought a comma's worth of grammar after "Needs" and
+      cost kW its meaning: kW is a kilowatt, kw is nothing, and O&M lowercased
+      stops being an abbreviation. On the one line whose whole job is telling
+      the reader which figure to go and find.
+
+      Rule 17 again: every assertion about this panel passed while the sentence
+      was wrong, because no assertion was reading the sentence.
+    */
+    /*
+      ⚠️ AND THIS ASSERTION FAILED ON ITS OWN COMMENT FIRST. The block above
+      quotes `.join(', ').toLowerCase()` while explaining why it is gone, and a
+      substring scan cannot tell a citation from a call. Exactly the fault that
+      bit the migration tiebreak check, in a second file, ten commits later.
+      Comments stripped before matching.
+    */
+    const src = await readFile(PANEL, 'utf8');
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const block = code.slice(code.indexOf('function Incomplete'));
+    expect(block.slice(0, 500)).not.toContain('.toLowerCase()');
+    // The stripper has to leave real code behind, or the check is vacuous.
+    expect(block).toContain('missing.length > 0');
+
+    /*
+      ⚠️ AND THIS BLOCK USED TO DECLARE ITS OWN COPY OF soften. A mutation that
+      replaced the panel's version with a plain `label.toLowerCase()` left all
+      eleven tests green: the boundary cases were being checked against the
+      test's duplicate, not against the code that ships. The real function is
+      imported now, and that mutation fails.
+    */
+    expect(soften('Efficiency')).toBe('efficiency');
+    expect(soften('Capex $/kW')).toBe('capex $/kW');
+    // The two that must survive untouched.
+    expect(soften('O&M $/kW-yr')).toBe('O&M $/kW-yr');
+    expect(soften('MW available')).toBe('MW available');
+
+    // The source of the labels, so the fixture above is not fiction.
+    const lcoe = await readFile(LCOE, 'utf8');
+    expect(lcoe).toContain("'O&M $/kW-yr'");
+    expect(lcoe).toContain("'Capex $/kW'");
   });
 
   it('the group copy says what the constraints group is for', () => {
