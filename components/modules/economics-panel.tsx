@@ -21,6 +21,7 @@ import {
 } from '@/lib/economics/presets';
 import { deltaRows, exportJson, summaryText } from '@/lib/economics/format';
 import { userValue } from '@/lib/economics/types';
+import { GROUP_COPY } from '@/lib/economics/model-inputs';
 import type {
   FinanceInputs,
   GridInputs,
@@ -241,7 +242,16 @@ export default function EconomicsPanel({
         <SensitivityView rows={sensitivityRows} baseline={result.lcoe?.total ?? null} />
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="space-y-5">
+          {/* ⚠️ ORDER, NOT JUST COLUMNS. The rail is the second grid child, so
+              below 1024 it stacked BENEATH fourteen input cards — roughly 3,600
+              pixels of sliders at iPad width before the reader reaches the
+              number the surface exists to produce. On desktop it is a sticky
+              right rail and reads correctly; at the two breakpoints where most
+              of this gets used, the answer was last.
+
+              order-first flips it under lg and leaves the desktop grid exactly
+              as it was. The lead tile, on a third surface. */}
+          <div className="order-2 space-y-5 lg:order-none">
             {/* ── Technology ── */}
             <section className="rounded-card border border-rule bg-bg-raised p-4">
               <label htmlFor="tech" className="eyebrow">
@@ -272,7 +282,10 @@ export default function EconomicsPanel({
               />
             ) : (
               <section className="rounded-card border border-rule bg-bg-raised p-4">
-                <p className="eyebrow mb-1">Technology inputs</p>
+                <SectionHeading
+                  title={GROUP_COPY.tech.title}
+                  body={GROUP_COPY.tech.body}
+                />
 
                 <SourcedField
                   label="Efficiency"
@@ -365,61 +378,15 @@ export default function EconomicsPanel({
                   hint="Per unit of output, so it converts straight to ¢/kWh — no capacity factor involved."
                 />
 
-                <SourcedField
-                  label="Asset life"
-                  sourced={inputs.assetLifeYears}
-                  min={0}
-                  max={50}
-                  step={1}
-                  onChange={setTechField('assetLifeYears')}
-                  hint="Constraint note. Not wired to the financing term below — a 30-year asset financed over 20 is an ordinary structure."
-                />
-
-                <SourcedField
-                  label="Service interval"
-                  sourced={inputs.serviceIntervalHrs}
-                  min={0}
-                  max={100000}
-                  step={1000}
-                  onChange={setTechField('serviceIntervalHrs')}
-                  hint="Informs the capacity-factor assumption. Not a cost input."
-                />
-
-                <SourcedField
-                  label="Temperature derate"
-                  sourced={inputs.tempDeratePct}
-                  min={0}
-                  max={50}
-                  step={0.5}
-                  onChange={setTechField('tempDeratePct')}
-                  hint="Output loss on hot days. Constraint note — does not enter LCOE."
-                />
-
-                <SourcedField
-                  label="Min unit size"
-                  sourced={inputs.minUnitMw}
-                  min={0}
-                  max={100}
-                  step={0.1}
-                  onChange={setTechField('minUnitMw')}
-                  hint="Constraint note."
-                />
-
-                <SourcedField
-                  label="Lead time"
-                  sourced={inputs.leadTimeMonths}
-                  min={0}
-                  max={72}
-                  step={1}
-                  onChange={setTechField('leadTimeMonths')}
-                  hint="Constraint note."
-                />
               </section>
             )}
 
             {/* ── Finance ── */}
             <section className="rounded-card border border-rule bg-bg-raised p-4">
-              <p className="eyebrow mb-1">Financial assumptions</p>
+              <SectionHeading
+                title={GROUP_COPY.finance.title}
+                body={GROUP_COPY.finance.body}
+              />
               <SourcedField
                 label="Fuel price"
                 sourced={finance.fuelPricePerMmbtu}
@@ -455,6 +422,78 @@ export default function EconomicsPanel({
                 onChange={setFinanceField('termYears')}
               />
             </section>
+
+            {/* ── Constraints ──
+                ⚠️ THESE FIVE WERE IN THE TECHNOLOGY STACK, above, at the same
+                weight as capex and efficiency, each with its own slider. None
+                of them is read by computeLcoe. A slider that visibly does
+                nothing to the answer is the strongest possible claim that it
+                should, and fourteen equal fields is also just fourteen equal
+                fields — no glance tells you which two decide the number.
+
+                Moved, not removed: a 26-week lead time kills a deal a good
+                LCOE cannot save. Same controls, same reachability, nothing
+                disabled, nothing defaulted. The membership of this group is
+                asserted against lcoe.ts rather than typed from memory. */}
+            {!isGrid ? (
+              <section className="rounded-card border border-rule-faint p-4">
+                <SectionHeading
+                  title={GROUP_COPY.constraints.title}
+                  body={GROUP_COPY.constraints.body}
+                  subordinate
+                />
+
+                <SourcedField
+                  label="Asset life"
+                  sourced={inputs.assetLifeYears}
+                  min={0}
+                  max={50}
+                  step={1}
+                  onChange={setTechField('assetLifeYears')}
+                  hint="Deliberately not wired to the financing term — a 30-year asset financed over 20 is an ordinary structure."
+                />
+
+                <SourcedField
+                  label="Service interval"
+                  sourced={inputs.serviceIntervalHrs}
+                  min={0}
+                  max={100000}
+                  step={1000}
+                  onChange={setTechField('serviceIntervalHrs')}
+                  hint="Informs the capacity-factor assumption you enter above. Not itself a cost input."
+                />
+
+                <SourcedField
+                  label="Temperature derate"
+                  sourced={inputs.tempDeratePct}
+                  min={0}
+                  max={50}
+                  step={0.5}
+                  onChange={setTechField('tempDeratePct')}
+                  hint="Output loss on hot days."
+                />
+
+                <SourcedField
+                  label="Min unit size"
+                  sourced={inputs.minUnitMw}
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  onChange={setTechField('minUnitMw')}
+                  hint="Granularity of the build. Decides whether a site can be served at all."
+                />
+
+                <SourcedField
+                  label="Lead time"
+                  sourced={inputs.leadTimeMonths}
+                  min={0}
+                  max={72}
+                  step={1}
+                  onChange={setTechField('leadTimeMonths')}
+                  hint="Order-to-energisation. The constraint that most often decides a deal on its own."
+                />
+              </section>
+            ) : null}
 
             {/* ── Incentives ── */}
             <IncentivePanel
@@ -494,7 +533,7 @@ export default function EconomicsPanel({
           </div>
 
           {/* ── Result rail ── */}
-          <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+          <div className="order-1 space-y-4 lg:order-none lg:sticky lg:top-4 lg:self-start">
             <ResultCard
               result={result}
               isGrid={isGrid}
@@ -520,6 +559,46 @@ export default function EconomicsPanel({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * A section heading inside the model panel.
+ *
+ * ⚠️ REPLACES `<p className="eyebrow">`, WHICH RENDERED THE HEADING SMALLER
+ * THAN THE FIELDS UNDER IT. `.eyebrow` is 2xs uppercase mono — the same step as
+ * the hint lines inside each field, and a step BELOW the field labels it was
+ * supposed to govern. So "Technology inputs" was the quietest text in a section
+ * of fourteen louder ones, and the stack read as one undifferentiated list.
+ *
+ * An eyebrow is a label above a heading. Used as the heading, it inverts the
+ * hierarchy it exists to establish.
+ *
+ * `subordinate` is the one deliberate exception: the constraints group SHOULD
+ * sit below the cost drivers, so its heading takes the smaller step — quieter
+ * than the cost sections, still louder than the fields it governs.
+ */
+function SectionHeading({
+  title,
+  body,
+  subordinate,
+}: {
+  title: string;
+  body: string;
+  subordinate?: boolean;
+}) {
+  return (
+    <div className="mb-rhythm-tight">
+      <h3
+        className={cn(
+          'font-display text-text',
+          subordinate ? 'text-sm' : 'text-base',
+        )}
+      >
+        {title}
+      </h3>
+      <p className="mt-0.5 max-w-measure text-2xs text-text-faint">{body}</p>
     </div>
   );
 }
@@ -639,7 +718,10 @@ function GridPanel({
 }) {
   return (
     <section className="rounded-card border border-rule bg-bg-raised p-4">
-      <p className="eyebrow mb-1">Delivered rate components</p>
+      <SectionHeading
+        title="Delivered rate components"
+        body="What the utility actually bills, itemised. Escalation is the lever — doing nothing has a scheduled, compounding cost."
+      />
       <SourcedField
         label="Energy charge"
         sourced={grid.energyCentsPerKwh}
@@ -721,10 +803,10 @@ function IncentivePanel({
 
   return (
     <section className="rounded-card border border-rule bg-bg-raised p-4">
-      <p className="eyebrow mb-1">Incentives</p>
-      <p className="mb-3 text-2xs text-text-faint">
-        Itemized, never lumped. Each carries its own condition and contributes separately.
-      </p>
+      <SectionHeading
+        title="Incentives"
+        body="Itemized, never lumped. Each carries its own condition and contributes separately."
+      />
 
       <ul className="space-y-3">
         {selections.map((sel) => {
