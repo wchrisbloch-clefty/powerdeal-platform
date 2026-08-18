@@ -89,7 +89,7 @@ export default function StageControl({ deal }: { deal: Deal }) {
                   setTarget(null);
                 }}
                 aria-label="Close"
-                className="flex h-tap-sm w-tap-sm items-center justify-center rounded-sm text-text-dim hover:text-text"
+                className="flex h-tap lg:h-tap-sm w-tap-sm items-center justify-center rounded-sm text-text-dim hover:text-text"
               >
                 <X size={16} />
               </button>
@@ -104,9 +104,9 @@ export default function StageControl({ deal }: { deal: Deal }) {
                       key={s}
                       onClick={() => setTarget(s)}
                       className={cn(
-                        'min-h-tap-sm rounded-sm border px-2.5 text-xs transition-colors duration-fast',
+                        'min-h-tap lg:min-h-tap-sm rounded-sm border px-2.5 text-xs transition-colors duration-fast',
                         target === s
-                          ? 'border-accent bg-accent-bg text-accent-dim'
+                          ? 'border-accent-mark bg-accent-bg text-accent-dim'
                           : 'border-rule text-text-dim hover:text-text',
                       )}
                     >

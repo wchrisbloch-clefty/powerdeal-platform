@@ -360,7 +360,27 @@ async function main() {
                 }
               }
 
-              if (isTouch && (r.width < min || r.height < min)) {
+              /**
+               * ⚠️ INLINE LINKS IN PROSE ARE EXEMPT, AND THE EXEMPTION IS
+               * NARROW ON PURPOSE.
+               *
+               * WCAG 2.5.8 exempts a link whose target is "in a sentence or
+               * block of text" — sizing "Connect Supabase" to 44px would break
+               * the paragraph it sits in, and flagging it every run trains the
+               * reader to skim past this whole section.
+               *
+               * Narrow: the element must be an <a>, laid out INLINE, with
+               * text on both sides of it. A button is never exempt, and a
+               * standalone link on its own line is not in a sentence.
+               */
+              const inlineInProse =
+                el.tagName === 'A' &&
+                getComputedStyle(el).display === 'inline' &&
+                Boolean(el.parentElement?.textContent?.trim().length) &&
+                (el.parentElement?.textContent?.trim().length ?? 0) >
+                  (el.textContent?.trim().length ?? 0) + 8;
+
+              if (isTouch && !inlineInProse && (r.width < min || r.height < min)) {
                 out.small.push({
                   target: describe(el),
                   size: `${Math.round(r.width)}x${Math.round(r.height)}`,

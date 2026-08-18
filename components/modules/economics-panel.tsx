@@ -220,9 +220,9 @@ export default function EconomicsPanel({
             aria-selected={tab === t}
             onClick={() => setTab(t)}
             className={cn(
-              'min-h-tap-sm border-b-2 px-3 text-sm capitalize transition-colors duration-fast',
+              'min-h-tap lg:min-h-tap-sm border-b-2 px-3 text-sm capitalize transition-colors duration-fast',
               tab === t
-                ? 'border-accent text-text'
+                ? 'border-accent-mark text-text'
                 : 'border-transparent text-text-dim hover:text-text',
             )}
           >
@@ -251,7 +251,7 @@ export default function EconomicsPanel({
                 id="tech"
                 value={tech}
                 onChange={(e) => loadPreset(e.target.value as TechKey)}
-                className="mt-1.5 min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2 text-sm text-text focus:border-accent-mark focus:outline-none"
+                className="mt-1.5 min-h-tap lg:min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2 text-sm text-text focus:border-accent-mark focus:outline-none"
               >
                 {PRESETS.map((p) => (
                   <option key={p.key} value={p.key}>
@@ -734,7 +734,7 @@ function IncentivePanel({
           return (
             <li key={sel.key} className="border-b border-rule-faint pb-3 last:border-b-0 last:pb-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="flex min-h-tap-sm items-center gap-2 text-sm text-text">
+                <label className="flex min-h-tap lg:min-h-tap-sm items-center gap-2 text-sm text-text">
                   <input
                     type="checkbox"
                     checked={sel.enabled}
@@ -781,7 +781,7 @@ function IncentivePanel({
                         fuelPathway: e.target.value as IncentiveSelection['fuelPathway'],
                       })
                     }
-                    className="min-h-tap-sm rounded-sm border border-rule bg-bg px-2 text-xs text-text focus:border-accent-mark focus:outline-none"
+                    className="min-h-tap lg:min-h-tap-sm rounded-sm border border-rule bg-bg px-2 text-xs text-text focus:border-accent-mark focus:outline-none"
                   >
                     <option value="pipeline-natural-gas">Pipeline natural gas</option>
                     <option value="renewable-fuel">Renewable fuel</option>
@@ -885,7 +885,7 @@ function RailButton({
   return (
     <button
       onClick={onClick}
-      className="inline-flex min-h-tap-sm items-center gap-1.5 rounded-sm border border-rule px-2.5 text-xs text-text transition-colors duration-fast hover:border-accent-mark hover:text-accent-dim"
+      className="inline-flex min-h-tap lg:min-h-tap-sm items-center gap-1.5 rounded-sm border border-rule px-2.5 text-xs text-text transition-colors duration-fast hover:border-accent-mark hover:text-accent-dim"
     >
       <Icon size={13} strokeWidth={1.75} aria-hidden />
       {label}
@@ -908,9 +908,9 @@ function TrayButton({
     <button
       onClick={onClick}
       className={cn(
-        'inline-flex min-h-tap-sm items-center gap-1 rounded-sm border px-2 text-2xs transition-colors duration-fast xl:min-h-0 xl:py-1',
+        'inline-flex min-h-tap lg:min-h-tap-sm items-center gap-1 rounded-sm border px-2 text-2xs transition-colors duration-fast xl:min-h-0 xl:py-1',
         active
-          ? 'border-accent bg-accent-bg text-accent-dim'
+          ? 'border-accent-mark bg-accent-bg text-accent-dim'
           : 'border-rule text-text-dim hover:text-text',
       )}
     >

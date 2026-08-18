@@ -280,7 +280,7 @@ export default function LearnPanel() {
                     setInput(m.example);
                     setOverride(null);
                   }}
-                  className="mt-1 text-2xs text-text-faint underline decoration-rule underline-offset-2 hover:text-text"
+                  className="mt-1 flex min-h-tap items-center text-left text-2xs text-text-faint underline decoration-rule underline-offset-2 hover:text-text lg:min-h-0"
                 >
                   {m.example}
                 </button>

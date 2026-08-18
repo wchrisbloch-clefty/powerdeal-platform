@@ -88,7 +88,7 @@ export default function LogOutcome({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="flex h-tap-sm w-tap-sm items-center justify-center rounded-sm text-text-dim hover:text-text"
+            className="flex h-tap lg:h-tap-sm w-tap-sm items-center justify-center rounded-sm text-text-dim hover:text-text"
           >
             <X size={16} />
           </button>
@@ -104,9 +104,9 @@ export default function LogOutcome({
                   key={o}
                   onClick={() => setOutcomeType(o)}
                   className={cn(
-                    'min-h-tap-sm rounded-sm border px-2.5 text-xs transition-colors duration-fast',
+                    'min-h-tap lg:min-h-tap-sm rounded-sm border px-2.5 text-xs transition-colors duration-fast',
                     outcomeType === o
-                      ? 'border-accent bg-accent-bg text-accent-dim'
+                      ? 'border-accent-mark bg-accent-bg text-accent-dim'
                       : 'border-rule text-text-dim hover:text-text',
                   )}
                 >
@@ -197,7 +197,7 @@ function Field({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text focus:border-accent-mark focus:outline-none"
+        className="min-h-tap lg:min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text focus:border-accent-mark focus:outline-none"
       />
       {hint ? <p className="mt-1 text-2xs text-text-faint">{hint}</p> : null}
     </div>

@@ -123,7 +123,15 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
                       type="button"
                       onClick={() => toggleSort(col.key as SortKey)}
                       className={cn(
+                        // ⚠️ THE TAP TARGET IS THE PADDING, NOT THE LABEL.
+                        // These were 58x16 — a 16px-tall control on a touch
+                        // screen, in a header row that is the primary way the
+                        // table gets reordered. `-my-2 py-2` grows the hit box
+                        // into the cell's existing padding without moving the
+                        // header text a pixel, so the row height is unchanged
+                        // and the target clears the floor.
                         'inline-flex items-center gap-1 hover:text-text',
+                        '-my-2 min-h-tap py-2 lg:min-h-0 lg:py-0',
                         sortKey === col.key && 'text-text',
                       )}
                       aria-label={`Sort by ${col.label}`}

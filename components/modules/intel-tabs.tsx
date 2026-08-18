@@ -70,7 +70,7 @@ export default function IntelTabs({ active }: { active: IntelTab }) {
             href={tab.id === DEFAULT_TAB ? '/app/intelligence' : `/app/intelligence?tab=${tab.id}`}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'inline-flex min-h-tap items-center whitespace-nowrap rounded-md px-3 text-sm transition-colors sm:min-h-tap-sm',
+              'inline-flex min-h-tap items-center whitespace-nowrap rounded-md px-3 text-sm transition-colors sm:min-h-tap lg:min-h-tap-sm',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-mark focus-visible:ring-offset-1 focus-visible:ring-offset-bg',
               isActive
                 // Filled pill rather than an underline: an underline here would

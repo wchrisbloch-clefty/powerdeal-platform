@@ -126,7 +126,7 @@ export default function CompetitivePanel({
           type="button"
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
-          className="mt-2 flex min-h-tap-sm w-full items-center gap-1.5 rounded-sm px-1 text-xs text-text-dim hover:text-text"
+          className="mt-2 flex min-h-tap lg:min-h-tap-sm w-full items-center gap-1.5 rounded-sm px-1 text-xs text-text-dim hover:text-text"
         >
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           {restTiers.join(' · ')}
@@ -165,7 +165,7 @@ export default function CompetitivePanel({
                 <button
                   type="button"
                   onClick={() => setAdding(true)}
-                  className="flex min-h-tap-sm items-center gap-1.5 text-xs text-text-dim hover:text-text"
+                  className="flex min-h-tap lg:min-h-tap-sm items-center gap-1.5 text-xs text-text-dim hover:text-text"
                 >
                   <Plus size={13} /> Add a named competitor
                 </button>
@@ -464,7 +464,7 @@ function AddNamed({
         autoFocus
         placeholder="Wärtsilä via Burns &amp; McDonnell"
         onChange={(e) => setName(e.target.value)}
-        className="min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text placeholder:text-text-faint focus:border-accent-mark focus:outline-none"
+        className="min-h-tap lg:min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text placeholder:text-text-faint focus:border-accent-mark focus:outline-none"
       />
       <div className="flex flex-wrap items-center gap-1.5">
         {COMPETITOR_TIERS.map((t) => (
@@ -473,9 +473,9 @@ function AddNamed({
             type="button"
             onClick={() => setTier(t)}
             className={cn(
-              'min-h-tap-sm rounded-sm border px-2 text-2xs transition-colors duration-fast',
+              'min-h-tap lg:min-h-tap-sm rounded-sm border px-2 text-2xs transition-colors duration-fast',
               tier === t
-                ? 'border-accent bg-accent-bg text-accent-dim'
+                ? 'border-accent-mark bg-accent-bg text-accent-dim'
                 : 'border-rule text-text-dim hover:text-text',
             )}
           >

@@ -667,9 +667,46 @@ describe('nothing typographic or chromatic is hardcoded outside tokens.css', () 
       )) {
         offenders.push(`${path}: ${m[0]}`);
       }
+      /**
+       * ⚠️ AND THE UNPREFIXED FORM, which is how the last one hid. The
+       * Economics tab strip carried `border-b-2 border-accent` on the selected
+       * tab — the nav-marker pattern exactly, at the nav marker's 2.90:1, and
+       * a `focus:`-only scan walked straight past it because it is an ACTIVE
+       * state rather than a focus state.
+       */
+      for (const m of src.matchAll(/(?<![-\w:])border-accent(?![-\w])/g)) {
+        offenders.push(`${path}: ${m[0]}`);
+      }
     }
 
     expect(offenders, 'raw --color-accent used as a non-text indicator').toEqual([]);
+  });
+
+  it('nothing puts white text on the brand green', async () => {
+    /**
+     * ⚠️ 2.5:1, AND IT WAS STILL LIVE.
+     *
+     * `--color-accent-fg` exists because white on Bloom green measures 2.5:1
+     * light and 2.0:1 dark, and ink measures 6.5:1 and 8.2:1. That token was
+     * introduced when the primary button was found rendering at 1.98:1 — and
+     * the capture page's submit button was still `bg-accent … text-white`,
+     * hand-rolled rather than using the shared Button, so no fix ever reached
+     * it.
+     *
+     * The measurement, not the memory:
+     */
+    expect(contrastRatio('#ffffff', '#3cad3a')).toBeLessThan(3);
+    expect(contrastRatio('#0f1117', '#3cad3a')).toBeGreaterThan(4.5);
+
+    const offenders: string[] = [];
+    for (const { path, src } of await sources()) {
+      for (const m of src.matchAll(/class[Name]*="[^"]*"/g)) {
+        if (/\bbg-accent(?![-\w])/.test(m[0]) && /\btext-white\b/.test(m[0])) {
+          offenders.push(`${path}: ${m[0].slice(0, 90)}`);
+        }
+      }
+    }
+    expect(offenders, 'white text on Bloom green').toEqual([]);
   });
 
   it('and the mark token actually clears 3:1 in BOTH themes', () => {

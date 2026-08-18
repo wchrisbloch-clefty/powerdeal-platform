@@ -66,7 +66,7 @@ export default function MeetingPrepPanel({
           value={typeKey}
           onChange={(e) => setTypeKey(e.target.value)}
           aria-label="Meeting type"
-          className="mt-2 min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text focus:border-accent-mark focus:outline-none"
+          className="mt-2 min-h-tap lg:min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text focus:border-accent-mark focus:outline-none"
         >
           <option value="">Not specified — treated as an intro call</option>
           {MEETING_TYPES.map((m) => (
@@ -93,7 +93,7 @@ export default function MeetingPrepPanel({
             value={attendees}
             placeholder="Ana Liu (CFO), Dev Rao (Facilities)"
             onChange={(e) => setAttendees(e.target.value)}
-            className="min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text placeholder:text-text-faint focus:border-accent-mark focus:outline-none"
+            className="min-h-tap lg:min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text placeholder:text-text-faint focus:border-accent-mark focus:outline-none"
           />
           <p className="mt-0.5 text-2xs text-text-faint">
             Blank is fine — personas get inferred from the meeting type and the brief
@@ -110,7 +110,7 @@ export default function MeetingPrepPanel({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text focus:border-accent-mark focus:outline-none"
+            className="min-h-tap lg:min-h-tap-sm w-full rounded-sm border border-rule bg-bg px-2.5 text-sm text-text focus:border-accent-mark focus:outline-none"
           />
         </div>
       </div>
@@ -129,9 +129,9 @@ export default function MeetingPrepPanel({
               type="button"
               onClick={() => setMinutes(m)}
               className={cn(
-                'min-h-tap-sm rounded-sm border px-2.5 text-xs transition-colors duration-fast',
+                'min-h-tap lg:min-h-tap-sm rounded-sm border px-2.5 text-xs transition-colors duration-fast',
                 minutes === m
-                  ? 'border-accent bg-accent-bg text-accent-dim'
+                  ? 'border-accent-mark bg-accent-bg text-accent-dim'
                   : 'border-rule text-text-dim hover:text-text',
               )}
             >
@@ -145,7 +145,7 @@ export default function MeetingPrepPanel({
             value={minutes}
             aria-label="Meeting length in minutes"
             onChange={(e) => setMinutes(Math.max(0, Math.min(600, Number(e.target.value) || 0)))}
-            className="min-h-tap-sm w-20 rounded-sm border border-rule bg-bg px-2 text-xs text-text focus:border-accent-mark focus:outline-none"
+            className="min-h-tap lg:min-h-tap-sm w-20 rounded-sm border border-rule bg-bg px-2 text-xs text-text focus:border-accent-mark focus:outline-none"
           />
         </div>
 

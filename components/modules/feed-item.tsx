@@ -415,7 +415,7 @@ export default function FeedItemCard({
                     key={d.id}
                     type="button"
                     onClick={() => saveToDeal(d)}
-                    className="inline-flex min-h-tap-sm items-center gap-1.5 rounded border border-rule px-2 py-1 text-xs text-text-dim transition-colors hover:border-accent-border hover:text-text"
+                    className="inline-flex min-h-tap lg:min-h-tap-sm items-center gap-1.5 rounded border border-rule px-2 py-1 text-xs text-text-dim transition-colors hover:border-accent-border hover:text-text"
                   >
                     <Check size={11} aria-hidden />
                     {d.company}

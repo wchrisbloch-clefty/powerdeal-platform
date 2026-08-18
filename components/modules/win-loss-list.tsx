@@ -56,9 +56,9 @@ export default function WinLossList({
               key={o}
               onClick={() => setFilter(o)}
               className={cn(
-                'min-h-tap-sm rounded-sm border px-2.5 text-xs transition-colors duration-fast xl:min-h-0 xl:py-1',
+                'min-h-tap lg:min-h-tap-sm rounded-sm border px-2.5 text-xs transition-colors duration-fast xl:min-h-0 xl:py-1',
                 filter === o
-                  ? 'border-accent bg-accent-bg text-accent-dim'
+                  ? 'border-accent-mark bg-accent-bg text-accent-dim'
                   : 'border-rule text-text-dim hover:text-text',
               )}
             >

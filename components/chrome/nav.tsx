@@ -247,7 +247,7 @@ export function NavBar() {
               placeholder="Search accounts…"
               aria-label="Search accounts"
               className={cn(
-                'h-tap-sm w-48 rounded-md border border-rule bg-bg-raised pl-8 pr-3 text-sm',
+                'h-tap lg:h-tap-sm w-48 rounded-md border border-rule bg-bg-raised pl-8 pr-3 text-sm',
                 'text-text placeholder:text-text-faint',
                 'focus:border-accent-border focus:outline-none',
               )}
@@ -259,7 +259,7 @@ export function NavBar() {
             aria-label="Search accounts"
             className={cn(
               NAV_BASE,
-              'h-tap w-tap rounded-md text-text-faint hover:text-text-dim lg:h-tap-sm lg:w-tap-sm xl:hidden',
+              'h-tap w-tap rounded-md text-text-faint hover:text-text-dim lg:h-tap lg:h-tap-sm lg:w-tap-sm xl:hidden',
             )}
           >
             <Search size={17} strokeWidth={1.75} aria-hidden />
@@ -273,7 +273,7 @@ export function NavBar() {
             aria-label="Sign out"
             className={cn(
               NAV_BASE,
-              'h-tap w-tap rounded-md text-text-faint hover:text-text-dim lg:h-tap-sm lg:w-tap-sm',
+              'h-tap w-tap rounded-md text-text-faint hover:text-text-dim lg:h-tap lg:h-tap-sm lg:w-tap-sm',
             )}
           >
             <LogOut size={17} strokeWidth={1.75} aria-hidden />
@@ -285,7 +285,7 @@ export function NavBar() {
             aria-label={SETTINGS_ITEM.label}
             className={cn(
               NAV_BASE,
-              'h-tap w-tap rounded-md lg:h-tap-sm lg:w-tap-sm',
+              'h-tap w-tap rounded-md lg:h-tap lg:h-tap-sm lg:w-tap-sm',
               isActive(SETTINGS_ITEM.href) ? 'text-text' : 'text-text-faint hover:text-text-dim',
             )}
           >

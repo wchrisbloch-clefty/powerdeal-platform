@@ -66,7 +66,7 @@ export default function CapturePage() {
         <div className="flex items-center gap-2 pt-1">
           <button
             type="submit"
-            className="inline-flex h-9 items-center justify-center rounded-md border border-accent bg-accent px-4 text-sm font-medium text-white transition-colors hover:bg-accent-dim"
+            className="inline-flex min-h-tap items-center justify-center rounded-md border border-accent-border bg-accent px-4 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-dim lg:min-h-tap-sm"
           >
             Capture
           </button>
