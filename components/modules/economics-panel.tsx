@@ -306,7 +306,7 @@ export default function EconomicsPanel({
                             name="capex-case"
                             checked={capexCase === c.id}
                             onChange={() => loadCapexCase(c.id)}
-                            className="mt-0.5 accent-accent"
+                            className="mt-0.5 accent-accent-mark"
                           />
                           <span>
                             {c.label}
@@ -739,7 +739,7 @@ function IncentivePanel({
                     type="checkbox"
                     checked={sel.enabled}
                     onChange={(e) => update(sel.key, { enabled: e.target.checked })}
-                    className="h-4 w-4 accent-accent"
+                    className="h-4 w-4 accent-accent-mark"
                   />
                   {def.label}
                 </label>

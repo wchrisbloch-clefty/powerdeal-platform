@@ -172,21 +172,55 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
                   <td className="whitespace-nowrap px-2.5 py-2 font-mono text-2xs text-text-dim">
                     {deal.deal_id}
                   </td>
-                  <td className="px-2.5 py-2 font-medium text-text">{deal.company}</td>
+                  {/* ⚠️ `stalled` WAS COMPUTED AND NEVER RENDERED. The row
+                      knew a deal had not moved in over 30 days and showed it
+                      nowhere — the reader had to open the deal to find out. It
+                      rides with the company name because that is the cell the
+                      eye lands on. */}
+                  <td className="px-2.5 py-2 font-medium text-text">
+                    {deal.company}
+                    {stalled ? (
+                      <span
+                        title={`No stage movement in ${deal.days_in_stage} days`}
+                        className="ml-1.5 font-mono text-2xs font-normal uppercase tracking-label text-warning"
+                      >
+                        stalled
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="px-2.5 py-2 text-text-dim">{deal.vertical}</td>
                   <td className="px-2.5 py-2 text-text-dim">{deal.relationship_type}</td>
-                  <td className="px-2.5 py-2 text-text-dim">{deal.state ?? '—'}</td>
-                  <td className="px-2.5 py-2 text-text-dim">{deal.utility ?? '—'}</td>
-                  <td className="max-w-col-wide-min truncate px-2.5 py-2 text-text-dim">
-                    {deal.beachhead_site ?? '—'}
-                  </td>
+                  {/* ⚠️ AN ABSENT VALUE MUST NOT WEIGH THE SAME AS A PRESENT
+                      ONE. Every context cell was `text-text-dim`, so "SDG&E"
+                      and "—" read at identical strength and a row of gaps
+                      looked exactly as populated as a row of facts. The
+                      em dash drops to `text-faint`, which is the gap system's
+                      own quiet tone, so a filled row now reads denser than an
+                      empty one at a glance — which is the whole point of
+                      scanning a table. */}
+                  <Cell value={deal.state} />
+                  <Cell value={deal.utility} />
+                  <Cell value={deal.beachhead_site} className="max-w-col-wide-min truncate" />
                   <td className="px-2.5 py-2">
                     <StagePill stage={deal.stage} />
                   </td>
-                  <td className="px-2.5 py-2 text-right tabular-nums text-text-dim">
+                  <td
+                    className={cn(
+                      'px-2.5 py-2 text-right tabular-nums',
+                      deal.size_mw ? 'text-text-dim' : 'text-text-faint',
+                    )}
+                  >
                     {deal.size_mw ? formatMw(deal.size_mw).replace(' MW', '') : '—'}
                   </td>
-                  <td className="px-2.5 py-2 text-right font-mono tabular-nums text-text-dim">
+                  {/* 0/8 is a gap wearing a number. It read at the same
+                      weight as 6/8, so a scorecard nobody has started looked
+                      like one somebody had. */}
+                  <td
+                    className={cn(
+                      'px-2.5 py-2 text-right font-mono tabular-nums',
+                      deal.meddpicc_score === 0 ? 'text-text-faint' : 'text-text-dim',
+                    )}
+                  >
                     {deal.meddpicc_score}/8
                   </td>
 
@@ -304,5 +338,22 @@ export default function PipelineTable({ deals }: { deals: Deal[] }) {
         </table>
       </div>
     </>
+  );
+}
+
+/**
+ * A context cell. Present values read at `text-dim`, absent ones at
+ * `text-faint`.
+ *
+ * ⚠️ THE DIFFERENCE IS THE HIERARCHY. Twelve columns at one weight is a wall,
+ * and the wall is what made this table hard to scan: an em dash carried
+ * exactly as much visual weight as a utility name, so a row with three gaps
+ * looked as complete as a row with none.
+ */
+function Cell({ value, className }: { value?: string | null; className?: string }) {
+  return (
+    <td className={cn('px-2.5 py-2', value ? 'text-text-dim' : 'text-text-faint', className)}>
+      {value || '—'}
+    </td>
   );
 }

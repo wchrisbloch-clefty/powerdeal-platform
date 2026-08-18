@@ -694,6 +694,23 @@ describe('nothing typographic or chromatic is hardcoded outside tokens.css', () 
       for (const m of src.matchAll(/(?<![-\w:])border-accent(?![-\w])/g)) {
         offenders.push(`${path}: ${m[0]}`);
       }
+      /**
+       * ⚠️ AND THE `accent-*` PROPERTY, IN BOTH SPELLINGS.
+       *
+       * Tailwind's `accent-<colour>` sets `accent-color` — the tick inside a
+       * checkbox and the thumb on a range input, which are checked-state
+       * indicators and therefore non-text marks. Three of them were raw brand
+       * green at 2.90:1.
+       *
+       * The earlier version of this scan caught only the arbitrary-value form
+       * `accent-[color:var(--color-accent)]` and walked past the shorthand
+       * `accent-accent`, because it was keyed to ONE SPELLING rather than to
+       * the property. Same defect as keying to a tag rather than a role, one
+       * layer further down.
+       */
+      for (const m of src.matchAll(/(?<![-\w:])accent-(?:accent(?![-\w])|\[color:var\(--color-accent\)\])/g)) {
+        offenders.push(`${path}: ${m[0]}`);
+      }
     }
 
     expect(offenders, 'raw --color-accent used as a non-text indicator').toEqual([]);

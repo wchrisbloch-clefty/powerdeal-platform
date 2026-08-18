@@ -89,7 +89,7 @@ export default function SourcedField({
         step={step}
         disabled={disabled}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-2 h-tap lg:h-tap-sm w-full cursor-pointer accent-accent disabled:cursor-not-allowed disabled:opacity-40 xl:h-6"
+        className="mt-2 h-tap lg:h-tap-sm w-full cursor-pointer accent-accent-mark disabled:cursor-not-allowed disabled:opacity-40 xl:h-6"
         style={empty ? { opacity: 0.4 } : undefined}
       />
 

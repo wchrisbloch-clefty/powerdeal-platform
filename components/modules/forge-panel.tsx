@@ -14,6 +14,7 @@ import Button from '@/components/ui/button';
 import AiOutput from '@/components/ui/ai-output';
 import type { ForgeFormat } from '@/lib/forge/generate';
 import PageHeader from '@/components/chrome/page-header';
+import { GapInline } from '@/components/ui/gap';
 
 interface ForgeAction {
   id: string;
@@ -160,10 +161,20 @@ export default function ForgePanel({
     <div className="space-y-rhythm-page">
       <PageHeader eyebrow="Document Forge" title="Forge" />
 
-      <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
-        {/* ── Left: selector ── */}
-        <div className="space-y-4">
-          <div className="rounded-card border border-rule bg-bg-raised p-3">
+      <div className="grid gap-rhythm-page lg:grid-cols-[300px_1fr]">
+        {/*
+          ── Left: selector ──
+          ⚠️ THREE BLOCKS AT ONE WEIGHT WAS THE PROBLEM. Account, Audience and
+          Document type sat in identical cards, so the column read as "three
+          settings" when only one of them is the choice being made. Account is
+          almost always already correct — it arrives from the deal you came
+          from — and Audience is optional calibration.
+
+          Document type is the decision. It keeps the card; the other two
+          demote into a quieter configuration block above it.
+        */}
+        <div className="space-y-rhythm-block">
+          <div className="rounded-card border border-rule-faint bg-bg-raised p-3">
             <label className="eyebrow mb-1.5 block">Account</label>
             <select
               value={dealId}
@@ -191,9 +202,24 @@ export default function ForgePanel({
             <p className="mt-1.5 text-2xs text-text-faint">
               Reorders the argument for the reader. Never changes the facts.
             </p>
+            {/* ⚠️ "Not calibrated" IS A GAP, and it read as a menu option.
+                It is an `unchecked` state in the gap vocabulary — nobody has
+                chosen an audience, which is not the same as choosing none.
+                Optional, and it stays optional: the mark says what is true and
+                nothing blocks on it. */}
+            {!persona ? (
+              <p className="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-2xs">
+                <GapInline kind="unchecked" className="text-2xs" />
+                <span className="text-text-faint">
+                  the argument will be ordered for a general reader
+                </span>
+              </p>
+            ) : null}
           </div>
 
-          <div className="space-y-1.5">
+          {/* The decision. Full-weight card, and the only block in this column
+              that carries a rule. */}
+          <div className="space-y-1.5 rounded-card border border-rule bg-bg p-3">
             <p className="eyebrow">Document type</p>
             {FORGE_ACTIONS.map((a) => {
               const Icon = a.icon;
