@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
-import { getDeals } from '@/lib/data';
+import { getDeals, describeReadFailure } from '@/lib/data';
 import { computeHealthScore, computeMeddpiccScore, nextDealId } from '@/lib/deals';
 import { VERTICALS, RELATIONSHIP_TYPES, DEAL_STAGES } from '@/lib/types';
 import type { Deal } from '@/lib/types';
@@ -55,11 +55,46 @@ export async function POST(request: NextRequest) {
   // Generate the human deal_id from what already exists for this user.
   // The user_id filter is explicit because the service role bypasses RLS —
   // without it the next id would be derived from every user's deals.
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('deals')
     .select('deal_id')
     .eq('user_id', POWERDEAL_USER_ID)
     .like('deal_id', '%-%');
+
+  /*
+    ⚠️ THIS ONE REACHES THE WRITE PATH, AND THE ERROR IT PRODUCES BLAMES THE
+    WRONG THING.
+
+    `error` was not destructured here, so a refused read handed nextDealId an
+    empty array — and nextDealId derives the next sequence number from what
+    already exists. Given nothing it returns the FIRST id in the series, which
+    an existing deal already holds.
+
+    ⚠️ THE DATABASE CATCHES IT. `deals_user_deal_id_key unique (user_id,
+    deal_id)` in schema.sql means the insert fails rather than duplicating, so
+    this is NOT data corruption and it would be wrong to call it that. What it
+    is: the handler below maps 23505 to 409 with the comment "two tabs racing".
+    So a refused READ surfaces to the operator as a WRITE conflict with
+    somebody else — a precise answer to a question nobody asked, which is the
+    same failure every other reader in this audit commits, one layer deeper.
+
+    (The constraint is declared in schema.sql. It has not been verified against
+    the live instance, and this project has a documented history of drift
+    between the two, which is a second reason not to lean on it.)
+
+    So it refuses here, where the real cause is still in hand.
+  */
+  if (existingError) {
+    return NextResponse.json(
+      {
+        error:
+          `Could not read existing deal ids, so a new one cannot be generated ` +
+          `safely — creating this deal now would risk reusing an id that is ` +
+          `already in use. ${describeReadFailure(existingError.message)}`,
+      },
+      { status: 503 },
+    );
+  }
 
   const dealId = nextDealId(
     parsed.vertical,

@@ -28,7 +28,7 @@ import type {
  * Turn a raw supabase-js message into one that names the client, the key
  * scheme and the fix. "JWT issued at future" is a symptom; this says where.
  */
-function describeReadFailure(message: string): string {
+export function describeReadFailure(message: string): string {
   return explainFailure({
     client: 'service-role',
     message,
