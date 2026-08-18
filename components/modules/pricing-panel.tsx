@@ -9,7 +9,6 @@ import { STATE_CENTROIDS } from '@/lib/geo/states';
 import { rateColor, RATE_LEGEND } from '@/lib/geo/layers';
 import { pct, cn } from '@/lib/utils';
 import { Card, CardBody, CardHeader, CardTitle, EmptyState } from '@/components/ui/card';
-import PageHeader from '@/components/chrome/page-header';
 
 export default function PricingPanel({
   rates,
@@ -235,9 +234,22 @@ export default function PricingPanel({
   );
 }
 
+/**
+ * ⚠️ A SECTION HEADING, NOT A PAGE TITLE. This rendered <PageHeader>, which was
+ * right when this panel had its own route — and app/app/pricing-intel/page.tsx
+ * is now a bare redirect into the Intelligence tab. The move left the page
+ * title behind, so the tab showed two <h1>s: "Intelligence" from the page and
+ * this one directly under it.
+ *
+ * Only visible once the render check visited the tabs. The default tab is
+ * Headlines, so eight of the nine had never been loaded.
+ */
 function Header() {
   return (
-    <PageHeader eyebrow="Cost of grid power" title="Pricing Intelligence" />
+    <div>
+      <p className="eyebrow">Cost of grid power</p>
+      <h2 className="mt-1 font-display text-xl text-text">Pricing Intelligence</h2>
+    </div>
   );
 }
 

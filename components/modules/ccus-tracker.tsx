@@ -8,7 +8,6 @@ import { formatDate, cn } from '@/lib/utils';
 import { Card, CardBody, CardHeader, CardTitle, EmptyState } from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
 import ProvenanceChip from '@/components/ui/provenance-chip';
-import PageHeader from '@/components/chrome/page-header';
 
 const STATUS_TONE: Record<PrimacyStatus, 'success' | 'warning' | 'neutral'> = {
   granted: 'success',
@@ -33,7 +32,17 @@ export default function CcusTracker({
 
   return (
     <div className="space-y-5">
-      <PageHeader eyebrow="Carbon capture" title="CCUS Tracker" />
+      {/* ⚠️ A SECTION HEADING, NOT A PAGE TITLE. This rendered <PageHeader>,
+        which was right when this panel had its own route — and
+        app/app/ccus/page.tsx is now a bare redirect into the Intelligence
+        tab. The move left the page title behind, so the tab showed two <h1>s:
+        "Intelligence" from the page and this one directly under it.
+        Only visible once the render check visited the tabs; the default tab
+        is Headlines, so eight of the nine had never been loaded. */}
+      <div>
+        <p className="eyebrow">Carbon capture</p>
+        <h2 className="mt-1 font-display text-xl text-text">CCUS Tracker</h2>
+      </div>
 
       {/* ── Status header ── */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">

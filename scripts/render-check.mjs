@@ -48,7 +48,7 @@
  * check at the end.
  */
 import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 
 const PORT = Number(process.env.RENDER_CHECK_PORT ?? 3210);
@@ -89,6 +89,32 @@ const SURFACES = [
    * against rather than a happy path that would exercise none of it.
    */
   '/app/pipeline/seed-def-001',
+  /**
+   * ⚠️ A TABBED SURFACE IS SEVERAL SURFACES, AND ONLY ONE WAS CHECKED.
+   *
+   * Intelligence has nine tabs, each a `?tab=` link loading only its own data.
+   * This list had `/app/intelligence` — the default tab, Headlines — and
+   * therefore had never rendered the other eight, including two panels that
+   * were migrated to PageHeader in this very batch.
+   *
+   * Found by a mutation that SURVIVED: restoring a duplicate `<h1>` inside the
+   * Feed panel reported clean, because the Feed panel never rendered. The
+   * duplicate was real — it just lived on a tab nothing visited, which meant
+   * the fix for it was also unverified.
+   *
+   * Third time this shape has appeared: nine surfaces clean while the gap
+   * system was on a tenth, ten clean while eight tabs were on none of them.
+   * Rule 18 asks whether N things were inspected; the harder half is knowing
+   * what N is.
+   */
+  '/app/intelligence?tab=feed',
+  '/app/intelligence?tab=market-watch',
+  '/app/intelligence?tab=trending',
+  '/app/intelligence?tab=signals',
+  '/app/intelligence?tab=ccus',
+  '/app/intelligence?tab=pricing',
+  '/app/intelligence?tab=video',
+  '/app/intelligence?tab=research',
 ];
 
 const TOUCH_TARGET_MIN = 44;
@@ -114,6 +140,8 @@ const overlaps = [];
 const blockedRequests = [];
 /** Rule 18: the gap system must actually appear somewhere in the run. */
 let gapSlotsSeen = 0;
+/** Surfaces whose network never went quiet. Informational on this runner. */
+const neverSettled = [];
 const note = (surface, breakpoint, kind, detail) =>
   findings.push({ surface, breakpoint, kind, detail });
 
@@ -160,8 +188,34 @@ async function refuseIfPortBusy() {
   );
 }
 
+/**
+ * ⚠️ BUILD FIRST. THE CHECK ESTABLISHES ITS OWN SUBJECT.
+ *
+ * `next start` serves `.next`, whatever is in it. A run after an edit — or
+ * after a mutation was reverted — served the PREVIOUS build, so the report
+ * described code that no longer existed. It reported a duplicate `<h1>` that
+ * had already been removed, and would just as happily have reported a fix that
+ * was not there.
+ *
+ * Same principle as refusing a port that is already answering: a checker which
+ * can silently examine the wrong subject is worse than no checker. Skippable
+ * with RENDER_CHECK_SKIP_BUILD for a fast iteration loop, and skipping it is
+ * announced so a stale run cannot be mistaken for a fresh one.
+ */
+function buildFirst() {
+  if (process.env.RENDER_CHECK_SKIP_BUILD) {
+    console.log('render-check: ⚠️  BUILD SKIPPED — this run describes whatever is in .next, not your source.');
+    return;
+  }
+  const r = spawnSync('npm', ['run', 'build'], { stdio: 'ignore' });
+  if (r.status !== 0) {
+    throw new Error('render-check: the build failed, so there is nothing valid to check.');
+  }
+}
+
 async function main() {
   await mkdir(OUT, { recursive: true });
+  buildFirst();
   await refuseIfPortBusy();
 
   const server = spawn('npx', ['next', 'start', '-p', String(PORT)], {
@@ -202,7 +256,39 @@ async function main() {
 
       for (const surface of SURFACES) {
         surfaceErrors = [];
-        await page.goto(`http://localhost:${PORT}${surface}`, { waitUntil: 'networkidle' });
+
+        /**
+         * ⚠️ ONE SURFACE MUST NOT TAKE THE RUN WITH IT, AND A SURFACE THAT
+         * COULD NOT BE LOADED MUST BE REPORTED RATHER THAN SKIPPED.
+         *
+         * `networkidle` never arrived on the Trending tab — it fetches an
+         * external source this sandbox blocks, so the network never went
+         * quiet — and the unhandled timeout killed the process. Every surface
+         * after it went unchecked, and the run exited without saying which.
+         * That is the empty-universe pass with a stack trace instead of a
+         * green tick.
+         *
+         * So: fall back to `load` when idle does not arrive, and record BOTH
+         * the fallback and any hard failure as findings. A page that never
+         * settles is worth knowing about on a real network too.
+         */
+        try {
+          await page.goto(`http://localhost:${PORT}${surface}`, {
+            waitUntil: 'networkidle',
+            timeout: 15000,
+          });
+        } catch {
+          try {
+            await page.goto(`http://localhost:${PORT}${surface}`, {
+              waitUntil: 'load',
+              timeout: 15000,
+            });
+            neverSettled.push(`${bp.name} ${surface}`);
+          } catch (err) {
+            note(surface, bp.name, 'could-not-load', `${(err && err.message) || err}`.slice(0, 140));
+            continue;
+          }
+        }
         await page.evaluate(() => document.fonts.ready);
         // Client panels mount after hydration; give layout a beat to settle.
         await page.waitForTimeout(350);
@@ -533,7 +619,7 @@ async function main() {
         }
 
         await page.screenshot({
-          path: `${OUT}/${bp.name}${surface.replace(/\//g, '_')}.png`,
+          path: `${OUT}/${bp.name}${surface.replace(/[/?=]/g, '_')}.png`,
         });
       }
 
@@ -552,6 +638,13 @@ async function main() {
   }
 
   // ── Report ──
+  if (neverSettled.length > 0) {
+    console.log(
+      `render-check: ${neverSettled.length} surface(s) never reached network idle and were ` +
+        `checked after load instead: ${[...new Set(neverSettled)].join(', ')}`,
+    );
+  }
+
   if (blockedRequests.length > 0) {
     const bySurface = {};
     for (const b of blockedRequests) bySurface[b] = (bySurface[b] ?? 0) + 1;
