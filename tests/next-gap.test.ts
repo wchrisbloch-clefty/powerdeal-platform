@@ -232,6 +232,62 @@ describe('scoring is untouched, structurally', () => {
     // check ever written.
     const sql = await readFile('supabase/migrations/20260818_verified_empty.sql', 'utf8');
     expect(sql).toMatch(/a marker round-trips/);
-    expect(sql).toMatch(/update deals set verified_empty/);
+    expect(sql).toMatch(/update deals\s+set verified_empty/);
+  });
+
+  it('the behavioural check WRITES INSIDE A TRANSACTION AND ROLLS BACK', async () => {
+    /**
+     * ⚠️ THE SAFETY PROPERTY, NOT THE PRESENCE OF A WRITE.
+     *
+     * The first version of this check nested a data-modifying CTE inside a
+     * UNION ALL branch. PostgreSQL refused it — 0A000 — and the obvious
+     * correction, hoisting the CTE to the top level, PARSES and is unsound:
+     * two updates to the same row in one statement are unsupported, only one
+     * takes effect, and which one is unpredictable.
+     *
+     * Run against PostgreSQL 16.13, the hoisted form returned zero rows and
+     * left the marker written on a real deal. A verification query that
+     * silently writes to the data it verifies.
+     *
+     * So: every write is bracketed by an explicit transaction that rolls back,
+     * and the revert is guaranteed by the transaction rather than by a second
+     * update racing the first.
+     */
+    const sql = await readFile('supabase/migrations/20260818_verified_empty.sql', 'utf8');
+    const begins = (sql.match(/^begin;/gm) ?? []).length;
+    const rollbacks = (sql.match(/^rollback;/gm) ?? []).length;
+    expect(begins, 'a write outside a transaction').toBeGreaterThan(0);
+    expect(rollbacks, 'a transaction that does not roll back').toBe(begins);
+    expect(sql, 'a commit would persist the probe write').not.toMatch(/^commit;/m);
+
+    // And no data-modifying CTE anywhere — the construction that failed.
+    expect(sql, 'a data-modifying CTE is back').not.toMatch(/\bas \(\s*update\b/i);
+  });
+
+  it('the probe targets ONE row deterministically', async () => {
+    /**
+     * ⚠️ `order by created_at limit 1` ALONE IS NON-DETERMINISTIC when two
+     * rows share a timestamp, so the UPDATE and the read-back can hit
+     * different rows and the check reports FAIL on a working column. Observed
+     * exactly that on a fixture inserted in a single statement — and on a real
+     * database the timestamps usually differ, so it would have passed most of
+     * the time, which is the worst way for a check to be wrong.
+     */
+    /**
+     * ⚠️ COMMENTS STRIPPED FIRST. The first version of this scan matched the
+     * line in the comment that DESCRIBES the bad form and reported it as the
+     * bad form — a check that cannot tell an explanation from an instance,
+     * which is the same reason an earlier scan flagged `var(--leading-base)`
+     * inside its own token declaration.
+     */
+    const sql = (await readFile('supabase/migrations/20260818_verified_empty.sql', 'utf8'))
+      .split('\n')
+      .filter((l) => !l.trimStart().startsWith('--'))
+      .join('\n');
+    const orderings = sql.match(/order by created_at[^\n]*limit 1/g) ?? [];
+    expect(orderings.length).toBeGreaterThan(0);
+    for (const o of orderings) {
+      expect(o, `${o} has no tiebreak`).toMatch(/created_at,\s*id/);
+    }
   });
 });

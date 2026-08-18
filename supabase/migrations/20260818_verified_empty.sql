@@ -61,7 +61,7 @@ comment on column deals.verified_empty is
 -- Structural checks alone would pass on a column that no code reads, so the
 -- behavioural block below actually writes, reads back and reverts.
 
--- ── STRUCTURAL ──
+-- ── BLOCK 2A · STRUCTURAL. Reads only; safe to run any number of times. ──
 select
   'column exists'                                   as check,
   count(*)::text                                    as observed,
@@ -103,33 +103,7 @@ from deals
 
 union all
 
--- ── BEHAVIOURAL ──
--- Writes a marker, reads it back, and reverts. If this returns FAIL the column
--- exists and does not work, which is the state a structural-only check hides.
-select
-  'a marker round-trips',
-  observed,
-  case when observed = 'economic_buyer' then 'PASS' else 'FAIL' end
-from (
-  with target as (
-    select id from deals order by created_at limit 1
-  ),
-  marked as (
-    update deals set verified_empty = array['economic_buyer']
-    where id in (select id from target)
-    returning id, verified_empty
-  ),
-  readback as (
-    select coalesce(verified_empty[1], '(empty)') as observed from marked
-  ),
-  reverted as (
-    update deals set verified_empty = '{}'
-    where id in (select id from target) returning 1
-  )
-  select observed from readback, reverted limit 1
-) round_trip
-
-union all
+-- ── (the behavioural check is a SECOND block; see the note at the foot) ──
 
 -- Scoring must be untouched by the marker. Asserted against the FUNCTION, not
 -- against a comment claiming it: rule 2's lesson is that a stored value and the
@@ -140,3 +114,55 @@ select
   case when position('verified_empty' in prosrc) = 0 then 'PASS' else 'FAIL' end
 from pg_proc
 where proname = 'compute_health_score';
+
+
+-- ═══════════════════════════════════════════════════════════════
+-- BLOCK 2B · BEHAVIOURAL. Run separately. Writes, then ROLLS BACK.
+-- ═══════════════════════════════════════════════════════════════
+--
+-- ⚠️ THIS WAS SHIPPED BROKEN AND UNRUN, AND THE FIRST FIX WOULD HAVE BEEN
+-- WORSE THAN THE BREAK.
+--
+-- The original wrapped a data-modifying CTE inside a subquery inside a
+-- UNION ALL branch, which PostgreSQL refuses:
+--
+--   0A000: WITH clause containing a data-modifying statement must be at the
+--          top level
+--
+-- The obvious correction is to hoist the CTE to the top level. That PARSES —
+-- and it is unsound, which is why it is worth recording. Two updates to the
+-- same row in one statement are not supported: only one takes effect and
+-- which one is not predictable. Executed against a real PostgreSQL 16, the
+-- hoisted version returned ZERO ROWS and left `economic_buyer` written on the
+-- deal it was supposed to revert. A verification query that silently writes to
+-- the data it verifies, and reports nothing while doing it.
+--
+-- So the write is its own statement inside an explicit transaction that is
+-- rolled back. The revert is guaranteed by the transaction rather than by a
+-- second update racing the first.
+--
+-- ⚠️ AND THE TIEBREAK IS LOAD-BEARING. `order by created_at limit 1` alone is
+-- non-deterministic when two rows share a timestamp — the UPDATE and the
+-- read-back then target DIFFERENT ROWS and the check reports FAIL on a working
+-- column. Observed exactly that on a fixture whose rows were inserted in one
+-- statement. On a real database the timestamps usually differ, so this would
+-- have passed most of the time, which is the worst way for it to be wrong.
+--
+-- VERIFIED against PostgreSQL 16.13: PASS, and both rows unchanged after the
+-- rollback.
+
+begin;
+
+update deals
+set verified_empty = array['economic_buyer']
+where id = (select id from deals order by created_at, id limit 1);
+
+select
+  'a marker round-trips'                                                     as check,
+  coalesce(verified_empty[1], '(empty)')                                     as observed,
+  case when verified_empty[1] = 'economic_buyer' then 'PASS' else 'FAIL' end as verdict
+from deals
+order by created_at, id
+limit 1;
+
+rollback;
