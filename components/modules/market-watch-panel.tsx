@@ -60,6 +60,7 @@ export default function MarketWatchPanel({
   if (entries.length === 0) {
     return (
       <EmptyState
+          kind="unchecked"
         title="Nothing persisted yet"
         body="Market Watch fills as the sweep runs — it records only items that hit a pipeline account, so it stays a call list rather than a second feed. The sweep runs on a daily cron, or hit Sweep on the Feed tab."
       />
@@ -107,7 +108,7 @@ export default function MarketWatchPanel({
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState title="Nothing matches this filter" body="Widen the category or account filter." />
+        <EmptyState kind="missing" title="Nothing matches this filter" body="Widen the category or account filter." />
       ) : (
         <ul className="flex flex-col gap-3">
           {filtered.map((entry) => (

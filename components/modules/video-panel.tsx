@@ -33,6 +33,7 @@ export default function VideoPanel({
   if (!configured) {
     return (
       <EmptyState
+          kind="unchecked"
         title="YouTube is not configured"
         body="Add YOUTUBE_API_KEY to pull watchlist videos with transcripts. Without it this tab stays empty rather than showing descriptions dressed up as substance."
       />
@@ -42,6 +43,7 @@ export default function VideoPanel({
   if (videos.length === 0) {
     return (
       <EmptyState
+          kind="missing"
         title="No videos for your watchlist yet"
         body="Videos come from the watchlist topics in Settings. Broaden a topic, or check back — search runs against recent uploads only."
       />

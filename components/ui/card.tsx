@@ -1,4 +1,6 @@
 import { cn } from '@/lib/utils';
+import { GapPanel } from './gap';
+import type { GapKind } from '@/lib/design/gaps';
 
 /** Bento card — the base surface for every module panel. */
 export function Card({
@@ -88,20 +90,51 @@ export function Stat({
 }
 
 /** Empty-state block — always says what to DO, not just that there's nothing. */
+/**
+ * ⚠️ `kind` IS REQUIRED, AND MAKING IT REQUIRED IS THE POINT.
+ *
+ * This used to take a title and a body and centre them, so "the read failed",
+ * "you have none yet" and "this does not apply" were one object with different
+ * words in it — and the words were written at each call site. That is how three
+ * surfaces ended up saying "no results" about a query that failed.
+ *
+ * Adding a required prop turns every existing call into a compile error, which
+ * is the forcing function: each site has to state which kind of nothing it is
+ * rather than inherit a default that will be wrong somewhere.
+ *
+ * It delegates to GapPanel and adds nothing of its own. Kept only because
+ * `title`/`body` overrides are still needed where a surface has a genuinely
+ * specific sentence; new code should use GapPanel directly.
+ */
 export function EmptyState({
+  kind,
   title,
   body,
   action,
+  reason,
 }: {
-  title: string;
-  body: string;
+  kind: GapKind;
+  /** Overrides the vocabulary's title. Use sparingly — drift starts here. */
+  title?: string;
+  body?: string;
   action?: React.ReactNode;
+  reason?: string;
 }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
-      <p className="font-display text-base text-text">{title}</p>
-      <p className="max-w-md text-sm text-text-dim">{body}</p>
-      {action ? <div className="mt-2">{action}</div> : null}
-    </div>
-  );
+  if (title || body) {
+    return (
+      <div className="flex flex-col items-start gap-rhythm-tight px-rhythm-block py-rhythm-page">
+        <div
+          className={cn(
+            'w-full border-b',
+            kind === 'blocked' ? 'border-danger' : 'border-gap-rule',
+            kind === 'unchecked' ? 'border-dotted' : 'border-solid',
+          )}
+        />
+        {title ? <p className="font-display text-lg text-text">{title}</p> : null}
+        {body ? <p className="max-w-measure text-sm text-text-dim">{body}</p> : null}
+        {action ? <div className="mt-rhythm-tight">{action}</div> : null}
+      </div>
+    );
+  }
+  return <GapPanel kind={kind} subject={''} reason={reason} cta={action} />;
 }

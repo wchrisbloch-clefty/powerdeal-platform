@@ -125,6 +125,7 @@ export default function SignalsPanel({
 
       {signals.length === 0 ? (
         <EmptyState
+          kind="missing"
           title="No signals logged yet"
           body="Signals are logged from a feed item's “Act on it → Log as signal”, from a deal page, or with the button above. They are the durable record of what you learned, separate from the news that prompted it."
         />
@@ -177,7 +178,7 @@ export default function SignalsPanel({
           </div>
 
           {filtered.length === 0 ? (
-            <EmptyState title="Nothing matches this filter" body="Widen the type, range, or deal filter." />
+            <EmptyState kind="missing" title="Nothing matches this filter" body="Widen the type, range, or deal filter." />
           ) : (
             <ul className="flex flex-col gap-3">
               {filtered.map((signal) => (

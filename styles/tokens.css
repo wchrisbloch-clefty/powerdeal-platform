@@ -141,6 +141,20 @@
   --color-rule: #e1e4ea;
   --color-rule-faint: #f0f2f5;
 
+  /* ── The gap slot's rule ─────────────────────────────────────
+     ⚠️ NOT `--color-rule`, AND THE REASON IS THE 3:1 THRESHOLD
+     AGAIN. A separator is decoration: it divides content that
+     carries its own meaning, so 1.27:1 on paper is fine for it.
+
+     A gap slot's rule IS the content. It is the mark that says "a
+     value belongs on this line and has not been entered", with no
+     text of its own to fall back on — the same job the nav
+     underline does, and the same threshold. #e1e4ea would draw a
+     line nobody can see, which is a blank card with extra steps.
+
+     3.79:1 on paper, 4.27:1 on ink. */
+  --color-gap-rule: #7d8394;
+
   /* Typography — bound by next/font in app/layout.tsx */
   --font-display: var(--font-newsreader), Georgia, 'Times New Roman', serif;
   --font-body: var(--font-atkinson), system-ui, -apple-system, sans-serif;
@@ -368,6 +382,7 @@
 
   --color-rule: #2a2d3a;
   --color-rule-faint: #1e2130;
+  --color-gap-rule: #71788a;
 
   /* Accent lifts slightly in dark so it holds contrast against ink */
   --color-accent: #4cc249;

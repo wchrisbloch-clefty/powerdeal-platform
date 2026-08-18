@@ -682,6 +682,44 @@ describe('nothing typographic or chromatic is hardcoded outside tokens.css', () 
     expect(offenders, 'raw --color-accent used as a non-text indicator').toEqual([]);
   });
 
+  it('no button is hand-rolled where the shared primitive exists', async () => {
+    /**
+     * ⚠️ A COMPONENT OUTSIDE THE SYSTEM IS A COMPONENT NO FIX REACHES.
+     *
+     * The capture page's submit button was `bg-accent … text-white` — 2.5:1 —
+     * and it survived every earlier contrast fix for one reason: it was not a
+     * `<Button>`. `--color-accent-fg` was introduced, the shared primitive
+     * adopted it, and this element sat outside the blast radius of both.
+     *
+     * The rule that catches the CLASS rather than that instance: a `<button>`
+     * carrying the visual weight of a primary action — an accent ground — must
+     * come from `components/ui/button.tsx`. Everything about a primary action
+     * that can be got wrong is centralised there.
+     *
+     * ⚠️ SCOPED TO ACCENT-GROUND BUTTONS, deliberately. Icon buttons, tab
+     * strips, chips and toggles are legitimately local: they carry no brand
+     * ground, so nothing about them needs a central fix, and requiring
+     * `<Button>` for a 24px close control would be a rule people route around.
+     */
+    const offenders: string[] = [];
+    for (const { path, src } of await sources()) {
+      if (path.endsWith('components/ui/button.tsx')) continue;
+      /**
+       * ⚠️ `<Link>` AND `<a>` COUNT TOO, and the first version of this
+       * assertion missed one because it only looked at `<button>`. The entity
+       * page's primary action is a Link painted with `bg-accent` — the same
+       * defect wearing a different tag, and a scan keyed to the tag rather
+       * than to the ROLE walks straight past it.
+       */
+      for (const m of src.matchAll(/<(?:button|a|Link)\b[\s\S]{0,600}?>/g)) {
+        if (/\bbg-accent(?![-\w])/.test(m[0])) {
+          offenders.push(`${path}: a hand-rolled primary action on an accent ground`);
+        }
+      }
+    }
+    expect(offenders, 'primary actions must come from components/ui/button.tsx').toEqual([]);
+  });
+
   it('nothing puts white text on the brand green', async () => {
     /**
      * ⚠️ 2.5:1, AND IT WAS STILL LIVE.

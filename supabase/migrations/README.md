@@ -1,10 +1,10 @@
 # Migration checklist
 
-Every migration in this directory must satisfy all seventeen. They are not style
+Every migration in this directory must satisfy all eighteen. They are not style
 preferences — each one is here because its absence caused a real, silent
 failure in this project.
 
-Rules 4 and 6 through 17 generalise past migrations to anything this build ships;
+Rules 4 and 6 through 18 generalise past migrations to anything this build ships;
 they are kept here because this is the file that gets read before something goes
 out.
 
@@ -470,3 +470,63 @@ instead.
 
 The general form: when the artifact is rendered, assert against the render.
 Everything upstream of the render is a claim about it.
+
+## 18. A check that reports on N things must assert N things were inspected
+
+Rule 10 says a parameterized test over an empty set cannot fail. This is its
+most dangerous form: **a check whose empty universe IS the failure it exists to
+detect, reporting health in words.**
+
+`render-check` printed *"clean across 3 breakpoints × 9 surfaces"* against an
+application that threw a client-side exception on every page. Nothing about
+that output was a lie by its own logic. It enumerated interactive elements,
+hit-tested each one, found no occlusions, no undersized targets, no overflow —
+because an error page has no interactive elements. Zero findings out of zero
+elements reads exactly like zero findings out of four hundred.
+
+Worse than a silent pass: it **asserted health**, in a sentence naming the
+scope it had not actually examined.
+
+The generalisation:
+
+> Any check reporting on N things must assert that N things were actually
+> inspected, and treat "nothing to inspect" as its loudest possible finding.
+
+In practice that is two guards, and both are needed:
+
+- **Prove the subject exists before believing anything about it.** Every
+  surface must present the chrome it is supposed to have and a plausible
+  minimum of interactive elements; failing that emits `did-not-render`, which
+  says in the report that nothing below it was checked.
+- **Refuse an environment the check did not establish.** The stale server was
+  reachable, so `waitForServer` succeeded, so the run proceeded against a build
+  whose chunks had been deleted. A checker that can silently examine the wrong
+  subject is worse than no checker, so a port already answering is now a hard
+  stop rather than a green tick.
+
+Applies well beyond this script. A migration verification returning zero rows,
+a lint pass over a glob that matched nothing, a mutation that never applied
+(rule 6), a schema comparator whose RPC is missing (rule 16) — every one of
+them says "no problems found" when it means "no problems looked for". If a
+check cannot tell those apart, it is not a check.
+
+### The corollary about diagnosis
+
+The stale server survived three explicit attempts to kill it, and the reason
+took days to see because it hid in something else:
+
+- `next start` **renames its own process** to `next-server`, so
+  `pkill -f "next start"` matched nothing and reported success.
+- The obvious correction, `pkill -f next-server`, matched **its own shell** —
+  the pattern appears in the command line running it — so the command killed
+  itself and exited 144.
+
+Every one of those 144s was read as a harness timeout, because a timeout is
+what a 144 usually is and there was no reason to look further. A whole class of
+error stayed misdiagnosed until an unrelated investigation walked past it.
+
+Two things generalise. `pkill -f` patterns need to not match themselves —
+`pkill -f '[n]ext-server'` is the standard trick. And an exit code with a
+plausible common cause is exactly the kind of evidence that stops an
+investigation early: 144 *usually* is a timeout, which is what made it such an
+effective place for something else to hide.

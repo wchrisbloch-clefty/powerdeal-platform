@@ -56,7 +56,7 @@ const twMerge = extendTailwindMerge({
             // they are `text-*` names all the same and the group has to know
             // them or it starts guessing.
             'chart-1', 'chart-2', 'chart-3', 'chart-4',
-            'chart-stroke', 'chart-grid',
+            'chart-stroke', 'chart-grid', 'gap-rule',
           ],
         },
       ],

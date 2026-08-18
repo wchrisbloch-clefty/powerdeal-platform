@@ -102,6 +102,7 @@ export default function CcusTracker({
             <CardHeader><CardTitle>Recent CCUS events</CardTitle></CardHeader>
             {events.length === 0 ? (
               <EmptyState
+                kind="unchecked"
                 title="No CCUS events logged"
                 body="The daily CCUS sweep writes Class VI permit movement, GCCSI project updates, and DOE funding here. Deploy the ccus-sweep edge function to start collecting."
               />

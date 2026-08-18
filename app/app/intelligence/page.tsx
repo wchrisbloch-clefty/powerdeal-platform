@@ -183,6 +183,7 @@ async function TrendingTab() {
         </p>
         {trends.length === 0 ? (
           <EmptyState
+            kind="missing"
             title="Nothing trending yet"
             body="Trending needs items in the feed. If the Feed tab is showing seed content, the sources were unreachable."
           />

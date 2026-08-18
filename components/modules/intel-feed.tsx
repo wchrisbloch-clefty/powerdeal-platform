@@ -357,6 +357,7 @@ export default function IntelFeed({
 
           {filtered.length === 0 ? (
             <EmptyState
+              kind="missing"
               title="Nothing matches this filter"
               body="Widen the category or clear the topic filter. Discovery sources are off by default — turn them on in Settings to catch stories your core sources missed."
             />

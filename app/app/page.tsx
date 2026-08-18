@@ -3,7 +3,8 @@ import { AlertTriangle, ArrowRight, Users, Clock } from 'lucide-react';
 import { getDeals } from '@/lib/data';
 import { portfolioSnapshot, isAtRisk, riskFlags, leadMetric, LEAD_HINTS } from '@/lib/deals';
 import { formatMw, formatUsd, cn } from '@/lib/utils';
-import { Card, CardBody, CardHeader, CardTitle, EmptyState } from '@/components/ui/card';
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import { GapPanel } from '@/components/ui/gap';
 import DealCard from '@/components/ui/deal-card';
 import HealthRing from '@/components/ui/health-ring';
 import Badge from '@/components/ui/badge';
@@ -113,10 +114,15 @@ export default async function DashboardPage() {
           </CardHeader>
 
           {needsAttention.length === 0 ? (
-            <EmptyState
-              title="Nothing flagged"
-              body="No deal is below health 5 or stalled past 30 days. Work the pipeline view to pick your next move."
-              action={
+            /* ⚠️ WHICH KIND OF NOTHING THIS IS DEPENDS ON THE READ.
+               `readError` means the query failed and the pipeline below is
+               template data — so "nothing flagged" would be a claim about
+               deals nobody managed to load. Same words, opposite meaning. */
+            <GapPanel
+              kind={readError ? 'blocked' : 'unavailable'}
+              subject={readError ? 'your pipeline' : 'deal below health 5 or stalled past 30 days'}
+              reason={readError ?? undefined}
+              cta={
                 <Link href="/app/pipeline">
                   <Button size="sm">Open pipeline</Button>
                 </Link>

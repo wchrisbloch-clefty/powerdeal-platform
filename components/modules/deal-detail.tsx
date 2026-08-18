@@ -12,6 +12,8 @@ import type {
   Deal, Signal, MarketWatchEntry, StageTransition, DealCompetitor,
 } from '@/lib/types';
 import { meddpiccBreakdown, riskFlags, utilityRiskFlags } from '@/lib/deals';
+import { fromMeddpicc } from '@/lib/design/gaps';
+import { GapInline } from '@/components/ui/gap';
 import { formatMw, formatUsd, formatDate, relativeTime, cn } from '@/lib/utils';
 import { nonAttainmentForState, primacyFor } from '@/lib/geo/epa-api';
 import { useAiStream } from '@/lib/use-ai-stream';
@@ -449,12 +451,24 @@ export default function DealDetail({
                   {/* One line per pillar: name, then the one-line read. Two
                       stacked blocks per row made an eight-row card scroll. */}
                   <p className="w-col-2xl shrink-0 text-sm font-medium text-text">{f.label}</p>
+                  {/* ⚠️ THE GAP IS DRAWN, NOT LEFT BLANK.
+                      This rendered `f.hint` as plain dim text for both a gap
+                      and an unknown, so "we asked and there is nothing" and
+                      "nobody has looked" were one line in one colour, told
+                      apart only by a 14px icon. The ruled baseline carries the
+                      distinction at row density: solid for a gap that is real,
+                      dotted for one nobody has checked. */}
                   <p className="min-w-0 flex-1 truncate text-sm text-text-dim">
-                    {typeof f.value === 'string' && f.value
-                      ? f.value
-                      : typeof f.value === 'boolean' && f.value
-                        ? 'Confirmed'
-                        : f.hint}
+                    {typeof f.value === 'string' && f.value ? (
+                      f.value
+                    ) : typeof f.value === 'boolean' && f.value ? (
+                      'Confirmed'
+                    ) : (
+                      <span className="inline-flex items-baseline gap-2">
+                        <GapInline kind={fromMeddpicc(f.state)} />
+                        <span className="text-text-faint">{f.hint}</span>
+                      </span>
+                    )}
                   </p>
                 </div>
               ))}

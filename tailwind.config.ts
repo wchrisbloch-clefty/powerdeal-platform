@@ -35,6 +35,9 @@ const config: Config = {
         'success-bg': 'var(--color-success-bg)',
         rule: 'var(--color-rule)',
         'rule-faint': 'var(--color-rule-faint)',
+        // The gap slot's rule carries meaning, so it clears 3:1 where
+        // --color-rule does not. See the note in tokens.css.
+        'gap-rule': 'var(--color-gap-rule)',
         'health-high': 'var(--health-high)',
         'health-mid': 'var(--health-mid)',
         'health-low': 'var(--health-low)',

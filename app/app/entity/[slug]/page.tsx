@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Button from '@/components/ui/button';
 import { ArrowLeft, Building2, Globe, MessagesSquare, Radar, Users } from 'lucide-react';
 import { getDeals } from '@/lib/data';
 import { getFeedStates, type FeedStateMap } from '@/lib/feed-state';
@@ -121,11 +122,14 @@ export default async function EntityPage({
           </p>
         ) : null}
 
-        <Link
-          href={askHref}
-          className="mt-3.5 inline-flex h-tap xl:h-9 items-center gap-1.5 rounded-md bg-accent px-3.5 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-dim"
-        >
-          <MessagesSquare size={15} aria-hidden /> Ask about {entity.name}
+        {/* Same class as the capture button: a primary action painted by hand,
+            outside the one component that knows what a primary action looks
+            like. Wrapped rather than restyled, which is the pattern the
+            Dashboard already uses. */}
+        <Link href={askHref} className="mt-3.5 inline-block">
+          <Button variant="primary" size="md">
+            <MessagesSquare size={15} aria-hidden /> Ask about {entity.name}
+          </Button>
         </Link>
       </header>
 

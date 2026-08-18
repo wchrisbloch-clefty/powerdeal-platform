@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Button from '@/components/ui/button';
 
 export const metadata = { title: 'Capture' };
 
@@ -64,12 +65,15 @@ export default function CapturePage() {
         </label>
 
         <div className="flex items-center gap-2 pt-1">
-          <button
-            type="submit"
-            className="inline-flex min-h-tap items-center justify-center rounded-md border border-accent-border bg-accent px-4 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-dim lg:min-h-tap-sm"
-          >
+          {/* ⚠️ WAS HAND-ROLLED, AND THAT IS WHY IT STAYED BROKEN.
+              This carried `bg-accent … text-white` at 2.5:1 and survived every
+              contrast fix in the build, because none of them touched it — it
+              was not a <Button>. --color-accent-fg was introduced for exactly
+              this ratio and the shared primitive adopted it; this element sat
+              outside the blast radius of both. */}
+          <Button type="submit" variant="primary" size="md">
             Capture
-          </button>
+          </Button>
           <Link
             href="/app/intelligence"
             className="text-sm text-text-dim underline underline-offset-2 hover:text-text"

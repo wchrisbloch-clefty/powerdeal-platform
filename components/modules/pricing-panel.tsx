@@ -42,6 +42,7 @@ export default function PricingPanel({
       <div className="space-y-5">
         <Header />
         <EmptyState
+          kind="unchecked"
           title="EIA_API_KEY not configured"
           body="Rate data comes from the EIA Open Data API — free, no usage limits worth worrying about. Register at eia.gov/opendata/register.php, add EIA_API_KEY to your environment, and this page fills in with industrial rates for all 50 states plus year-over-year movement."
         />
