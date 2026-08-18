@@ -31,6 +31,7 @@ import CcusTracker from '@/components/modules/ccus-tracker';
 import PricingPanel from '@/components/modules/pricing-panel';
 import ResearchPanel from '@/components/modules/research-panel';
 import { EmptyState } from '@/components/ui/card';
+import { GapPanel } from '@/components/ui/gap';
 import PageHeader from '@/components/chrome/page-header';
 
 export const metadata = { title: 'Intelligence' };
@@ -161,7 +162,18 @@ async function FeedTab() {
 
 async function MarketWatchTab() {
   const [entries, { data: deals }] = await Promise.all([getMarketWatch(60), getDeals()]);
-  return <MarketWatchPanel entries={entries} deals={deals} />;
+  /*
+    ⚠️ A REFUSED READ IS NOT AN EMPTY LOG, AND THE PANEL CANNOT TELL.
+    MarketWatchPanel renders "Nothing persisted yet — Market Watch fills as the
+    sweep runs" on an empty array. That sentence is about the sweep's history.
+    Handed `[]` because the database refused the key, it is a fabricated fact
+    about the operator's own data, in the platform's calmest voice. Caught here,
+    above the panel, because the panel has no way to know which it got.
+  */
+  if (entries.readError) {
+    return <GapPanel kind="blocked" subject="Market Watch" reason={entries.readError} />;
+  }
+  return <MarketWatchPanel entries={entries.data} deals={deals} />;
 }
 
 // ── Trending ────────────────────────────────────────────────────
@@ -198,14 +210,20 @@ async function TrendingTab() {
 
 async function SignalsTab() {
   const [signals, { data: deals }] = await Promise.all([getRecentSignals(200), getDeals()]);
-  return <SignalsPanel signals={signals} deals={deals} />;
+  if (signals.readError) {
+    return <GapPanel kind="blocked" subject="the Intelligence Log" reason={signals.readError} />;
+  }
+  return <SignalsPanel signals={signals.data} deals={deals} />;
 }
 
 // ── CCUS ────────────────────────────────────────────────────────
 
 async function CcusTab() {
-  const [{ data: events }, { data: deals }] = await Promise.all([getCcusEvents(), getDeals()]);
-  return <CcusTracker events={events} deals={deals} />;
+  const [events, { data: deals }] = await Promise.all([getCcusEvents(), getDeals()]);
+  if (events.readError) {
+    return <GapPanel kind="blocked" subject="CCUS events" reason={events.readError} />;
+  }
+  return <CcusTracker events={events.data} deals={deals} />;
 }
 
 // ── Pricing ─────────────────────────────────────────────────────

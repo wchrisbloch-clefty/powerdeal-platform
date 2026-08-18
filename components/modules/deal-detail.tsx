@@ -13,7 +13,8 @@ import type {
 } from '@/lib/types';
 import { meddpiccBreakdown, riskFlags, utilityRiskFlags } from '@/lib/deals';
 import { resolveKind, nextGaps, noGapMessage } from '@/lib/design/next-gap';
-import { GapInline } from '@/components/ui/gap';
+import { GapInline, GapPanel } from '@/components/ui/gap';
+import ReadFailureBanner from '@/components/ui/read-failure';
 import { formatMw, formatUsd, formatDate, relativeTime, cn } from '@/lib/utils';
 import { nonAttainmentForState, primacyFor } from '@/lib/geo/epa-api';
 import { useAiStream } from '@/lib/use-ai-stream';
@@ -79,6 +80,8 @@ export default function DealDetail({
   signals,
   marketWatch,
   transitions,
+  readError,
+  intelError,
   isSeed,
   mapPlan,
   winLoss = [],
@@ -89,6 +92,20 @@ export default function DealDetail({
   signals: Signal[];
   marketWatch: MarketWatchEntry[];
   transitions: StageTransition[];
+  /**
+   * ⚠️ SET WHEN THE THREE READS ABOVE WERE REFUSED, NOT WHEN THEY CAME BACK
+   * EMPTY, and the tab strip is why it has to exist.
+   *
+   * The labels print counts — "Signals (0)", "Market watch (0)", "Stage history
+   * (0)". A count is the most confident thing this page says: it is a measured
+   * quantity, and a reader has no reason to doubt one. Rendered off an array
+   * that is empty because the database refused the key, it is a fabricated
+   * measurement, and the tab body underneath then explains it — "No signals
+   * logged for this account" — with a button offering to fix it.
+   */
+  intelError?: string | null;
+  /** Set when the DEAL ITSELF came back refused and the record below is seed. */
+  readError?: string | null;
   isSeed: boolean;
   /** Saved MAP, or null — the panel falls back to the starter sequence. */
   mapPlan?: MapPlan | null;
@@ -416,13 +433,15 @@ export default function DealDetail({
         </div>
       </header>
 
-      {isSeed && (
+      {readError ? (
+        <ReadFailureBanner readError={readError} noun="account" />
+      ) : isSeed ? (
         <p className="rounded-card border border-rule bg-bg-raised px-3.5 py-2.5 text-sm text-text-dim">
           Template account — the MEDDPICC fields below are blank because they were never
           filled in, not because the deal is new. Sign in and load your Spine to see real
           data.
         </p>
-      )}
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
         <div className="min-w-0 space-y-5">
@@ -677,13 +696,15 @@ export default function DealDetail({
               {(
                 [
                   ['intel', 'Notes'],
-                  ['signals', `Signals (${signals.length})`],
-                  ['market', `Market watch (${marketWatch.length})`],
+                  // No count where the count would be a guess. `—` is not a
+                  // quantity and does not read as one.
+                  ['signals', intelError ? 'Signals (—)' : `Signals (${signals.length})`],
+                  ['market', intelError ? 'Market watch (—)' : `Market watch (${marketWatch.length})`],
                   ['map', 'MAP'],
                   ['competitive', 'Competitive'],
                   ['prep', 'Meeting prep'],
                   ['outcome', `Outcome (${winLoss.length})`],
-                  ['history', `Stage history (${transitions.length})`],
+                  ['history', intelError ? 'Stage history (—)' : `Stage history (${transitions.length})`],
                   ['artifacts', `Artifacts (${deal.artifacts?.length ?? 0})`],
                 ] as [Tab, string][]
               ).map(([id, label]) => (
@@ -742,7 +763,9 @@ export default function DealDetail({
               )}
 
               {tab === 'signals' &&
-                (signals.length === 0 ? (
+                (intelError ? (
+                  <GapPanel kind="blocked" subject="signals" reason={intelError} />
+                ) : signals.length === 0 ? (
                   <Empty
                     text="No signals logged for this account."
                     action={
@@ -773,7 +796,9 @@ export default function DealDetail({
                 ))}
 
               {tab === 'market' &&
-                (marketWatch.length === 0 ? (
+                (intelError ? (
+                  <GapPanel kind="blocked" subject="market watch entries" reason={intelError} />
+                ) : marketWatch.length === 0 ? (
                   <Empty text="No market watch entries mapped to this account yet." />
                 ) : (
                   <ul className="space-y-3">
@@ -805,7 +830,9 @@ export default function DealDetail({
                 ))}
 
               {tab === 'history' &&
-                (transitions.length === 0 ? (
+                (intelError ? (
+                  <GapPanel kind="blocked" subject="stage history" reason={intelError} />
+                ) : transitions.length === 0 ? (
                   <Empty text="No stage changes recorded yet." />
                 ) : (
                   <ul className="space-y-2.5">

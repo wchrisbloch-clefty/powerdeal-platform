@@ -9,6 +9,7 @@ import { formatMw, formatUsd, cn } from '@/lib/utils';
 import PipelineTable from './pipeline-table';
 import DealQuickAdd from './deal-quick-add';
 import Button from '@/components/ui/button';
+import ReadFailureBanner from '@/components/ui/read-failure';
 import PageHeader from '@/components/chrome/page-header';
 
 type HealthFilter = 'all' | 'high' | 'mid' | 'low';
@@ -17,10 +18,13 @@ type ThreadFilter = 'all' | 'multi' | 'single';
 export default function PipelineView({
   deals,
   isSeed,
+  readError,
   initialQuery = '',
 }: {
   deals: Deal[];
   isSeed: boolean;
+  /** Set when the database refused the read. See ReadFailureBanner. */
+  readError?: string | null;
   initialQuery?: string;
 }) {
   const [query, setQuery] = useState(initialQuery);
@@ -92,12 +96,19 @@ export default function PipelineView({
         }
       />
 
-      {isSeed && (
+      {/* ⚠️ TWO STATES, TWO SENTENCES — the split the Dashboard made and this
+          surface did not. "Load your real Spine" is correct for an
+          unconfigured deployment and actively misleading for one whose key is
+          being refused: it names a task the reader cannot complete, over 21
+          rows that look exactly like the 21 they expect to see. */}
+      {readError ? (
+        <ReadFailureBanner readError={readError} />
+      ) : isSeed ? (
         <p className="rounded-card border border-rule bg-bg-raised px-3.5 py-2.5 text-sm text-text-dim">
           Template pipeline. MEDDPICC fields and MW figures were deliberately left blank
           rather than invented — load your real Spine to replace these rows.
         </p>
-      )}
+      ) : null}
 
       {/* ── Snapshot bar ──
           ⚠️ SAME FLATNESS THE DASHBOARD ALREADY FIXED, ON A SECOND SURFACE.

@@ -159,7 +159,7 @@ async function buildInput(
   // "intel" without a dealId is a portfolio-wide strategic read rather than
   // an error — it's a genuinely useful question ("how is the book doing?").
   if (task === 'intel' && !body.dealId) {
-    const [{ data: deals }, signals] = await Promise.all([
+    const [{ data: deals }, { data: signals }] = await Promise.all([
       getDeals(),
       getRecentSignals(50),
     ]);
@@ -179,7 +179,7 @@ async function buildInput(
     const { data: deal } = await getDeal(body.dealId);
     if (!deal) throw new Error('Deal not found.');
 
-    const [signals, marketWatch, research] = await Promise.all([
+    const [{ data: signals }, { data: marketWatch }, research] = await Promise.all([
       getSignalsForDeal(body.dealId),
       getMarketWatchForDeal(body.dealId),
       // Ingested last30days items for this account, capped and tier-tagged.
@@ -319,7 +319,7 @@ async function buildInput(
   const selected = body.dealId
     ? deals.find((d) => d.id === body.dealId) ?? null
     : null;
-  const signals = selected
+  const { data: signals } = selected
     ? await getSignalsForDeal(selected.id)
     : await getRecentSignals(20);
 

@@ -19,8 +19,11 @@ const CreateSignal = z.object({
 /** GET /api/signals — the Intelligence Log, newest first. */
 export async function GET(request: NextRequest) {
   const limit = Number(request.nextUrl.searchParams.get('limit') ?? 50);
-  const signals = await getRecentSignals(Math.min(Math.max(limit, 1), 200));
-  return NextResponse.json({ signals });
+  const { data, readError } = await getRecentSignals(Math.min(Math.max(limit, 1), 200));
+  // Empty is a real answer here; a refused query is not. Kept apart so a caller
+  // cannot read an outage as "the log is empty".
+  if (readError) return NextResponse.json({ error: readError }, { status: 503 });
+  return NextResponse.json({ signals: data });
 }
 
 /** POST /api/signals — log a signal against one or more deals. */

@@ -204,15 +204,50 @@ describe('a REFUSED read is not an UNCONFIGURED deployment', () => {
     expect(body).toContain('readError: why');
   });
 
-  it('the Dashboard prints a different sentence for each', async () => {
-    // "Connect Supabase" is correct for a deployment with no key and WRONG for
-    // one whose key is refused — it sends the reader to connect something
-    // already connected.
-    const src = await readFile('app/app/page.tsx', 'utf8');
+  it('the sentence lives in one component, not at three call sites', async () => {
+    // ⚠️ THIS CHECK USED TO READ app/app/page.tsx AND ONLY app/app/page.tsx.
+    // It passed for months while Pipeline and the deal page printed the
+    // unconfigured-deployment sentence over refused data, because the Dashboard
+    // — the one surface it had ever looked at — was right. Rule 18: it reported
+    // on N=1 and the real N was 3.
+    const src = await readFile('components/ui/read-failure.tsx', 'utf8');
     expect(src).toContain('These are NOT your deals');
-    expect(src).toContain('{readError ? (');
-    // And the old sentence survives for the state it was actually right for.
-    expect(src).toContain('Connect Supabase');
+    // Null readError renders nothing, so a healthy surface pays no price for
+    // mounting it unconditionally.
+    expect(src).toContain('if (!readError) return null');
+  });
+
+  it('every surface that falls back to seed splits the two sentences', async () => {
+    /*
+      N IS DERIVED, NOT TYPED. The surfaces are the ones that render an
+      `isSeed` banner — found by scanning, so a fourth surface added tomorrow
+      joins this check by existing rather than by somebody remembering.
+
+      The rule: a surface that says something to a reader about seed data must
+      distinguish "nothing is configured" from "the database refused us". The
+      first is setup advice. The second is an outage, and over SEED_DEALS it is
+      21 plausible rows the reader has every reason to believe.
+    */
+    const files = [
+      'app/app/page.tsx',
+      'app/app/pipeline/page.tsx',
+      'app/app/pipeline/[id]/page.tsx',
+      'components/modules/pipeline-view.tsx',
+      'components/modules/deal-detail.tsx',
+    ];
+    const seedBanner: string[] = [];
+    for (const f of files) {
+      const src = await readFile(f, 'utf8');
+      if (/\bisSeed\b/.test(src)) seedBanner.push(f);
+    }
+    // Loudest possible finding if the scan found nothing to inspect.
+    expect(seedBanner.length).toBeGreaterThan(0);
+    expect(seedBanner).toHaveLength(files.length);
+
+    for (const f of seedBanner) {
+      const src = await readFile(f, 'utf8');
+      expect(src, `${f} never mentions readError`).toMatch(/\breadError\b/);
+    }
   });
 
   it('the seed holds exactly as many deals as the live pipeline, which is why this hid', async () => {

@@ -23,7 +23,21 @@ export async function GET(_request: NextRequest, { params }: Params) {
     getStageTransitions(id),
   ]);
 
-  return NextResponse.json({ deal, signals, marketWatch, transitions });
+  // A rejected read used to serialise as `signals: []` — indistinguishable from
+  // an account with nothing logged. 503 with the diagnosis instead: the client
+  // asked for related intelligence and did not get an answer, so it should not
+  // be handed one that reads like zero.
+  const failed = [signals, marketWatch, transitions].find((r) => r.readError);
+  if (failed) {
+    return NextResponse.json({ error: failed.readError }, { status: 503 });
+  }
+
+  return NextResponse.json({
+    deal,
+    signals: signals.data,
+    marketWatch: marketWatch.data,
+    transitions: transitions.data,
+  });
 }
 
 const UpdateDeal = z

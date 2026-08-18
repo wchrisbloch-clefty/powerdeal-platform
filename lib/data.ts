@@ -1,7 +1,7 @@
 import 'server-only';
 import { ownerSelect } from './supabase/admin';
 import { explainFailure, keyShape } from './supabase/diagnose';
-import { SEED_DEALS, SEED_FEED_ITEMS } from './seed-data';
+import { SEED_DEALS } from './seed-data';
 import type {
   Deal, FeedItem, Signal, MarketWatchEntry, CcusEvent,
   StageTransition, UserSettings,
@@ -103,109 +103,150 @@ export async function getDeal(id: string): Promise<DataResult<Deal | null>> {
   return { data: data as Deal, isSeed: false, readError: null };
 }
 
-export async function getSignalsForDeal(dealId: string): Promise<Signal[]> {
-  const query = ownerSelect('intelligence_log');
-  if (!query) return [];
-
-  const { data } = await query
-    .contains('deal_ids', [dealId])
-    .order('logged_at', { ascending: false })
-    .limit(50);
-
-  return (data ?? []) as Signal[];
-}
-
-export async function getRecentSignals(limit = 50): Promise<Signal[]> {
-  const query = ownerSelect('intelligence_log');
-  if (!query) return [];
-
-  const { data } = await query
-    .order('logged_at', { ascending: false })
-    .limit(limit);
-
-  return (data ?? []) as Signal[];
-}
-
-export async function getMarketWatchForDeal(dealId: string): Promise<MarketWatchEntry[]> {
-  const query = ownerSelect('market_watch_log');
-  if (!query) return [];
-
-  const { data } = await query
-    .contains('deal_ids', [dealId])
-    .order('swept_at', { ascending: false })
-    .limit(30);
-
-  return (data ?? []) as MarketWatchEntry[];
-}
-
-export async function getMarketWatch(limit = 40): Promise<MarketWatchEntry[]> {
-  const query = ownerSelect('market_watch_log');
-  if (!query) return [];
-
-  const { data } = await query
-    .order('impact_rank', { ascending: false })
-    .order('swept_at', { ascending: false })
-    .limit(limit);
-
-  return (data ?? []) as MarketWatchEntry[];
-}
-
-export async function getStageTransitions(dealId: string): Promise<StageTransition[]> {
-  const query = ownerSelect('stage_transitions');
-  if (!query) return [];
-
-  const { data } = await query
-    .eq('deal_id', dealId)
-    .order('transitioned_at', { ascending: false });
-
-  return (data ?? []) as StageTransition[];
-}
-
-export interface FeedQuery {
-  category?: string | null;
-  limit?: number;
-  offset?: number;
-  since?: string | null;
-}
-
-export async function getFeedItems(q: FeedQuery = {}): Promise<DataResult<FeedItem[]>> {
-  const base = ownerSelect('feed_items');
-  if (!base) return { data: SEED_FEED_ITEMS, isSeed: true, readError: null };
-
-  const limit = q.limit ?? 20;
-  let query = base
-    .order('published_at', { ascending: false, nullsFirst: false })
-    .range(q.offset ?? 0, (q.offset ?? 0) + limit - 1);
-
-  if (q.category && q.category !== 'all') query = query.eq('category', q.category);
-  if (q.since) query = query.gte('published_at', q.since);
-
-  const { data, error } = await query;
+/**
+ * ⚠️ THE COLLECTION READERS RETURN DataResult, NOT A BARE ARRAY, AND THAT IS
+ * THE WHOLE POINT OF THIS BLOCK.
+ *
+ * All five used to be written like this:
+ *
+ *   const { data } = await query...;
+ *   return (data ?? []) as Signal[];
+ *
+ * `error` was never destructured, so a REJECTED query was indistinguishable
+ * from an empty table. supabase-js resolves with `{ data: null, error }` rather
+ * than throwing, so nothing anywhere noticed. The surface then rendered its
+ * designed empty state — "No signals logged yet", "Nothing persisted yet" —
+ * which is a sentence ABOUT THE OPERATOR'S DILIGENCE, asserted on the strength
+ * of a query that never ran. That is worse than a blank screen: it is the
+ * platform inventing a fact about its own user.
+ *
+ * `emptyOr` forces the error into the return value. What a surface does with it
+ * is the surface's judgement; whether it gets to SEE it is not negotiable, and
+ * tests/data-read-failures.test.ts asserts every one of these destructures it.
+ */
+async function emptyOr<T>(query: unknown, label: string): Promise<DataResult<T[]>> {
+  const { data, error } = (await query) as { data: unknown; error: { message: string } | null };
   if (error) {
-    console.warn('[data] getFeedItems failed:', error.message);
-    return { data: SEED_FEED_ITEMS, isSeed: true, readError: null };
+    const why = describeReadFailure(error.message);
+    console.warn(`[data] ${label} failed:`, why);
+    // isSeed stays FALSE: nothing was substituted. This is an outage, and the
+    // empty array is the absence of an answer rather than an answer of zero.
+    return { data: [], isSeed: false, readError: why };
   }
-  if (!data || data.length === 0) return { data: SEED_FEED_ITEMS, isSeed: true, readError: null };
-  return { data: data as FeedItem[], isSeed: false, readError: null };
+  return { data: (data ?? []) as T[], isSeed: false, readError: null };
 }
+
+export async function getSignalsForDeal(dealId: string): Promise<DataResult<Signal[]>> {
+  const query = ownerSelect('intelligence_log');
+  if (!query) return { data: [], isSeed: true, readError: null };
+
+  return emptyOr<Signal>(
+    query
+      .contains('deal_ids', [dealId])
+      .order('logged_at', { ascending: false })
+      .limit(50),
+    'getSignalsForDeal',
+  );
+}
+
+export async function getRecentSignals(limit = 50): Promise<DataResult<Signal[]>> {
+  const query = ownerSelect('intelligence_log');
+  if (!query) return { data: [], isSeed: true, readError: null };
+
+  return emptyOr<Signal>(
+    query.order('logged_at', { ascending: false }).limit(limit),
+    'getRecentSignals',
+  );
+}
+
+export async function getMarketWatchForDeal(dealId: string): Promise<DataResult<MarketWatchEntry[]>> {
+  const query = ownerSelect('market_watch_log');
+  if (!query) return { data: [], isSeed: true, readError: null };
+
+  return emptyOr<MarketWatchEntry>(
+    query
+      .contains('deal_ids', [dealId])
+      .order('swept_at', { ascending: false })
+      .limit(30),
+    'getMarketWatchForDeal',
+  );
+}
+
+export async function getMarketWatch(limit = 40): Promise<DataResult<MarketWatchEntry[]>> {
+  const query = ownerSelect('market_watch_log');
+  if (!query) return { data: [], isSeed: true, readError: null };
+
+  return emptyOr<MarketWatchEntry>(
+    query
+      .order('impact_rank', { ascending: false })
+      .order('swept_at', { ascending: false })
+      .limit(limit),
+    'getMarketWatch',
+  );
+}
+
+export async function getStageTransitions(dealId: string): Promise<DataResult<StageTransition[]>> {
+  const query = ownerSelect('stage_transitions');
+  if (!query) return { data: [], isSeed: true, readError: null };
+
+  return emptyOr<StageTransition>(
+    query.eq('deal_id', dealId).order('transitioned_at', { ascending: false }),
+    'getStageTransitions',
+  );
+}
+
+/**
+ * ── getFeedItems AND FeedQuery WERE DELETED HERE ──
+ *
+ * The audit that found the bug found no callers for it. It read feed_items
+ * from the database, fell back to SEED_FEED_ITEMS on failure, and reported
+ * `readError: null` while doing it — the same defect getDeals was fixed for.
+ * Nothing rendered it. Intelligence › Feed goes through getLiveFeed, which
+ * fetches RSS directly and has its own seed fallback; the entity page reads
+ * that same live feed; /api/feed builds its own query.
+ *
+ * Fixing it would have produced a correct diagnosis that no surface could
+ * ever show, which is the same category as the nine dead --sp-* tokens and
+ * the dead border-color class group: a declaration that alters no behaviour.
+ * Deleted instead. If a caller ever needs it back, it comes back with the
+ * error carried, because emptyOr and getDeals are both right there.
+ */
 
 export async function getCcusEvents(limit = 40): Promise<DataResult<CcusEvent[]>> {
   const query = ownerSelect('ccus_events');
   if (!query) return { data: [], isSeed: true, readError: null };
 
-  const { data } = await query
-    .order('event_date', { ascending: false, nullsFirst: false })
-    .limit(limit);
-
-  return { data: (data ?? []) as CcusEvent[], isSeed: false, readError: null };
+  // Was `const { data } = await query` returning `isSeed: false, readError: null`
+  // — a rejected read asserting "this IS your real data, and there is none of
+  // it." The most confident of the three failure shapes and the least true.
+  return emptyOr<CcusEvent>(
+    query.order('event_date', { ascending: false, nullsFirst: false }).limit(limit),
+    'getCcusEvents',
+  );
 }
 
+/**
+ * ── THE THREE THAT KEEP THEIR SIGNATURE, AND WHY ──
+ *
+ * These return null / null / {} rather than DataResult. Not an oversight and
+ * not a smaller version of the defect above: each already has a caller-side
+ * meaning for "absent" that is honest under failure. Settings absent renders
+ * the configuration screen, not a claim about the operator. app_state absent
+ * means a cached run has not happened. An empty key map means an ingested
+ * item's extras did not resolve, and the item still renders.
+ *
+ * What they DO owe is the diagnosis in the log. All three previously discarded
+ * `error` entirely, so a rejected read left no trace anywhere — the same blind
+ * spot, just with a less damaging surface. Inspecting the error is the
+ * invariant; converting it into a rendered state is a judgement call.
+ */
 export async function getUserSettings(): Promise<UserSettings | null> {
   // ownerSelect already filters user_id — no second .eq needed here.
   const query = ownerSelect('user_settings');
   if (!query) return null;
 
-  const { data } = await query.maybeSingle();
+  const { data, error } = await query.maybeSingle();
+  if (error) console.warn('[data] getUserSettings failed:', describeReadFailure(error.message));
 
   return (data as UserSettings) ?? null;
 }
@@ -214,7 +255,8 @@ export async function getAppState<T = unknown>(key: string): Promise<T | null> {
   const query = ownerSelect('app_state', 'value');
   if (!query) return null;
 
-  const { data } = await query.eq('key', key).maybeSingle();
+  const { data, error } = await query.eq('key', key).maybeSingle();
+  if (error) console.warn(`[data] getAppState(${key}) failed:`, describeReadFailure(error.message));
 
   return (data?.value as T) ?? null;
 }
@@ -231,7 +273,9 @@ export async function getFeedItemsByKeys(
   const query = ownerSelect('feed_items');
   if (!query) return {};
 
-  const { data } = await query.in('url_hash', keys.slice(0, 500));
+  const { data, error } = await query.in('url_hash', keys.slice(0, 500));
+  if (error) console.warn('[data] getFeedItemsByKeys failed:', describeReadFailure(error.message));
+
   const out: Record<string, FeedItem> = {};
   for (const row of (data ?? []) as FeedItem[]) {
     if (row.url_hash) out[row.url_hash] = row;

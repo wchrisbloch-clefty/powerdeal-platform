@@ -24,7 +24,7 @@ export default async function DealPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { data: deal, isSeed } = await getDeal(id);
+  const { data: deal, isSeed, readError: dealError } = await getDeal(id);
   if (!deal) notFound();
 
   const [signals, marketWatch, transitions, mapPlan, winLoss, competitors] = await Promise.all([
@@ -51,12 +51,19 @@ export default async function DealPage({
     accountUtility: deal.utility,
   }).catch(() => null);
 
+  // First diagnosis wins — all three go through the same client and the same
+  // key, so a second line would repeat the first rather than add to it.
+  const intelError =
+    signals.readError ?? marketWatch.readError ?? transitions.readError ?? null;
+
   return (
     <DealDetail
       deal={deal}
-      signals={signals}
-      marketWatch={marketWatch}
-      transitions={transitions}
+      signals={signals.data}
+      marketWatch={marketWatch.data}
+      transitions={transitions.data}
+      intelError={intelError}
+      readError={dealError}
       isSeed={isSeed}
       mapPlan={mapPlan}
       winLoss={winLoss}

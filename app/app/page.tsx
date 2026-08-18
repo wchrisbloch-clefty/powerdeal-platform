@@ -5,6 +5,7 @@ import { portfolioSnapshot, isAtRisk, riskFlags, leadMetric, LEAD_HINTS } from '
 import { formatMw, formatUsd, cn } from '@/lib/utils';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { GapPanel } from '@/components/ui/gap';
+import ReadFailureBanner from '@/components/ui/read-failure';
 import DealCard from '@/components/ui/deal-card';
 import HealthRing from '@/components/ui/health-ring';
 import Badge from '@/components/ui/badge';
@@ -41,11 +42,7 @@ export default async function DashboardPage() {
                 deals and so does the live pipeline, so a rejected key renders 21
                 plausible rows under a banner that reads like setup advice. */}
             {readError ? (
-              <p className="mt-1.5 rounded-card border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-                <span className="font-medium">These are NOT your deals.</span> The database
-                refused the query, so the rows below are template data standing in for a
-                pipeline that could not be read. {readError}
-              </p>
+              <ReadFailureBanner readError={readError} className="mt-1.5" />
             ) : isSeed ? (
               <p className="mt-1.5 text-sm text-text-dim">
                 Showing template data.{' '}
