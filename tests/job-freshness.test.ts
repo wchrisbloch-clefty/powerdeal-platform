@@ -224,6 +224,32 @@ describe('the edge functions write their heartbeat unconditionally', () => {
     }
   });
 
+  it('the ccus window is an input, bounded, and reported back', async () => {
+    /*
+      The 48h window covers ONE missed run. August missed seven, so everything
+      published in between fell out of reach of a daily sweep permanently.
+
+      A wider sweep is safe for a specific reason worth asserting rather than
+      trusting: dedupe is keyed on source_url, so re-reading fourteen days
+      inserts nothing already stored. The bound exists because an unbounded
+      window on a secret-gated endpoint is a way to make one call do unbounded
+      work.
+    */
+    const src = await readFile('supabase/functions/ccus-sweep/index.ts', 'utf8');
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+    expect(code).toContain('window_hours');
+    expect(code).toContain('MAX_WINDOW_HOURS');
+    expect(code).toMatch(/Math\.min\(asked, MAX_WINDOW_HOURS\)/);
+    // The cutoff must use the resolved value, not the constant — a parameter
+    // that is parsed and then ignored is worse than no parameter.
+    expect(code).toMatch(/cutoff = Date\.now\(\) - windowHours \* 3600_000/);
+    // And the response says which window ran.
+    expect(code).toContain('window_hours: windowHours');
+    // Dedupe still keyed on source_url, which is what makes a backfill safe.
+    expect(code).toContain("select('source_url')");
+  });
+
   it('no heartbeat carries a hardcoded item count', async () => {
     // ccus-sweep passed `itemsProcessed: 0` literally, so even a healthy run
     // said nothing about how much it had done.

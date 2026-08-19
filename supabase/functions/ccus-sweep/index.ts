@@ -45,9 +45,49 @@ const SOURCES = [
 const CCUS_PATTERN =
   /\b(carbon capture|ccus|\bccs\b|class vi|sequestration|co2 storage|carbon storage|45q|carbon dioxide (?:storage|injection))\b/i;
 
+/**
+ * ⚠️ THE WINDOW IS THE BINDING CONSTRAINT, NOT THE SOURCES.
+ *
+ * A manual run on 2026-08-19 reported `fetched: 12, recent: 0` — twelve items
+ * in the feeds matched the CCUS pattern and NONE were published in the last 48
+ * hours. That is the shape of a slow-moving source: the feeds carry weeks of
+ * carbon-management items, and the daily window sees a couple of days of them.
+ *
+ * So ~1 new event every few days is the expected yield here, and the CCUS tab
+ * is a slow surface rather than a broken one. What it is NOT is evidence that
+ * the outage cost nothing: anything published between 2026-08-12 and 2026-08-19
+ * fell out of the 48h window while the job was dead, and a daily sweep can
+ * never reach back for it.
+ *
+ * ══ WHICH IS WHY THE WINDOW IS NOW AN INPUT ══
+ *
+ * `{"window_hours": 336}` sweeps fourteen days instead of two. Safe to run,
+ * and safe specifically because dedupe is keyed on `source_url`: a wider sweep
+ * re-reads everything it has already stored and inserts none of it. The only
+ * thing a backfill can do is find items the narrow window missed.
+ *
+ * Bounded at 90 days. Not because anything breaks past that, but because an
+ * unbounded window on a scheduled endpoint is a way to make one call do
+ * unbounded work, and this endpoint is reachable by anyone holding the secret.
+ */
+const DEFAULT_WINDOW_HOURS = 48;
+const MAX_WINDOW_HOURS = 24 * 90;
+
 Deno.serve(async (request: Request) => {
   const startedAt = Date.now();
   if (!isAuthorized(request)) return unauthorized();
+
+  let windowHours = DEFAULT_WINDOW_HOURS;
+  try {
+    const body = await request.clone().json();
+    const asked = Number(body?.window_hours);
+    if (Number.isFinite(asked) && asked > 0) {
+      windowHours = Math.min(asked, MAX_WINDOW_HOURS);
+    }
+  } catch {
+    // No body, or not JSON. The scheduled call sends '{}' and lands here
+    // harmlessly; the default is the daily window.
+  }
 
   try {
     const supabase = serviceClient();
@@ -76,8 +116,9 @@ Deno.serve(async (request: Request) => {
       }
     }
 
-    // Last 48h only — this runs daily, and the overlap covers a missed run.
-    const cutoff = Date.now() - 48 * 3600_000;
+    // Daily by default, and the 48h overlap covers ONE missed run. It cannot
+    // cover seven, which is what August established — see the note above.
+    const cutoff = Date.now() - windowHours * 3600_000;
     const recent = entries.filter(
       (e) => !e.published || Date.parse(e.published) >= cutoff,
     );
@@ -227,6 +268,9 @@ Deno.serve(async (request: Request) => {
 
     return ok({
       ran_at: new Date().toISOString(),
+      // Self-describing: a run that swept a different window says so, rather
+      // than leaving a reader to infer it from the count.
+      window_hours: windowHours,
       fetched: entries.length,
       recent: recent.length,
       users: users.length,
