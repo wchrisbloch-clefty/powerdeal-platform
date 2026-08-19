@@ -49,7 +49,49 @@
  */
 import { chromium } from 'playwright';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
+
+/**
+ * ⚠️ THE CASE VOCABULARY IS PARSED FROM lib/design/casing.ts, NOT COPIED.
+ *
+ * This file is .mjs and cannot import the TypeScript module, and a second copy
+ * of the token list is a second thing to keep in step — which this repo has
+ * watched fail with the tokens/Tailwind pair, the TS/SQL seed pair, and a
+ * lib/design constant that drifted from its own test fixture.
+ *
+ * The extraction asserts it found something. A regex that silently matches
+ * nothing would leave the rendered-copy check running over an empty token list
+ * and reporting clean, which is the empty-universe pass this whole script was
+ * written after.
+ */
+async function loadMangledForms() {
+  const src = await readFile('lib/design/casing.ts', 'utf8');
+  // ⚠️ The name is followed by ` = [` in one case and ` = new Set([` in the
+  // other, so the bracket is located AFTER the name rather than assumed to be
+  // adjacent to it. The first version assumed adjacency and threw on the
+  // second declaration — loudly, which is the right way for a parser to be
+  // wrong.
+  const block = (name) => {
+    const at = src.indexOf(name);
+    if (at === -1) throw new Error(`render-check: ${name} not found in lib/design/casing.ts`);
+    const open = src.indexOf('[', at);
+    return src.slice(open, src.indexOf(']', open));
+  };
+  const quoted = (text) => [...text.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+
+  const bearing = quoted(block('export const CASE_BEARING'));
+  const allowed = new Set(quoted(block('const LEGITIMATELY_LOWERCASE = new Set')));
+
+  if (bearing.length < 10) {
+    throw new Error(
+      `render-check: only ${bearing.length} case-bearing tokens parsed. ` +
+        `The extractor is broken, and a broken extractor reports clean.`,
+    );
+  }
+  return [...new Set(bearing.map((t) => t.toLowerCase()))].filter((t) => !allowed.has(t));
+}
+
+const MANGLED_FORMS = await loadMangledForms();
 
 const PORT = Number(process.env.RENDER_CHECK_PORT ?? 3210);
 const PASSWORD = 'render-check';
@@ -528,10 +570,10 @@ async function main() {
         }
 
         const result = await page.evaluate(
-          ({ selector, min, isTouch }) => {
+          ({ selector, min, isTouch, mangledForms }) => {
             const out = {
               occluded: [], overlapped: [], small: [], lining: [], overflow: null,
-              encroached: [],
+              encroached: [], mangled: [],
             };
 
             /**
@@ -809,9 +851,95 @@ async function main() {
                 });
               }
             }
+            /**
+             * ═══════════════════════════════════════════════════════════
+             * CASE-MANGLED UNITS, READ OFF THE RENDERED PAGE.
+             * ═══════════════════════════════════════════════════════════
+             *
+             * `Needs efficiency, capex $/kw, o&m $/kw-yr.` shipped, and every
+             * assertion about that panel passed, because none of them was
+             * reading the sentence. A source scan catches the `.toLowerCase()`
+             * that produced it; only this catches the same damage arriving
+             * through CSS, where `text-transform: lowercase` on a block
+             * containing a unit leaves no trace in any .tsx file.
+             *
+             * ⚠️ THE TRANSFORM IS APPLIED BY HAND. `textContent` returns the
+             * SOURCE text — Chromium does not fold `text-transform` into it —
+             * so reading textContent alone would report clean on a page whose
+             * CSS is doing the mangling. That is rule 17 exactly: inspecting a
+             * property is not seeing the artifact. The computed style is read
+             * and applied here so the string checked is the string displayed.
+             *
+             * Leaf elements only. A parent's textContent concatenates its
+             * children, which manufactures adjacencies that are not on screen.
+             */
+            const seen = new Set();
+            for (const el of document.querySelectorAll('body *')) {
+              if (el.children.length > 0) continue;
+              const raw = (el.textContent || '').trim();
+              if (!raw || raw.length > 400) continue;
+              const r = el.getBoundingClientRect();
+              if (r.width === 0 || r.height === 0) continue;
+              const cs = getComputedStyle(el);
+              if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+
+              const shown =
+                cs.textTransform === 'uppercase' ? raw.toUpperCase()
+                : cs.textTransform === 'lowercase' ? raw.toLowerCase()
+                : raw;
+
+              for (const form of mangledForms) {
+                let from = 0;
+                for (;;) {
+                  const at = shown.toLowerCase().indexOf(form, from);
+                  if (at === -1) break;
+                  from = at + form.length;
+                  const before = shown[at - 1];
+                  const after = shown[at + form.length];
+                  const wordish = (c) => c !== undefined && /[A-Za-z0-9]/.test(c);
+                  if (wordish(before) || wordish(after)) continue;
+                  if (shown.slice(at, at + form.length) !== form) continue;
+
+                  /**
+                   * ⚠️ URLS AND IDENTIFIERS ARE SUPPOSED TO BE LOWER CASE, and
+                   * the first run flagged six of them: `epa.gov/uic` and
+                   * `ccus-sweep`. Both are correct exactly as written — a
+                   * domain is lower case and an edge-function name is an
+                   * identifier — so reporting them is the check crying wolf on
+                   * the only two places it found anything.
+                   *
+                   * A token joined to more text by `.`, `-`, `_`, `/` or `@` is
+                   * part of a longer name. UNLESS the token itself starts with
+                   * a currency mark: `$/kw-yr` is hyphenated and is a unit, not
+                   * an identifier, and it is the exact string that shipped.
+                   */
+                  const joiner = /[.\-_/@]/;
+                  const isUnit = /^[$¢]/.test(form);
+                  if (!isUnit) {
+                    if (joiner.test(before ?? '') && wordish(shown[at - 2])) continue;
+                    if (joiner.test(after ?? '') && wordish(shown[at + form.length + 1])) continue;
+                  }
+                  const key = `${form}|${shown.slice(0, 60)}`;
+                  if (seen.has(key)) break;
+                  seen.add(key);
+                  out.mangled.push({
+                    token: form,
+                    text: shown.slice(Math.max(0, at - 30), at + 40),
+                    transform: cs.textTransform,
+                  });
+                  break;
+                }
+              }
+            }
+
             return out;
           },
-          { selector: INTERACTIVE, min: TOUCH_TARGET_MIN, isTouch: bp.touch },
+          {
+            selector: INTERACTIVE,
+            min: TOUCH_TARGET_MIN,
+            isTouch: bp.touch,
+            mangledForms: MANGLED_FORMS,
+          },
         );
 
         for (const o of result.occluded) {
@@ -832,6 +960,16 @@ async function main() {
         }
         for (const s of result.small) {
           note(surface, bp.name, 'touch-target', `${s.target} is ${s.size}, under ${TOUCH_TARGET_MIN}px`);
+        }
+        for (const m of result.mangled) {
+          note(
+            surface,
+            bp.name,
+            'case-mangled',
+            `"${m.token}" appears lower-cased in rendered copy: …${m.text}… ` +
+              `(text-transform: ${m.transform}). The case is part of the unit — ` +
+              `kW is a kilowatt and kw is nothing.`,
+          );
         }
         for (const e of result.encroached) {
           note(

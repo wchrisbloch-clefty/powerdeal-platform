@@ -99,9 +99,25 @@ export default async function DashboardPage() {
         <SnapshotTile label="Pipeline value" value={formatUsd(snap.totalUsdM)} />
       </section>
 
-      <div className="grid gap-rhythm-page lg:grid-cols-3">
+      {/*
+        ⚠️ `minmax(0,…)`, NOT `1fr`, AND THE CHILDREN CARRY `min-w-0`.
+
+        A grid item's default `min-width: auto` means the TRACK sizes to its
+        content's minimum, so a long company name widened the column past the
+        viewport and the document scrolled sideways — 405px in 390px at mobile.
+        The `truncate` on the card's <h3> cannot prevent that: truncation
+        clips text inside a box, and the box is what grew.
+
+        Found when the seed's invented companies came in longer than the ones
+        they replaced ("SAMPLE — Calderwood Marine Group" against "BAE
+        Systems"). The defect predates them — it needed a long name, and until
+        now every name was short. That is the kind of bug a realistic fixture
+        exists to surface, which is also the argument for keeping the demo
+        data shaped like real data rather than tidying it to Foo Corp.
+      */}
+      <div className="grid min-w-0 gap-rhythm-page lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* ── Needs attention ── */}
-        <Card className="lg:col-span-2">
+        <Card className="min-w-0">
           <CardHeader>
             <div>
               <CardTitle>Needs attention</CardTitle>
@@ -140,7 +156,7 @@ export default async function DashboardPage() {
           )}
         </Card>
 
-        <div className="space-y-rhythm-page">
+        <div className="min-w-0 space-y-rhythm-page">
           {/* ── Health distribution ── */}
           <Card>
             <CardHeader>

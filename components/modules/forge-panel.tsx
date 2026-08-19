@@ -327,7 +327,13 @@ export default function ForgePanel({
               provider={ai.provider}
               model={ai.model}
               onStop={ai.stop}
-              emptyHint={`Hit Generate to build the ${action.label.toLowerCase()} for ${deal?.company ?? 'this account'}.`}
+              /* ⚠️ NOT `.toLowerCase()`. These labels are the NAMES of documents —
+                 "Executive Account Brief", "Mutual Action Plan" — and a name keeps
+                 its capitals mid-sentence. Today every label happens to survive
+                 the transform; the day one is called "MAP" or "LCOE Model" it
+                 renders as "map" and "lcoe model", which is the Economics
+                 "capex $/kw" defect in a second place. */
+                emptyHint={`Hit Generate to build the ${action.label} for ${deal?.company ?? 'this account'}.`}
             />
           )}
         </div>
