@@ -1,4 +1,5 @@
 import type { Deal, FeedItem, SourceTier } from '@/lib/types';
+import { SEED_PREFIX } from '@/lib/seed-data';
 
 /**
  * ENTITIES — the vocabulary Trending, Today's Topics and the entity pages all
@@ -254,9 +255,28 @@ export const COMPANY_STOPWORDS = new Set([
   'oil company', 'gas company', 'the corporation', 'united states',
 ]);
 
-/** Loose comparison so "Valero Energy Corp" matches a deal named "Valero". */
+/**
+ * Loose comparison so "Valero Energy Corp" matches a deal named "Valero".
+ *
+ * ⚠️ THE SEED MARKER IS STRIPPED FIRST, AND LEAVING IT IN BREAKS MATCHING IN
+ * ONE DIRECTION ONLY — which is the direction that would have gone unnoticed.
+ *
+ * `isInPipeline` compares both ways: the book's name inside the news name, and
+ * the news name inside the book's. With the prefix left on, "SAMPLE — Valero"
+ * normalises to "sample valero", and a headline about "Valero Energy Corp"
+ * normalises to "valero energy". Neither contains the other, so the match that
+ * used to succeed silently stops — peer radar, trending and the feed's account
+ * mapping all go quiet in exactly the mode the render check runs in.
+ *
+ * "SAMPLE — BAE Systems" vs "BAE Systems" would still have matched, because
+ * the longer string contains the shorter one. So half the fixtures would have
+ * kept passing.
+ *
+ * The marker is a statement about the ROW, not part of the company's identity.
+ */
 export function normalizeCompanyName(name: string): string {
   return name
+    .replace(SEED_PREFIX, '')
     .toLowerCase()
     .replace(
       /\b(inc|llc|lp|corp|corporation|company|co|holdings|industries|partners|resources|plc|ltd)\b\.?/g,
