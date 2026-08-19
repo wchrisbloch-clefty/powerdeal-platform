@@ -143,11 +143,25 @@ export function NavBar() {
           href="/app"
           className={cn(
             'flex shrink-0 items-center rounded pr-1',
+            /*
+              ⚠️ min-w-tap BECAUSE COLLAPSING THE WORDMARK SHRANK THE TARGET.
+              With the text hidden between md and lg the link became the 20px
+              mark plus padding — 24x60 — and md-and-up is a touch breakpoint
+              here. The render check caught it on the same run that confirmed
+              the nav fix, which is the check doing exactly its job: a layout
+              change that fixes one thing at the cost of another is the normal
+              case, not the surprising one.
+
+              Centred rather than left-aligned so the mark sits in the middle
+              of its own tap area instead of at the edge of it.
+            */
+            'min-w-tap justify-center lg:min-w-0 lg:justify-start',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-mark',
           )}
           aria-label="PowerDeal — dashboard"
         >
-          <Wordmark />
+          {/* Text hidden 768–1023 so the eight nav items fit. See Wordmark. */}
+          <Wordmark collapse />
         </Link>
 
         {/**

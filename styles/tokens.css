@@ -189,6 +189,35 @@
                          therefore untappable — on every surface from
                          768 to 1023. The nav suite was green because
                          it asserts the item RENDERS, and it did.
+
+                         ⚠️ AND THE OVERFLOW FIX LEFT LEARN UNREADABLE
+                         RATHER THAN UNREACHABLE. overflow-x-auto made
+                         the eight items reachable by scrolling, which
+                         is what the hit-test asks and all it asks. At
+                         834 the measured numbers were 522px of items
+                         in a 443px container at scrollLeft 0, so the
+                         last label sat 61px outside its own box on
+                         every surface, at rest, forever. "Learn" read
+                         as "Lea". A label you must scroll to read is
+                         not a label, and no reachability check can say
+                         so — it is a different question.
+
+                         The 79px came from the wordmark TEXT, hidden
+                         between md and lg (see components/ui/
+                         bloom-logo.tsx). It is the only element on
+                         that row carrying no function; the mark alone
+                         still identifies the app and still links to
+                         the dashboard. Shrinking --nav-item-min-w
+                         instead would need 443/8 = 55px, under what
+                         "Intelligence" occupies at text-2xs, which
+                         trades a clipped label for eight truncated
+                         ones.
+
+                         Measured by scripts/render-check.mjs at rest,
+                         BEFORE its own hit-test pass runs — that pass
+                         calls scrollIntoView, which scrolls this very
+                         container, so a measurement taken after it
+                         describes a state the check created.
        >= lg  (1024+)    top bar, icon beside label. Eight visible,
                          no overflow menu, no scroll. */
   --shell-max: 1400px;

@@ -397,6 +397,56 @@ async function main() {
               text: (h.textContent || '').trim().slice(0, 30),
               size: getComputedStyle(h).fontSize,
             })),
+          /**
+           * ⚠️ NAV LABELS, MEASURED AT REST — AND THE ORDER OF THIS BLOCK IS
+           * LOAD-BEARING.
+           *
+           * The reachability pass below calls
+           * `el.scrollIntoView({ inline: 'nearest' })` on anything that fails
+           * a hit-test. The main nav is a horizontal scroll container, so that
+           * call SCROLLS IT — and the screenshot is taken afterwards. A run
+           * that scrolls the nav and then photographs it produces a picture of
+           * a clipped nav that the user never sees, and a run that measures
+           * after the same pass measures a state the check itself created.
+           *
+           * That is rule 19 twice over: the check both causes the artifact and
+           * would be the thing reporting it. So this runs BEFORE any hit-test,
+           * at scroll zero, and records the container's own geometry alongside
+           * each label — so a finding can distinguish "the app clips this" from
+           * "something scrolled the container".
+           *
+           * Reachability is still the reachability pass's job. This asks a
+           * different question, which the previous fix explicitly did not
+           * answer: is the label FULLY LEGIBLE without interaction? An item you
+           * can reach by scrolling is reachable and not yet readable, and a nav
+           * whose first item reads "ipeline" has failed at something the
+           * hit-test is right not to call a failure.
+           */
+          navLabels: (() => {
+            const bar = [...document.querySelectorAll('nav[aria-label="Main"]')].find((n) => {
+              const r = n.getBoundingClientRect();
+              return r.width > 0 && r.height > 0;
+            });
+            if (!bar) return null;
+            const box = bar.getBoundingClientRect();
+            const items = [...bar.querySelectorAll('a[href]')].map((a) => {
+              const span = a.querySelector('span') || a;
+              const r = span.getBoundingClientRect();
+              return {
+                text: (span.textContent || '').trim(),
+                // How much of the label falls outside the nav's own box, in px.
+                clippedLeft: Math.max(0, box.left - r.left),
+                clippedRight: Math.max(0, r.right - box.right),
+                width: r.width,
+              };
+            });
+            return {
+              scrollLeft: bar.scrollLeft,
+              scrollWidth: bar.scrollWidth,
+              clientWidth: bar.clientWidth,
+              items,
+            };
+          })(),
         }));
         gapSlotsSeen += rendered.gapSlots;
         if (!rendered.nav || rendered.interactive < 8) {
@@ -424,6 +474,36 @@ async function main() {
             'page-title',
             `"${rendered.headings[0].text}" is ${rendered.headings[0].size}, not the page-title step (${PAGE_TITLE_SIZE})`,
           );
+        }
+
+        /**
+         * ⚠️ "NOTHING TO INSPECT" IS THE LOUDEST FINDING. A null here means no
+         * visible main nav was found at all, which the did-not-render guard
+         * above should already have caught — reported separately so a silent
+         * selector change cannot turn this check off.
+         */
+        if (rendered.navLabels === null) {
+          note(surface, bp.name, 'nav-labels', 'no visible nav[aria-label="Main"] to measure');
+        } else {
+          const nav = rendered.navLabels;
+          if (nav.items.length === 0) {
+            note(surface, bp.name, 'nav-labels', 'the main nav rendered with no links in it');
+          }
+          for (const item of nav.items) {
+            // 1px of tolerance: sub-pixel layout rounding is not a clip.
+            const clipped = Math.max(item.clippedLeft, item.clippedRight);
+            if (clipped > 1) {
+              note(
+                surface,
+                bp.name,
+                'nav-labels',
+                `"${item.text}" is clipped by ${Math.round(clipped)}px at rest ` +
+                  `(nav scrollLeft=${Math.round(nav.scrollLeft)}, ` +
+                  `content ${Math.round(nav.scrollWidth)}px in ${Math.round(nav.clientWidth)}px). ` +
+                  `A label you must scroll to read is not a label.`,
+              );
+            }
+          }
         }
 
         for (const e of surfaceErrors) {
