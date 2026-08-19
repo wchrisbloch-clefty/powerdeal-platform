@@ -171,6 +171,11 @@ ${feed}`,
     // exactly like a job that was never deployed.
     try {
       const client = serviceClient();
+      // error-blind-ok: this is the FAILURE path's bookkeeping. It runs inside a
+      // catch whose only job is recording that the run failed, and it is itself
+      // wrapped in a catch so a second failure cannot mask the first. Inspecting
+      // this error would have nowhere to report it that is not the error we are
+      // already reporting.
       const { data } = await client.from('user_settings').select('user_id').limit(1).maybeSingle();
       await recordAgentRun(client, (data?.user_id as string) ?? '', 'market-watch', {
         ok: false,

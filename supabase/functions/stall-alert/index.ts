@@ -48,11 +48,33 @@ Deno.serve(async (request: Request) => {
       // One statement per deal keeps the health-score trigger firing, which is
       // the point — a bulk UPDATE that skipped the trigger would leave health
       // stale exactly when it should be dropping.
+      //
+      // ⚠️ THIS UPDATE IGNORED ITS ERROR, AND IT IS THE WORST PLACE IN EITHER
+      // RUNTIME TO DO THAT. supabase-js resolves with `{ error }` rather than
+      // throwing, so a refused write left the loop finishing normally, the
+      // state written, the run recorded ok, and 200 returned — while
+      // days_in_stage never advanced.
+      //
+      // schedule.sql already names this as the symptom to check first: "if
+      // this job stops running, health scores silently stop degrading and
+      // stalled deals keep looking healthy." An unchecked write produces
+      // exactly that WITHOUT the job stopping, so the one diagnostic the
+      // comment points at reports green.
+      //
+      // Thrown, not collected: a tick that only partly landed leaves the book
+      // in a state where some deals aged and some did not, which is worse to
+      // reason about than a run that failed outright and can be re-fired.
       for (const deal of deals) {
-        await supabase
+        const { error } = await supabase
           .from('deals')
           .update({ days_in_stage: deal.days_in_stage + 1 })
           .eq('id', deal.id);
+        if (error) {
+          throw new Error(
+            `days_in_stage tick failed on ${deal.deal_id} (${deal.id}): ${error.message}. ` +
+              `Aborting before the tick lands on only part of the book.`,
+          );
+        }
       }
 
       if (!user.notify.stall_alert) continue;
@@ -87,6 +109,11 @@ Deno.serve(async (request: Request) => {
     // exactly like a job that was never deployed.
     try {
       const supabase = serviceClient();
+      // error-blind-ok: this is the FAILURE path's bookkeeping. It runs inside a
+      // catch whose only job is recording that the run failed, and it is itself
+      // wrapped in a catch so a second failure cannot mask the first. Inspecting
+      // this error would have nowhere to report it that is not the error we are
+      // already reporting.
       const { data } = await supabase.from('user_settings').select('user_id').limit(1).maybeSingle();
       await recordAgentRun(supabase, (data?.user_id as string) ?? '', 'stall-alert', {
         ok: false,

@@ -33,7 +33,22 @@ import { join } from 'node:path';
  * disagreement in either direction fails.
  */
 
-const ROOTS = ['app', 'lib'];
+/**
+ * ⚠️ `supabase/functions` WAS NOT IN THIS LIST, AND IT IS A SECOND RUNTIME
+ * RUNNING THE SAME CLIENT LIBRARY.
+ *
+ * The whole audit ran over app/ and lib/ and reported zero, correctly, while
+ * four unchecked reads and writes sat in the three Deno edge functions. Rule
+ * 18 in its sharpest form: the check was honest about its own scope and the
+ * scope was wrong.
+ *
+ * The worst of the four was stall-alert's days_in_stage tick, which ignored
+ * its error entirely. schedule.sql already names the symptom — "if this job
+ * stops running, health scores silently stop degrading and stalled deals keep
+ * looking healthy" — and an unchecked write produces exactly that WITHOUT the
+ * job stopping, so every diagnostic that comment points at reports green.
+ */
+const ROOTS = ['app', 'lib', 'supabase/functions'];
 
 /** Wrappers that already handle their own error internally. */
 const SAFE_WRAPPERS = [
@@ -104,21 +119,41 @@ async function findBlindSites(): Promise<{ file: string; line: number }[]> {
   for (const root of ROOTS) {
     for (const file of await walk(root)) {
       const src = await readFile(file, 'utf8');
-      if (!/ownerSelect|withOwner|getAdminClient/.test(src)) continue;
+      // `serviceClient` is the Deno runtime's equivalent of getAdminClient.
+      if (!/ownerSelect|withOwner|getAdminClient|serviceClient/.test(src)) continue;
       const lines = src.split('\n');
       for (let i = 0; i < lines.length; i += 1) {
         const ctx = lines.slice(i, i + 3).join(' ');
-        if (isBlind(lines[i], ctx)) hits.push({ file, line: i + 1 });
+        // Five lines of lookback, so a reason can be a paragraph rather than a
+        // sentence squeezed onto one line.
+        const preceding = lines.slice(Math.max(0, i - 5), i).join('\n');
+        if (isBlind(lines[i], ctx, preceding)) hits.push({ file, line: i + 1 });
       }
     }
   }
   return hits;
 }
 
+/**
+ * An explicit, REASONED exemption, written at the site rather than in a list
+ * here.
+ *
+ * ⚠️ THIS IS STILL AN ALLOWLIST AND IT IS THE LEAST BAD SHAPE FOR ONE. A list
+ * in this file drifts from the code silently — the entry outlives the line it
+ * was written for, and nothing notices. A marker on the line cannot: delete
+ * the read and the marker goes with it, move the read and the marker moves.
+ *
+ * The reason is mandatory. `// error-blind-ok:` with nothing after it does not
+ * exempt anything, because an exemption with no argument is the thing this
+ * whole audit was about.
+ */
+const EXEMPT = /\/\/\s*error-blind-ok:\s*\S+/;
+
 /** The single predicate, shared by the fixture check and the real scan. */
-function isBlind(line: string, ctx: string): boolean {
+function isBlind(line: string, ctx: string, preceding = ''): boolean {
   if (!BARE.test(line)) return false;
   if (/^\s*(\*|\/\/|\/\*)/.test(line)) return false;
+  if (EXEMPT.test(preceding)) return false;
   return !SAFE_WRAPPERS.some((w) => ctx.includes(w));
 }
 
@@ -135,6 +170,16 @@ describe('the scanner still finds what it is looking for', () => {
     for (const line of FIXTURE_FINE) {
       expect(isBlind(line, line), `false positive: ${line}`).toBe(false);
     }
+  });
+
+  it('an exemption needs a reason, and a bare marker is not one', () => {
+    const blind = FIXTURE_BLIND[0];
+    expect(isBlind(blind, blind, '// error-blind-ok: bookkeeping path')).toBe(false);
+    // The marker alone exempts nothing.
+    expect(isBlind(blind, blind, '// error-blind-ok:')).toBe(true);
+    expect(isBlind(blind, blind, '// error-blind-ok')).toBe(true);
+    // And an unrelated comment above a blind read is still a blind read.
+    expect(isBlind(blind, blind, '// load the deals for this user')).toBe(true);
   });
 
   it('the real scan reads the whole app', async () => {

@@ -23,12 +23,18 @@ export async function readState<T>(
   userId: string,
   key: string,
 ): Promise<T | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('app_state')
     .select('value')
     .eq('user_id', userId)
     .eq('key', key)
     .maybeSingle();
+  // ⚠️ "NO STATE STORED" AND "THE STORE DID NOT ANSWER" ARE DIFFERENT, and the
+  // caller that matters is recordAgentRun: given null it starts a fresh run
+  // history, silently discarding lastSuccessAt. The health surface then shows
+  // a job that has never succeeded, which is a claim about the job rather than
+  // about the read.
+  if (error) throw new Error(`app_state read failed for '${key}': ${error.message}`);
   return (data?.value as T) ?? null;
 }
 

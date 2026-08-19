@@ -121,11 +121,25 @@ Deno.serve(async (request: Request) => {
 
       if (rows.length > 0) {
         // Skip anything already stored — the 48h window overlaps by design.
-        const { data: existing } = await supabase
+        // ⚠️ THE DEDUPE READ IGNORED ITS ERROR, AND THE FALLBACK WRITES DATA.
+        // Given `[]`, nothing is recognised as already stored, so every row in
+        // the overlapping 48h window is inserted again — a refused READ turning
+        // into duplicate rows in the table the operator reads. Skipped rather
+        // than inserted-blind: a sweep that adds nothing is recoverable, and a
+        // sweep that doubles the table on every run is not.
+        const { data: existing, error: dedupeError } = await supabase
           .from('ccus_events')
           .select('source_url')
           .eq('user_id', user.user_id)
           .in('source_url', rows.map((r) => r.source_url));
+
+        if (dedupeError) {
+          throw new Error(
+            `ccus_events dedupe read failed for ${user.user_id}: ${dedupeError.message}. ` +
+              `Refusing to insert, because without the existing set every row in the ` +
+              `overlapping window would be written a second time.`,
+          );
+        }
 
         const seen = new Set((existing ?? []).map((r) => r.source_url as string));
         const fresh = rows.filter((r) => !seen.has(r.source_url));
@@ -173,6 +187,11 @@ Deno.serve(async (request: Request) => {
     // exactly like a job that was never deployed.
     try {
       const client = serviceClient();
+      // error-blind-ok: this is the FAILURE path's bookkeeping. It runs inside a
+      // catch whose only job is recording that the run failed, and it is itself
+      // wrapped in a catch so a second failure cannot mask the first. Inspecting
+      // this error would have nowhere to report it that is not the error we are
+      // already reporting.
       const { data } = await client.from('user_settings').select('user_id').limit(1).maybeSingle();
       await recordAgentRun(client, (data?.user_id as string) ?? '', 'ccus-sweep', {
         ok: false,
