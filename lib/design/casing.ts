@@ -76,6 +76,13 @@ export const CASE_BEARING = [
   'EPA',
   'CPUC',
   'ERCOT',
+  // ⚠️ ADDED AFTER THE CHECK CAUGHT A REAL ONE. `job.schedule.toLowerCase()`
+  // in lib/agent-runs turned "Daily · 12:00 UTC" into "12:00 utc" — in the
+  // same commit that added the line. A timezone lowercased is not a timezone,
+  // and this token was missing from the list on the first pass, which is worth
+  // recording: the vocabulary is only as good as what it has been taught.
+  'UTC',
+  'CT',
 ] as const;
 
 /**
@@ -87,6 +94,8 @@ export const CASE_BEARING = [
  */
 const LEGITIMATELY_LOWERCASE = new Set([
   'rec', 'iso', 'rto', 'btu',
+  // "ct" appears inside ordinary prose far too often to be a signal.
+  'ct',
 ]);
 
 /** The lowercase forms worth searching for. */

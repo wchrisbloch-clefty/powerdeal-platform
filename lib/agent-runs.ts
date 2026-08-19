@@ -434,8 +434,15 @@ export function freshnessOf(job: AgentJob, run: AgentRun | undefined): JobFreshn
         ? `${job.label} is failing — the last ${run?.consecutiveFailures ?? 1} run(s) errored, ` +
           `so anything below may be out of date. ${run?.lastError ?? ''}`.trim()
         : status === 'stale'
-          ? `${job.label} has not completed since ${lastSuccessAt}, ` +
-            `${overdueHours}h past its ${job.schedule.toLowerCase()} window. ` +
+          ? // ⚠️ `job.schedule.toLowerCase()` WAS HERE AND tests/copy-casing
+            // CAUGHT IT IN THE SAME COMMIT THAT ADDED IT. The schedule reads
+            // "Daily · 12:00 UTC"; lowercased it renders "12:00 utc". The
+            // transform was buying one word's worth of grammar — "past its
+            // daily window" — and paying for it with a timezone.
+            //
+            // The schedule string is written for display. It goes in as-is.
+            `${job.label} has not completed since ${lastSuccessAt}, ` +
+            `${overdueHours}h past its window (${job.schedule}). ` +
             `Anything below is what it found before it stopped.`
           : `${job.label} last completed ${lastSuccessAt}.`;
 
