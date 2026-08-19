@@ -158,13 +158,41 @@ function WishBox({ path }: { path: string }) {
    * Presence is not reachability — scripts/render-check.mjs now asks
    * `elementFromPoint` at each target's centre, which is the only check that
    * can tell the difference.
+   *
+   * ══ AND THE CORNER MOVED, BECAUSE THE TAB BAR WAS ONLY THE FIRST COLLISION ══
+   *
+   * `elementFromPoint` at a CENTRE answers whether a tap in the middle lands.
+   * It is blind to everything short of that, so once the pill cleared the tab
+   * bar the check went quiet while the pill still clipped:
+   *
+   *   · 32% of "Model economics" on the deal page (both pinned)
+   *   · 16% of the chat send button at iPad
+   *   · 1–3% of the chat composer at desktop and iPad
+   *
+   * and, the other way round, the deal page's sticky AI-actions rail covered
+   * 89% of the pill itself — a feedback control that was there and unusable.
+   *
+   * ⚠️ LEFT, AND NOT ARBITRARILY. Every surface in this product puts its
+   * primary action on the RIGHT: the AI-actions rail, the chat send button,
+   * "Model economics", the card CTAs. That is a convention, not a coincidence,
+   * so the bottom-left corner is the one strip nothing competes for. A
+   * secondary, always-available control belongs where nothing else wants to
+   * be — which is a layout argument rather than a nudge until the check goes
+   * green.
+   *
+   * The alternative was moving it into the top-bar cluster, and that costs
+   * ~44px of a row that had exactly 79px of headroom after the wordmark
+   * collapse — it would put "Learn" back outside the nav at 834.
+   *
+   * Verified by the encroachment pass in scripts/render-check.mjs: five
+   * findings before, zero after, across 3 breakpoints x 18 surfaces.
    */
   if (!open) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-above-tabbar right-4 z-20 flex min-h-tap items-center gap-1.5 rounded-full border border-rule bg-bg-raised px-3 py-2 text-2xs text-text-dim shadow-sm transition-colors hover:text-text md:bottom-4"
+        className="fixed bottom-above-tabbar left-4 z-20 flex min-h-tap items-center gap-1.5 rounded-full border border-rule bg-bg-raised px-3 py-2 text-2xs text-text-dim shadow-sm transition-colors hover:text-text md:bottom-4"
         aria-label="Record a wish about this surface"
       >
         <Lightbulb size={13} aria-hidden />
@@ -174,7 +202,7 @@ function WishBox({ path }: { path: string }) {
   }
 
   return (
-    <div className="fixed bottom-above-tabbar right-4 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-card border border-rule bg-bg-raised p-3 shadow-lg md:bottom-4">
+    <div className="fixed bottom-above-tabbar left-4 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-card border border-rule bg-bg-raised p-3 shadow-lg md:bottom-4">
       <div className="flex items-baseline justify-between">
         <p className="text-2xs uppercase tracking-label text-text-faint">I wish it just…</p>
         <button

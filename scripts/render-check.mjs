@@ -529,7 +529,10 @@ async function main() {
 
         const result = await page.evaluate(
           ({ selector, min, isTouch }) => {
-            const out = { occluded: [], overlapped: [], small: [], lining: [], overflow: null };
+            const out = {
+              occluded: [], overlapped: [], small: [], lining: [], overflow: null,
+              encroached: [],
+            };
 
             /**
              * ⚠️ TABULAR FIGURES, CHECKED AS A COMPUTED STYLE.
@@ -706,6 +709,106 @@ async function main() {
                 });
               }
             }
+
+            /**
+             * ═══════════════════════════════════════════════════════════
+             * PARTIAL ENCROACHMENT — because the hit-test only asks about
+             * the CENTRE, and a control can be 90% covered and still pass.
+             * ═══════════════════════════════════════════════════════════
+             *
+             * `elementFromPoint` at a target's centre answers one question:
+             * would a tap in the middle reach it. That is the right question
+             * for the failure it was built after — the feedback pill sitting
+             * squarely over Chat and More — and it is blind to the version
+             * one pixel less severe. A pinned element covering everything but
+             * the exact midpoint of a button reports clean.
+             *
+             * Measured here instead: for every element that is FIXED or STICKY
+             * — the ones a reader cannot scroll clear of — how much of each
+             * interactive target's box does it cover.
+             *
+             * ⚠️ ONLY INTERACTIVE TARGETS COUNT. A pill over a paragraph is an
+             * ordinary floating control and not a defect; a pill over a SEND
+             * BUTTON takes part of the tap. Scoping it this way is what keeps
+             * the finding actionable instead of a list of every overlap on the
+             * page.
+             *
+             * ⚠️ AND THE FIRST VERSION OF THIS PASS HAD THE DEFECT THE BLOCK
+             * ABOVE DOCUMENTS AND AVOIDS. It asked only whether the COVERING
+             * element was pinned, never whether the TARGET was — so it reported
+             * every in-flow control that happened to sit under fixed chrome at
+             * scroll zero. Twenty-three findings, of which the loudest was
+             * `nav"Main" covers 92% of select"Relationship"`: the mobile tab
+             * bar over a filter that is two finger-flicks away. That is a
+             * scroll position, not a bug, and it is verbatim the case the
+             * occlusion comment fifty lines up warns about.
+             *
+             * Rule 19, self-inflicted, in a pass written to catch a subtler
+             * version of a bug the existing pass already handled correctly.
+             *
+             * The corrected rule has two arms:
+             *
+             *   · pinned over pinned — neither can move relative to the other,
+             *     so the covered part is permanently unreachable. Always a
+             *     finding.
+             *   · pinned over in-flow — a finding ONLY when the document cannot
+             *     scroll at all. On a short page there is no scroll that
+             *     reveals anything, so "scrolling clears it" is false; on a
+             *     long one it is true and this stays quiet.
+             *
+             * The threshold is any overlap at all, deliberately: this repo's
+             * history is checks tuned generous that then reported clean over
+             * the thing they were built for. If it proves noisy the answer is a
+             * stated threshold with a number behind it, not a quiet loosening.
+             */
+            const canScroll =
+              document.documentElement.scrollHeight > innerHeight + 1;
+            const isPinned = (el) => {
+              for (let n = el; n && n !== document.body; n = n.parentElement) {
+                const pos = getComputedStyle(n).position;
+                if (pos === 'fixed' || pos === 'sticky') return true;
+              }
+              return false;
+            };
+            const pinnedEls = [...document.querySelectorAll('body *')].filter((n) => {
+              const pos = getComputedStyle(n).position;
+              if (pos !== 'fixed' && pos !== 'sticky') return false;
+              const r = n.getBoundingClientRect();
+              return r.width > 0 && r.height > 0;
+            });
+            const targets = [...document.querySelectorAll(selector)].filter((el) => {
+              const r = el.getBoundingClientRect();
+              if (r.width === 0 || r.height === 0) return false;
+              if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) return false;
+              return !el.closest('.leaflet-container, .leaflet-control');
+            });
+
+            for (const pin of pinnedEls) {
+              const p = pin.getBoundingClientRect();
+              for (const el of targets) {
+                // A target inside the pinned element is part of it, not under it.
+                if (pin.contains(el) || el.contains(pin)) continue;
+                const r = el.getBoundingClientRect();
+                const w = Math.min(p.right, r.right) - Math.max(p.left, r.left);
+                const h = Math.min(p.bottom, r.bottom) - Math.max(p.top, r.top);
+                if (w <= 0 || h <= 0) continue;
+                // The pinned element must actually be painted above it.
+                const pinZ = Number(getComputedStyle(pin).zIndex);
+                const elZ = Number(getComputedStyle(el).zIndex);
+                if (Number.isFinite(pinZ) && Number.isFinite(elZ) && pinZ < elZ) continue;
+                // The two arms of the corrected rule, above.
+                if (!isPinned(el) && canScroll) continue;
+                out.encroached.push({
+                  permanence: isPinned(el)
+                    ? 'both are pinned'
+                    : 'the document does not scroll, so nothing reveals it',
+                  target: describe(el),
+                  covering: describe(pin),
+                  area: Math.round(w * h),
+                  pct: Math.round((w * h * 100) / (r.width * r.height)),
+                });
+              }
+            }
             return out;
           },
           { selector: INTERACTIVE, min: TOUCH_TARGET_MIN, isTouch: bp.touch },
@@ -729,6 +832,16 @@ async function main() {
         }
         for (const s of result.small) {
           note(surface, bp.name, 'touch-target', `${s.target} is ${s.size}, under ${TOUCH_TARGET_MIN}px`);
+        }
+        for (const e of result.encroached) {
+          note(
+            surface,
+            bp.name,
+            'encroached',
+            `${e.covering} covers ${e.pct}% (${e.area}px²) of ${e.target} — ` +
+              `${e.permanence}, so that part of the target is permanently ` +
+              `untappable. The centre hit-test passes right up until it does not.`,
+          );
         }
         if (result.overflow) {
           note(

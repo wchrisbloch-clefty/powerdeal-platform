@@ -634,3 +634,30 @@ checks — so it inherits the assumptions rather than challenging them. The only
 reliable escape is mutation: break the thing deliberately and see whether the
 check notices. Every item above was found that way or by an unrelated
 investigation walking past it.
+
+### Fifth instance: the pass written to catch a subtler version of a handled bug
+
+`render-check` hit-tests each interactive target's CENTRE, which is exactly
+right for the failure it was built after — a feedback pill sitting squarely
+over two tab-bar destinations — and blind to a control that is 90% covered.
+So a second pass was added to measure partial overlap by area.
+
+Its first version asked only whether the COVERING element was fixed or sticky.
+It never asked whether the TARGET was. Twenty-three findings came back, loudest
+among them `nav"Main" covers 92% of select"Relationship"` — the mobile tab bar
+over a filter control two finger-flicks down the page.
+
+That is a scroll position, not a bug, and the existing occlusion pass fifty
+lines above already handled it correctly, with a comment explaining precisely
+this distinction. The new pass reintroduced the defect its own neighbour
+documents.
+
+The corrected rule has two arms and both are needed: **pinned over pinned** is
+always a finding, because neither moves relative to the other; **pinned over
+in-flow** is a finding only when the document cannot scroll at all, because on
+a short page there is no scroll that reveals anything. 23 findings became 5,
+and all five were real.
+
+Generalises: when adding a check beside an existing one that covers adjacent
+ground, read the existing one's exclusions first. They are usually there
+because somebody already paid for them.
