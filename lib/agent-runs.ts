@@ -382,6 +382,92 @@ export function statusOf(job: AgentJob, run: AgentRun | undefined): AgentStatus 
   return age > limit ? 'stale' : 'ok';
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * FRESHNESS, READ OFF THE HEARTBEAT AND NEVER OFF THE PAYLOAD.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * ⚠️ THE MECHANISM ABOVE ALREADY WORKED. `statusOf` would have called
+ * ccus-sweep `stale` from the third day of the outage, and it did. What it
+ * could not do was reach anybody: it renders in Settings › Agent health, and
+ * the surface where the operator was actually looking — the CCUS tab — showed
+ * `ccus_latest`, a PAYLOAD key that only moves when the sweep finds something.
+ *
+ * So the outage was detected and not delivered. Five missed stall-alert runs
+ * and seven missed ccus-sweep runs, every one of them reporting healthy on the
+ * page anybody would have opened.
+ *
+ * ══ THE RULE ══
+ *
+ *   A surface that shows data from a scheduled job states the JOB's freshness,
+ *   from the heartbeat, and never infers it from the newest row it is holding.
+ *
+ * "The newest event is from the 11th" and "nothing has checked since the 11th"
+ * are different sentences, and only one of them is a reason to worry. A
+ * payload timestamp cannot tell them apart; a heartbeat can tell them apart
+ * without knowing anything about the payload at all.
+ */
+export interface JobFreshness {
+  jobId: string;
+  label: string;
+  status: AgentStatus;
+  /** When the job last completed successfully. Null if it never has. */
+  lastSuccessAt: string | null;
+  /** How overdue it is, in whole hours. Zero when healthy. */
+  overdueHours: number;
+  /** One sentence, ready to render. Always true of both facts. */
+  sentence: string;
+}
+
+export function freshnessOf(job: AgentJob, run: AgentRun | undefined): JobFreshness {
+  const status = statusOf(job, run);
+  const lastSuccessAt = run?.lastSuccessAt ?? null;
+  const limit = STALE_AFTER_MS[job.id] ?? 7 * 24 * 3600_000;
+  const age = lastSuccessAt ? Date.now() - Date.parse(lastSuccessAt) : Infinity;
+  const overdueHours =
+    Number.isFinite(age) && age > limit ? Math.floor((age - limit) / 3600_000) : 0;
+
+  const sentence =
+    status === 'never-run'
+      ? `${job.label} has never completed a run, so nothing here has been checked.`
+      : status === 'failing'
+        ? `${job.label} is failing — the last ${run?.consecutiveFailures ?? 1} run(s) errored, ` +
+          `so anything below may be out of date. ${run?.lastError ?? ''}`.trim()
+        : status === 'stale'
+          ? `${job.label} has not completed since ${lastSuccessAt}, ` +
+            `${overdueHours}h past its ${job.schedule.toLowerCase()} window. ` +
+            `Anything below is what it found before it stopped.`
+          : `${job.label} last completed ${lastSuccessAt}.`;
+
+  return { jobId: job.id, label: job.label, status, lastSuccessAt, overdueHours, sentence };
+}
+
+/** Every job's freshness. N comes from AGENT_JOBS, so all six are covered. */
+export async function getFreshness(): Promise<JobFreshness[]> {
+  const runs = await getAgentRuns();
+  return AGENT_JOBS.map((job) => freshnessOf(job, runs[job.id]));
+}
+
+/** One job's freshness, for a surface that shows one job's output. */
+export async function freshnessFor(jobId: string): Promise<JobFreshness | null> {
+  const job = AGENT_JOBS.find((j) => j.id === jobId);
+  if (!job) return null;
+  const runs = await getAgentRuns();
+  return freshnessOf(job, runs[jobId]);
+}
+
+/**
+ * Which gap kind a surface should render for this job's freshness.
+ *
+ * Reuses the gap vocabulary rather than inventing a second one: `blocked` is
+ * already "the read failed and here is why", and a dead job is the same fact
+ * about a slower read.
+ */
+export function freshnessGapKind(f: JobFreshness): 'blocked' | 'unchecked' | null {
+  if (f.status === 'ok') return null;
+  return f.status === 'never-run' ? 'unchecked' : 'blocked';
+}
+
 export async function getAgentStatuses(): Promise<AgentJobStatus[]> {
   const runs = await getAgentRuns();
   return AGENT_JOBS.map((job) => ({

@@ -1,5 +1,5 @@
 import { isAuthorized, unauthorized, ok, serverError } from '../_shared/auth.ts';
-import { serviceClient, listUsers, listDeals, writeState } from '../_shared/appState.ts';
+import { serviceClient, listUsers, listDeals, writeState, readState } from '../_shared/appState.ts';
 import { recordAgentRun } from '../_shared/appState.ts';
 
 /**
@@ -119,6 +119,9 @@ Deno.serve(async (request: Request) => {
         };
       });
 
+      let newEvents = 0;
+      let accountsHit: (string | undefined)[] = [];
+
       if (rows.length > 0) {
         // Skip anything already stored — the 48h window overlaps by design.
         // ⚠️ THE DEDUPE READ IGNORED ITS ERROR, AND THE FALLBACK WRITES DATA.
@@ -149,28 +152,77 @@ Deno.serve(async (request: Request) => {
           if (error) errors.push(`insert (${user.user_id}): ${error.message}`);
         }
 
-        await writeState(supabase, user.user_id, 'ccus_latest', {
-          generated_at: new Date().toISOString(),
-          new_events: fresh.length,
-          accounts_hit: [
-            ...new Set(
-              fresh.flatMap((r) =>
-                r.deal_ids
-                  .map((id) => deals.find((d) => d.id === id)?.company)
-                  .filter(Boolean),
-              ),
+        newEvents = fresh.length;
+        accountsHit = [
+          ...new Set(
+            fresh.flatMap((r) =>
+              r.deal_ids
+                .map((id) => deals.find((d) => d.id === id)?.company)
+                .filter(Boolean),
             ),
-          ],
-        });
-
-        summary[user.user_id] = { new_events: fresh.length };
+          ),
+        ];
       }
+
+      /**
+       * ⚠️ THIS WRITE USED TO SIT INSIDE `if (rows.length > 0)`, AND THAT IS
+       * HOW FIVE DAYS OF SILENCE READ AS HEALTHY.
+       *
+       * With nothing new in the window, `rows` is empty, the branch is skipped,
+       * and `ccus_latest` keeps whatever timestamp it had the last time the
+       * sweep found something. So one key was carrying two different facts —
+       * "when did this last run" and "when did this last find anything" — and
+       * answering the second while wearing the label of the first.
+       *
+       * That is the isSeed / readError distinction again: "nothing found" and
+       * "did not run" are different, and a freshness signal that only moves on
+       * news cannot detect a job that stopped. It is also exactly the shape of
+       * the stall-alert defect on a second function.
+       *
+       * Two timestamps now. `ran_at` moves every run, unconditionally.
+       * `found_at` moves only when something was written, and is carried
+       * forward from the previous record when nothing was — so the surface can
+       * say "checked 20 minutes ago, nothing new since the 11th" instead of
+       * implying the eleventh was the last time anybody looked.
+       */
+      const prior = await readState<{ found_at?: string | null }>(
+        supabase,
+        user.user_id,
+        'ccus_latest',
+      );
+
+      await writeState(supabase, user.user_id, 'ccus_latest', {
+        ran_at: new Date().toISOString(),
+        found_at: newEvents > 0 ? new Date().toISOString() : (prior?.found_at ?? null),
+        new_events: newEvents,
+        candidates_in_window: rows.length,
+        accounts_hit: accountsHit,
+      });
+
+      summary[user.user_id] = { new_events: newEvents, candidates: rows.length };
     }
 
+    /*
+      ⚠️ THIS REPORTED `ok: true` UNCONDITIONALLY WHILE COLLECTING `errors`.
+      Both feeds could 404, `entries` would be empty, nothing would be written,
+      and the status page would show a healthy daily sweep. market-watch got
+      this right — `ok: !sweepError`, with a comment saying exactly why — and
+      this function did not, which is the argument for the shared contract
+      rather than three functions each remembering separately.
+
+      A run that could not reach its sources did not succeed at its job. The
+      errors travel with the record so the status page can say which source.
+    */
     await recordAgentRun(supabase, ownerForRecord, 'ccus-sweep', {
-      ok: true,
+      ok: errors.length === 0,
+      error: errors.length > 0 ? errors.join('; ') : null,
       durationMs: Date.now() - startedAt,
-      itemsProcessed: 0,
+      // ⚠️ WAS HARDCODED 0. The heartbeat carried a meaningless count, so even
+      // a healthy run said nothing about how much it had actually done.
+      itemsProcessed: Object.values(summary).reduce(
+        (n, s) => n + ((s as { new_events: number }).new_events ?? 0),
+        0,
+      ),
     });
 
     return ok({

@@ -77,7 +77,27 @@ Deno.serve(async (request: Request) => {
         }
       }
 
-      if (!user.notify.stall_alert) continue;
+      /*
+        ⚠️ THIS `continue` USED TO SKIP THE STATE WRITE TOO, so a user who had
+        turned the alert off and a user whose job had died left the same trace:
+        a `stall_alerts_latest` key that stopped moving. Smaller consequence
+        than the ccus_latest case — the operator chose this — and the same
+        defect, which is the point: one key carrying two facts.
+
+        The tick above still ran for them. That is deliberate: days_in_stage
+        feeds the health score whether or not anybody wants an alert about it.
+      */
+      if (!user.notify.stall_alert) {
+        await writeState(supabase, user.user_id, 'stall_alerts_latest', {
+          generated_at: new Date().toISOString(),
+          checked: deals.length,
+          stalled: null,
+          notifications_enabled: false,
+          note: 'Stall alerts are switched off for this account. The day counter still advanced.',
+        });
+        summary[user.user_id] = { checked: deals.length, stalled: 'disabled' };
+        continue;
+      }
 
       // ── 2. Diagnose ──
       const alerts = deals
@@ -91,6 +111,7 @@ Deno.serve(async (request: Request) => {
         checked: deals.length,
         stalled: alerts.length,
         critical: alerts.filter((a) => a.severity === 'critical').length,
+        notifications_enabled: true,
         alerts,
       };
 

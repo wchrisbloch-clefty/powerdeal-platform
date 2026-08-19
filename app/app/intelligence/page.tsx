@@ -32,6 +32,8 @@ import PricingPanel from '@/components/modules/pricing-panel';
 import ResearchPanel from '@/components/modules/research-panel';
 import { EmptyState } from '@/components/ui/card';
 import { GapPanel } from '@/components/ui/gap';
+import JobFreshnessNote from '@/components/ui/job-freshness';
+import { freshnessFor } from '@/lib/agent-runs';
 import PageHeader from '@/components/chrome/page-header';
 
 export const metadata = { title: 'Intelligence' };
@@ -161,7 +163,11 @@ async function FeedTab() {
 // ── Market Watch ────────────────────────────────────────────────
 
 async function MarketWatchTab() {
-  const [entries, { data: deals }] = await Promise.all([getMarketWatch(60), getDeals()]);
+  const [entries, { data: deals }, freshness] = await Promise.all([
+    getMarketWatch(60),
+    getDeals(),
+    freshnessFor('market-watch'),
+  ]);
   /*
     ⚠️ A REFUSED READ IS NOT AN EMPTY LOG, AND THE PANEL CANNOT TELL.
     MarketWatchPanel renders "Nothing persisted yet — Market Watch fills as the
@@ -173,7 +179,12 @@ async function MarketWatchTab() {
   if (entries.readError) {
     return <GapPanel kind="blocked" subject="Market Watch" reason={entries.readError} />;
   }
-  return <MarketWatchPanel entries={entries.data} deals={deals} />;
+  return (
+    <>
+      <JobFreshnessNote freshness={freshness} />
+      <MarketWatchPanel entries={entries.data} deals={deals} />
+    </>
+  );
 }
 
 // ── Trending ────────────────────────────────────────────────────
@@ -209,21 +220,52 @@ async function TrendingTab() {
 // ── Signals ─────────────────────────────────────────────────────
 
 async function SignalsTab() {
-  const [signals, { data: deals }] = await Promise.all([getRecentSignals(200), getDeals()]);
+  const [signals, { data: deals }, freshness] = await Promise.all([
+    getRecentSignals(200),
+    getDeals(),
+    freshnessFor('feed-sweep'),
+  ]);
   if (signals.readError) {
     return <GapPanel kind="blocked" subject="the Intelligence Log" reason={signals.readError} />;
   }
-  return <SignalsPanel signals={signals.data} deals={deals} />;
+  return (
+    <>
+      <JobFreshnessNote freshness={freshness} />
+      <SignalsPanel signals={signals.data} deals={deals} />
+    </>
+  );
 }
 
 // ── CCUS ────────────────────────────────────────────────────────
 
 async function CcusTab() {
-  const [events, { data: deals }] = await Promise.all([getCcusEvents(), getDeals()]);
+  const [events, { data: deals }, freshness] = await Promise.all([
+    getCcusEvents(),
+    getDeals(),
+    freshnessFor('ccus-sweep'),
+  ]);
   if (events.readError) {
     return <GapPanel kind="blocked" subject="CCUS events" reason={events.readError} />;
   }
-  return <CcusTracker events={events.data} deals={deals} />;
+  /*
+    ⚠️ THE FRESHNESS LINE COMES FROM THE JOB, NOT FROM THE NEWEST ROW.
+
+    This surface showed events and nothing else. When the sweep died on a
+    secret mismatch, seven consecutive runs 401'd, pg_cron recorded success
+    because net.http_post is async, and this tab kept rendering two events from
+    the 6th and the 11th — which is exactly what it renders when the sweep is
+    healthy and the world has been quiet. Five days of silence, indistinguishable
+    from five quiet days.
+
+    A row's date cannot tell those apart. The heartbeat can, without knowing
+    anything about the rows.
+  */
+  return (
+    <>
+      <JobFreshnessNote freshness={freshness} />
+      <CcusTracker events={events.data} deals={deals} />
+    </>
+  );
 }
 
 // ── Pricing ─────────────────────────────────────────────────────
