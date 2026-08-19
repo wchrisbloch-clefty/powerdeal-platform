@@ -1,17 +1,46 @@
 -- ═══════════════════════════════════════════════════════
 -- PowerDeal — pg_cron schedules
 --
--- BEFORE RUNNING: replace {CRON_SECRET} throughout this file with the real
--- value. The project ref is already filled in. A blind replace-all is correct
--- and safe: the string appears 6 times, but only 3 are live — one inside each
--- cron.schedule body below. The other 3 are in this comment block and in the
--- fire-by-hand example at the bottom, where replacing them is harmless (this
--- buffer is scratch; nothing here is committed with a secret in it).
+-- ⚠️ THE SECRET IS NO LONGER PASTED INTO THIS FILE. IT LIVES IN THE VAULT.
 --
--- {CRON_SECRET} is deliberately NOT committed. It is the only thing standing
--- between the public internet and three functions that write to every user's
--- data, so it stays out of git — paste it in the SQL editor at run time.
+-- It used to be a literal, replaced by hand in three cron.schedule bodies
+-- before running. That is a second copy of a value whose first copy lives in
+-- the Supabase edge-function environment — and on 2026-08-12 the two drifted.
+-- Every net.http_post got a 401. pg_cron recorded success, because
+-- net.http_post is asynchronous and the statement it runs is the ENQUEUE, not
+-- the request. Five stall-alert runs and seven ccus-sweep runs were missed,
+-- every one of them reporting healthy.
+--
+-- The job bodies now READ the secret at fire time:
+--
+--   (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
+--
+-- so rotating it is one statement and the schedule never has to be rewritten.
+-- Set it once, before running this file:
+--
+--   select vault.create_secret('<value>', 'cron_secret',
+--            'Shared secret for pg_cron -> edge function calls');
+--
+--   -- rotating later, without touching any schedule:
+--   select vault.update_secret(
+--            (select id from vault.secrets where name = 'cron_secret'),
+--            '<new value>');
+--
 -- Generate with: openssl rand -hex 32
+--
+-- ══ WHAT THIS DOES NOT FIX, AND SAYING SO IS THE POINT ══
+--
+-- The edge functions still read CRON_SECRET from their own environment, and
+-- that copy cannot be removed. An auth gate has to authenticate the caller
+-- BEFORE trusting it; making it query the database first inverts that, turns
+-- a database blip into a 500 where a 401 belongs, and needs a security-definer
+-- RPC to expose vault to PostgREST at all — which hands the secret to anything
+-- holding the service key.
+--
+-- So: three copies became two, and the one that drifted is gone.
+-- scripts/cron-secret-check.mjs proves the remaining two agree by BEHAVIOUR
+-- rather than by comparing values, which is the only comparison possible from
+-- outside both of them.
 --
 -- ⚠️  The functions MUST be deployed with JWT verification OFF (supabase/
 -- config.toml sets this declaratively; --no-verify-jwt does it per deploy).
@@ -53,7 +82,8 @@ select cron.schedule(
     url := 'https://nwbbcczawvmgtjeelyvf.functions.supabase.co/market-watch',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'x-cron-secret', '{CRON_SECRET}'
+      'x-cron-secret',
+      (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
     ),
     body := '{}'::jsonb,
     timeout_milliseconds := 180000
@@ -74,7 +104,8 @@ select cron.schedule(
     url := 'https://nwbbcczawvmgtjeelyvf.functions.supabase.co/stall-alert',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'x-cron-secret', '{CRON_SECRET}'
+      'x-cron-secret',
+      (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
     ),
     body := '{}'::jsonb,
     timeout_milliseconds := 60000
@@ -92,7 +123,8 @@ select cron.schedule(
     url := 'https://nwbbcczawvmgtjeelyvf.functions.supabase.co/ccus-sweep',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'x-cron-secret', '{CRON_SECRET}'
+      'x-cron-secret',
+      (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
     ),
     body := '{}'::jsonb,
     timeout_milliseconds := 120000
@@ -133,5 +165,14 @@ select cron.schedule(
 -- Fire one by hand:
 --   select net.http_post(
 --     url := 'https://nwbbcczawvmgtjeelyvf.functions.supabase.co/stall-alert',
---     headers := jsonb_build_object('x-cron-secret', '{CRON_SECRET}'),
+--     headers := jsonb_build_object('x-cron-secret',
+--       (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')),
 --     body := '{}'::jsonb);
+--
+-- ⚠️ Firing stall-alert by hand ticks days_in_stage on every in-flight deal.
+-- Use ccus-sweep or market-watch to test connectivity.
+--
+-- Confirm the vault row exists before scheduling — a missing secret makes the
+-- header NULL, jsonb_build_object drops the key, and every call 401s exactly
+-- as it did in August:
+--   select name, created_at, updated_at from vault.secrets where name = 'cron_secret';

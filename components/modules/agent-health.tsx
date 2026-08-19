@@ -251,7 +251,7 @@ export default function AgentHealth() {
           <span className="font-mono">supabase/functions/schedule.sql</span> was never executed
           against the database — it ships with{' '}
           <span className="font-mono">{'{PROJECT_REF}'}</span> and{' '}
-          <span className="font-mono">{'{CRON_SECRET}'}</span> placeholders that have to be filled
+          <span className="font-mono">vault.decrypted_secrets</span> lookups rather than a pasted literal
           in first.
         </p>
       ) : null}
