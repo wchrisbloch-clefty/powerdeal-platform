@@ -87,9 +87,9 @@ Loads 3 intelligence signals and 3 rate-move market watch entries.
 None of the `hits` column should be empty:
 
 ```
-Dominion Energy Virginia rate increase approved …   9  verified  BAE Systems, General Dynamics, L3Harris
-SDG&E authorized 3% annual base revenue increases … 9  verified  BAE Systems, Far Niente
-Dominion Energy South Carolina ~12.7% …             8  reported  BAE Systems
+Dominion Energy Virginia rate increase approved …   9  verified  Ironvale Defense Systems, Calderwood Marine Group, Helix Avionics Group
+SDG&E authorized 3% annual base revenue increases … 9  verified  Ironvale Defense Systems, Verano Estate Winery
+Dominion Energy South Carolina ~12.7% …             8  reported  Ironvale Defense Systems
 ```
 
 ---
@@ -98,12 +98,12 @@ Dominion Energy South Carolina ~12.7% …             8  reported  BAE Systems
 
 | Check | Expected |
 |---|---|
-| **Pipeline** | 21 deals, BAE Systems at the top (lowest health) |
-| **Deal → BAE Systems** | Trevor Reitsma as champion, 116 MW, SDG&E |
-| **Deal → BAE → Market watch tab** | The Dominion VA and SDG&E entries |
-| **Deal → Williams → Signals tab** | Both midstream market-trend signals |
+| **Pipeline** | 21 deals, Ironvale Defense Systems at the top (lowest health) |
+| **Deal → Ironvale Defense Systems** | the named contact Reitsma as champion, 116 MW, SDG&E |
+| **Deal → Ironvale → Market watch tab** | The Dominion VA and SDG&E entries |
+| **Deal → Tamarack Transmission → Signals tab** | Both midstream market-trend signals |
 | **Intelligence** | Rate-move entries once you run a sweep |
-| **Chat** | "brief me on BAE" → a real brief, not `BRAIN_NOT_SYNCED` |
+| **Chat** | "brief me on Ironvale" → a real brief, not `BRAIN_NOT_SYNCED` |
 
 Still seeing `BRAIN_NOT_SYNCED`? Step 1 didn't take. Confirm the committed file
 no longer contains the line `PD-PLACEHOLDER-SENTINEL`.
@@ -118,8 +118,8 @@ on `intelligence_log`, 11 against 10 on `market_watch_log`. Postgres would have
 rejected all six inserts with *"INSERT has more target columns than
 expressions"*. Fixed in `seed-intelligence.sql`.
 
-**Three signals pointed at the wrong accounts.** The DuPont/Qnity spinoff
-signal was mapped to BAE Systems; its own text is about IND-014 and IND-004.
+**Three signals pointed at the wrong accounts.** The Ardent Polymers/Quillon spinoff
+signal was mapped to Ironvale Defense Systems; its own text is about IND-014 and IND-004.
 The two midstream signals had `deal_ids` set to `NULL` while naming six
 accounts in the body — so they would have appeared on no deal page at all.
 All three now map to the accounts they actually name.
@@ -133,7 +133,7 @@ on the RLS policies so a user cannot *write* a row owned by someone else rather
 than merely failing to read one.
 
 **Health scores are computed, not hand-set.** The drafts assigned values like
-`4` and `3` directly. The trigger now derives them, so BAE opens at **2.8**
+`4` and `3` directly. The trigger now derives them, so Ironvale opens at **2.8**
 rather than 4 — MEDDPICC 1/8, no economic buyer, single-threaded. That is the
 formula reporting what the record actually contains, and it climbs as you fill
 the gaps in. A book where some scores are hand-set and others computed can't be

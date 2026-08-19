@@ -123,7 +123,7 @@ const SURFACES = [
    * check reporting "clean" about a component it never loaded is the same
    * empty-universe pass this script was built after.
    *
-   * `seed-def-001` is BAE Systems in the shipped seed, and it is deliberately
+   * `seed-def-001` is Ironvale Defense Systems in the shipped seed, and it is deliberately
    * the sparsest kind of record this product holds: no MEDDPICC beyond a
    * champion, no critical event, single-threaded. It is the state 21 real
    * deals are in, which makes it the right page to render the gap system

@@ -254,7 +254,7 @@ describe('each cause sends the reader somewhere different', () => {
 // ── The defect the error exposed ────────────────────────────────
 
 const deal = (over: Partial<Deal> = {}): Deal =>
-  ({ id: 'd1', deal_id: 'DEF-001', company: 'BAE', vertical: 'Defense',
+  ({ id: 'd1', deal_id: 'DEF-001', company: 'Ironvale', vertical: 'Defense',
      stage: 'Discovery', health_score: 4, size_usd_m: null, ...over }) as Deal;
 
 const item = (over: Partial<FeedItem> = {}): FeedItem =>

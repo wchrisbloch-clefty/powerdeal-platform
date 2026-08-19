@@ -19,7 +19,7 @@ import { forAudience } from '@/lib/annotations';
  *
  * Every fact in here is COMPUTED — the energize date, the ordering, the owner
  * fallback, the consistency flags. This module only chooses the language
- * wrapped around them. The first Williams export got that boundary wrong and
+ * wrapped around them. The first midstream export got that boundary wrong and
  * shipped two different energize dates in one document.
  *
  * Pure — no I/O, no `server-only`. Both the export route and the live panel

@@ -3,7 +3,7 @@
  *
  * The Hub carries the item. PowerDeal carries the item AND the account it maps
  * to, because the two produce different answers: "what does this rate case
- * mean" is a news question, "what does this rate case mean for BAE Norfolk,
+ * mean" is a news question, "what does this rate case mean for the Norfolk site,
  * whose economic buyer we have not yet named" is a deal question, and only the
  * second one is worth a rep's time.
  *

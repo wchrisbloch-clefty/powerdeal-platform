@@ -8,8 +8,8 @@ import { isInPipeline, normalizeCompanyName } from '@/lib/engine/entities';
  * NO SCREENSHOT OF SEED DATA MAY EVER BE AMBIGUOUS AGAIN.
  * ═══════════════════════════════════════════════════════════════
  *
- * A screenshot taken during this build showed BAE with a champion recorded and
- * health 2.8. The live book has BAE at health 4 with no champion. Nothing in
+ * A screenshot taken during this build showed the first defense row with a champion
+ * recorded at health 2.8. The live book had that account at health 4 with none. Nothing in
  * the CONTENT distinguished them — same twenty-one companies, same names, one
  * of them carrying a real person's name — so the only tell was the row's uuid,
  * which no screenshot shows.
@@ -49,54 +49,60 @@ describe('every seed row announces itself', () => {
   });
 });
 
-describe('no seed row carries a name from the real book', () => {
-  it('no champion is shared with supabase/seed.sql', async () => {
-    /*
-      ⚠️ ASSERTED AGAINST THE LIVE SEED FILE RATHER THAN AGAINST A HARDCODED
-      NAME, for the obvious reason: writing the real champion's name into a
-      test to check it is absent would put it straight back into the repo.
+describe('the two demo representations do not drift', () => {
+  /*
+    ⚠️ THIS BLOCK USED TO ASSERT THAT NO CHAMPION WAS SHARED WITH
+    supabase/seed.sql, ON THE PREMISE THAT seed.sql HELD THE REAL BOOK. That
+    premise is gone: seed.sql is the demo now too, so the two files are SUPPOSED
+    to agree and the old check failed for the right reason.
 
-      supabase/seed.sql holds the operator's actual book and is deliberately
-      NOT modified. It is the reference for what must not be duplicated here.
+    What replaces it is the drift assertion. One demo dataset has two
+    representations — a TypeScript array for the zero-key path and a SQL
+    template for the database — and this repo's history is a list of two
+    representations of one thing quietly disagreeing. If somebody re-adds a real
+    account to one of them, this is what notices.
 
-      ⚠️ SCOPED TO `champion`, AND THE NARROWING IS A FINDING, NOT A
-      CONVENIENCE. The first version of this check also covered `next_move` and
-      `key_risk`, and it failed immediately: all forty-two of those strings are
-      the operator's real BD notes, verbatim — "HGB non-attainment permitting
-      angle; map Gulf Coast vinyls plants", "They are building gas power
-      themselves — buyer, partner, or neither?".
+    The "does any of this match the live pipeline" half cannot live in a unit
+    test: to assert a name is absent, the test has to write it down, which puts
+    it back in the repo. `scripts/no-real-data.mjs` does that half against git
+    history, where the real names can be read at runtime and never committed.
+  */
+  it('every deal in the TS seed appears in the SQL seed, with the same strings', async () => {
+    const sql = await readFile('supabase/seed.sql', 'utf8');
+    expect(sql.length).toBeGreaterThan(500);
 
-      That is the same class as the champion's name and a larger quantity of
-      it, and it is the substantive reason a screenshot of seed data read as
-      real: the strategy in the cells was real. It is NOT changed here, because
-      rewriting forty-two strategy notes is a decision about what the fallback
-      dataset is for — it makes the demo behave like the book — and that is the
-      operator's call, not a change to make quietly inside a task about
-      prefixes. Raised in the reply instead.
-
-      States, utilities, verticals and stages legitimately overlap and must, or
-      the fallback stops exercising the same code paths the live data does.
-    */
-    const live = await readFile('supabase/seed.sql', 'utf8');
-    expect(live.length, 'seed.sql is empty — nothing to compare against').toBeGreaterThan(500);
-
-    const fields = ['champion'] as const;
-    let checked = 0;
     for (const deal of SEED_DEALS) {
-      for (const field of fields) {
+      expect(sql, `${deal.deal_id} missing from seed.sql`).toContain(`'${deal.deal_id}'`);
+      expect(sql, `${deal.deal_id} company differs`).toContain(`'${deal.company}'`);
+      for (const field of ['next_move', 'key_risk', 'champion'] as const) {
         const value = deal[field];
-        if (typeof value !== 'string' || value.trim().length < 8) continue;
-        checked += 1;
+        if (typeof value !== 'string') continue;
         expect(
-          live.includes(value),
-          `${deal.deal_id}.${field} is copied verbatim from the live book`,
-        ).toBe(false);
+          sql.includes(`'${value.replace(/'/g, "''")}'`),
+          `${deal.deal_id}.${field} differs between lib/seed-data.ts and supabase/seed.sql`,
+        ).toBe(true);
       }
     }
-    // The loop must have had something to do. One seed deal carries a champion
-    // and that is the one this check exists for — if it drops to zero, either
-    // the field was emptied or the guard stopped reading it.
-    expect(checked).toBeGreaterThan(0);
+  });
+
+  it('the SQL seed holds exactly as many rows as the TS seed', async () => {
+    const sql = await readFile('supabase/seed.sql', 'utf8');
+    const rows = [...sql.matchAll(/^\('[A-Z]{2,4}-\d{3}',/gm)];
+    expect(rows).toHaveLength(SEED_DEALS.length);
+  });
+
+  it('the SQL seed only ever writes and deletes TEMPLATE rows', async () => {
+    /*
+      ⚠️ THE REASON REPLACING THIS FILE WAS SAFE AT ALL. It deletes
+      `where user_id is null` and inserts with `user_id = null`; the per-user
+      copy is ON CONFLICT DO NOTHING. So rewriting the demo cannot touch a real
+      deal. Asserted rather than remembered, because the next person to edit
+      this file will not have had this conversation.
+    */
+    const sql = await readFile('supabase/seed.sql', 'utf8');
+    expect(sql).toContain('delete from deals where user_id is null;');
+    expect(sql).not.toMatch(/delete from deals(?! where user_id is null)/);
+    expect(sql).toContain('on conflict (user_id, deal_id) do nothing');
   });
 });
 
@@ -106,21 +112,21 @@ describe('the marker does not break what matches on company names', () => {
     BEEN SILENT. `isInPipeline` compares both directions — the book's name
     inside the news name, and the news name inside the book's.
 
-    With the marker left in the normaliser, "SAMPLE — Valero" becomes
-    "sample valero" and a headline about "Valero Energy Corp" becomes "valero
+    With the marker left in the normaliser, "SAMPLE — Copperline" becomes
+    "sample copperline" and a headline about "Copperline Energy Corp" becomes "copperline
     energy". Neither contains the other, so peer radar, trending and the feed's
     account mapping go quiet — in exactly the mode the render check runs in.
 
-    And it would have half-worked: "SAMPLE — BAE Systems" still contains "bae
-    systems", so any fixture built from a multi-word company would have kept
+    And it would have half-worked: "SAMPLE — Ironvale Defense Systems" still contains "ironvale
+    defense systems", so any fixture built from a multi-word company would have kept
     passing. The full suite (1,134 tests) went green with the bug present.
   */
 
   it('normalising strips the marker', () => {
-    expect(normalizeCompanyName(`${SEED_PREFIX}Valero`)).toBe('valero');
-    expect(normalizeCompanyName(`${SEED_PREFIX}BAE Systems`)).toBe('bae systems');
+    expect(normalizeCompanyName(`${SEED_PREFIX}Copperline`)).toBe('copperline');
+    expect(normalizeCompanyName(`${SEED_PREFIX}Ironvale Defense Systems`)).toBe('ironvale defense systems');
     // And leaves an unmarked name alone.
-    expect(normalizeCompanyName('Valero Energy Corp')).toBe('valero energy');
+    expect(normalizeCompanyName('Copperline Energy Corp')).toBe('copperline energy');
   });
 
   it('every seed company is still findable by its real name', () => {
@@ -134,7 +140,7 @@ describe('the marker does not break what matches on company names', () => {
   });
 
   it('and by a longer form of it, which is the direction that broke', () => {
-    // The news says "Valero Energy Corp"; the book says "Valero". This is the
+    // The news says "Copperline Energy Corp"; the book says "Copperline". This is the
     // comparison that fails when the marker survives normalisation.
     for (const deal of SEED_DEALS) {
       const real = deal.company.slice(SEED_PREFIX.length);

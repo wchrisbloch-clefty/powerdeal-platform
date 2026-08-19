@@ -9,15 +9,27 @@ import { computeHealthScore, computeMeddpiccScore } from './deals';
  * When Supabase is unconfigured the product still runs: the pipeline table
  * sorts and filters, the map plots markers, the feed renders.
  *
- * ══ WHY EVERY COMPANY CARRIES A PREFIX ══
+ * ══ NOTHING HERE IS THE OPERATOR'S BOOK ANY MORE ══
  *
  * This file used to open with "These are the REAL 21 Spine accounts, mirroring
  * supabase/seed.sql", and that sentence was the whole problem. Twenty-one
  * rows, the same twenty-one companies, one of them carrying a real person's
- * name in `champion`, `next_move` and `key_risk`.
+ * name, and forty-two cells of live BD reasoning — "map the plants in the same
+ * airshed" was not placeholder text, it was a thesis someone was working.
+ *
+ * ⚠️ THE REASON IS DISTRIBUTION, NOT EMBARRASSMENT. Every component of this
+ * system has to be independently packageable — shareable, sellable, handed to
+ * somebody. A repo that ships with a real target list, a real competitive
+ * strategy and a named contact at a defense prime is not a product; it is a
+ * notebook that happens to compile. The book lives in Supabase. This holds a
+ * demo.
+ *
+ * Companies, notes, risks and site names are INVENTED. tests/seed-visible.test.ts
+ * asserts that no string here appears in any file holding real data.
  *
  * The consequence was not theoretical. A screenshot taken during this build
- * showed BAE with Champion recorded and health 2.8; the live book has BAE at
+ * showed the first defense row with Champion recorded at health 2.8; the live
+ * book has that account at
  * health 4 with no champion. Nobody could tell from the screenshot, because
  * nothing in the CONTENT distinguished the two — the only tell was the row's
  * uuid, which no screenshot shows.
@@ -34,13 +46,17 @@ import { computeHealthScore, computeMeddpiccScore } from './deals';
  *
  * ══ WHAT IS NOT CHANGED ══
  *
- * The verticals, states, utilities and stage distribution stay real, because
- * the fallback has to exercise the same code paths the live data does. A seed
- * set of Foo Corp in state XX would stop catching layout and grouping defects,
- * which is the other job this data does.
+ * The verticals, states, utilities, geo tiers and stage distribution stay real,
+ * because the fallback has to exercise the same code paths the live data does.
+ * A seed set of Foo Corp in state XX would stop catching layout and grouping
+ * defects, which is the other job this data does — and utilities are public
+ * infrastructure, not accounts, so naming SDG&E or Dominion discloses nothing.
  *
- * supabase/seed.sql IS NOT TOUCHED. It populates the live instance and holds
- * the operator's actual book.
+ * The company names are invented but SHAPED like the real ones: multi-word,
+ * mixed lengths, one that is a single word after the prefix. That matters more
+ * than it sounds — the entity matcher compares normalised names in both
+ * directions, and a set of uniformly-shaped names would stop exercising the
+ * short-name path that the SAMPLE prefix broke once already.
  */
 
 /**
@@ -60,180 +76,180 @@ type SeedSpec = Pick<
 const SPECS: SeedSpec[] = [
   // ── DEFENSE ──
   {
-    deal_id: 'DEF-001', company: 'SAMPLE — BAE Systems', vertical: 'Defense',
+    deal_id: 'DEF-001', company: 'SAMPLE — Ironvale Defense Systems', vertical: 'Defense',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'CA',
-    utility: 'SDG&E', value_prop: 'Multiple', beachhead_site: 'ES — San Diego',
+    utility: 'SDG&E', value_prop: 'Multiple', beachhead_site: 'Coastal test range',
     size_mw: 116, champion: 'A. Sample (Energy & Utilities Mgr)',
-    next_move: 'Land San Diego feasibility convo; name EB + security gatekeeper',
+    next_move: 'Book the site feasibility call; name the economic buyer and the security sponsor',
     key_risk: 'Single-threaded on the one named contact; no load number confirmed',
   },
   {
-    deal_id: 'DEF-006', company: 'SAMPLE — General Dynamics', vertical: 'Defense',
+    deal_id: 'DEF-006', company: 'SAMPLE — Calderwood Marine Group', vertical: 'Defense',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'VA',
     utility: 'Dominion', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'Identify beachhead segment (land systems vs. marine)',
-    key_risk: 'Massive multi-segment enterprise; security gates throughout',
+    next_move: 'Choose a beachhead segment before approaching the enterprise',
+    key_risk: 'Several business units, each with its own clearance process',
   },
   {
-    deal_id: 'DEF-007', company: 'SAMPLE — L3Harris', vertical: 'Defense',
+    deal_id: 'DEF-007', company: 'SAMPLE — Helix Avionics Group', vertical: 'Defense',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'FL',
     utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'Map facility footprint; identify reliability-critical fabs',
-    key_risk: 'Multi-site; security/OPSEC gates like BAE',
+    next_move: 'Map the site list and find the ones where an outage stops production',
+    key_risk: 'Multi-site, and site access is controlled centrally',
   },
   {
-    deal_id: 'DEF-021', company: 'SAMPLE — SpaceX', vertical: 'Defense/Special',
+    deal_id: 'DEF-021', company: 'SAMPLE — Orbital Reach Industries', vertical: 'Defense/Special',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'TX',
-    utility: 'ERCOT', value_prop: 'Multiple', beachhead_site: 'Starbase TX',
+    utility: 'ERCOT', value_prop: 'Multiple', beachhead_site: 'Launch complex',
     size_mw: null, champion: null,
-    next_move: 'Qualify Starbase + factory loads; time-to-power is their language',
-    key_risk: 'Moves fast, vertically integrated — may self-build power; ITAR gates',
+    next_move: 'Qualify the launch and factory loads; lead with time-to-power',
+    key_risk: 'Vertically integrated and may build its own generation',
   },
 
   // ── INDUSTRIAL / CHEMICAL ──
   {
-    deal_id: 'IND-002', company: 'SAMPLE — Cabot Corp', vertical: 'Industrial-Chemical',
+    deal_id: 'IND-002', company: 'SAMPLE — Bramwell Chemical Works', vertical: 'Industrial-Chemical',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'MA',
     utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'Identify multi-site beachhead; map carbon black plant loads',
-    key_risk: 'Multi-site enterprise; no contact; load unknown',
+    next_move: 'Pick one plant to qualify rather than approaching the group',
+    key_risk: 'No contact yet and no load figure for any site',
   },
   {
-    deal_id: 'IND-004', company: 'SAMPLE — DuPont', vertical: 'Industrial-Chemical',
+    deal_id: 'IND-004', company: 'SAMPLE — Ardent Polymers', vertical: 'Industrial-Chemical',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'DE',
     utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'Map US plant footprint post-Qnity spin; find beachhead',
-    key_risk: 'Post-Qnity spinoff — footprint shrank, re-scope needed',
+    next_move: 'Re-map the footprint after the recent divestiture',
+    key_risk: 'Footprint changed this year; the old site list is stale',
   },
   {
-    deal_id: 'IND-005', company: 'SAMPLE — Evonik', vertical: 'Industrial-Chemical',
+    deal_id: 'IND-005', company: 'SAMPLE — Kestrelex Specialty Chemicals', vertical: 'Industrial-Chemical',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'multi',
     utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'Map US footprint; find US decision authority (German parent)',
-    key_risk: 'Foreign parent; US decision autonomy unclear',
+    next_move: 'Establish whether the US business can decide without the parent',
+    key_risk: 'Overseas parent; US decision autonomy unclear',
   },
   {
-    deal_id: 'IND-008', company: 'SAMPLE — Stepan Co', vertical: 'Industrial-Chemical',
+    deal_id: 'IND-008', company: 'SAMPLE — Northfield Surfactants', vertical: 'Industrial-Chemical',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'IL',
     utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'Qualify process-continuity + ESG pain at surfactant plants',
-    key_risk: 'Mid-cap; load profile unknown; no contact yet',
+    next_move: 'Test whether process continuity is a live pain or a stated one',
+    key_risk: 'Mid-cap; no load profile on file and no contact yet',
   },
   {
-    deal_id: 'IND-009', company: 'SAMPLE — Westlake Corp', vertical: 'Industrial-Chemical',
+    deal_id: 'IND-009', company: 'SAMPLE — Bayline Vinyls', vertical: 'Industrial-Chemical',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'TX',
     utility: 'CenterPoint', value_prop: 'Multiple',
-    beachhead_site: 'Gulf Coast petrochemical', size_mw: null, champion: null,
-    next_move: 'HGB non-attainment permitting angle; map Gulf Coast vinyls plants',
-    key_risk: 'Home-turf Houston; no contact yet; HGB is the wedge',
+    beachhead_site: 'Coastal plant', size_mw: null, champion: null,
+    next_move: 'Open on air-permit headroom; map the plants in the same airshed',
+    key_risk: 'Competitive home territory; no contact yet',
   },
   {
-    deal_id: 'IND-014', company: 'SAMPLE — Qnity Electronics', vertical: 'Industrial-Semicon',
+    deal_id: 'IND-014', company: 'SAMPLE — Quillon Semiconductor', vertical: 'Industrial-Semicon',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'DE',
-    utility: 'Delmarva', value_prop: 'Multiple', beachhead_site: 'Newark DE fab',
+    utility: 'Delmarva', value_prop: 'Multiple', beachhead_site: 'Wafer fab',
     size_mw: null, champion: null,
-    next_move: 'Map US fab footprint; fresh-spin energy strategy window NOW',
-    key_risk: 'New company (Nov 2025) — processes still forming; DuPont sibling',
+    next_move: 'Reach them while the energy strategy is still being written',
+    key_risk: 'Newly separated business; procurement process still forming',
   },
 
   // ── OIL & GAS — DOWNSTREAM ──
   {
-    deal_id: 'OG-003', company: 'SAMPLE — CVR Energy', vertical: 'O&G-Down',
+    deal_id: 'OG-003', company: 'SAMPLE — Redstone Refining', vertical: 'O&G-Down',
     relationship_type: 'Direct', geo_tier: 'Secondary', state: 'KS',
     utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'Qualify refinery reliability + permitting pain at Coffeyville/Wynnewood',
-    key_risk: '2 mid-con refineries; no contact; mid-con HGB less acute than Gulf Coast',
+    next_move: 'Qualify reliability pain at the two inland refineries',
+    key_risk: 'Inland sites; the permitting argument lands harder on the coast',
   },
   {
-    deal_id: 'OG-010', company: 'SAMPLE — Valero', vertical: 'O&G-Down',
+    deal_id: 'OG-010', company: 'SAMPLE — Copperline Energy Partners', vertical: 'O&G-Down',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'TX',
     utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'Pick beachhead refinery; reliability + HGB permitting angle',
-    key_risk: '15-refinery giant; enterprise sequencing like BAE needed',
+    next_move: 'Pick one refinery as the beachhead rather than pitching the fleet',
+    key_risk: 'Large fleet; needs sequencing before any enterprise conversation',
   },
   {
-    deal_id: 'OG-017', company: 'SAMPLE — Marathon Petroleum', vertical: 'O&G-Down',
+    deal_id: 'OG-017', company: 'SAMPLE — Halbrook Petroleum', vertical: 'O&G-Down',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'OH',
-    utility: 'multi', value_prop: 'Multiple', beachhead_site: 'Galveston Bay TX (HGB)',
+    utility: 'multi', value_prop: 'Multiple', beachhead_site: 'Gulf refinery',
     size_mw: null, champion: null,
-    next_move: 'Galveston Bay refinery = HGB non-attainment wedge; pick beachhead',
-    key_risk: 'Largest US refiner; enterprise sequencing needed same as Valero',
+    next_move: 'Lead with the coastal site where air permitting is tightest',
+    key_risk: 'Large fleet; head office is far from the site that matters',
   },
 
   // ── OIL & GAS — MIDSTREAM ──
   {
-    deal_id: 'OG-013', company: 'SAMPLE — Targa Resources', vertical: 'O&G-Mid',
+    deal_id: 'OG-013', company: 'SAMPLE — Perdiz Midstream', vertical: 'O&G-Mid',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'TX',
-    utility: 'ERCOT', value_prop: 'Multiple', beachhead_site: 'Permian gas processing',
+    utility: 'ERCOT', value_prop: 'Multiple', beachhead_site: 'Gas processing complex',
     size_mw: null, champion: null,
-    next_move: 'Map Permian processing/fractionation loads — they OWN the fuel',
-    key_risk: 'Multi-asset Permian sprawl; distributed loads',
+    next_move: 'Map processing and fractionation loads — they already own the fuel',
+    key_risk: 'Assets spread across a basin; loads are distributed',
   },
   {
-    deal_id: 'OG-015', company: 'SAMPLE — Plains All American', vertical: 'O&G-Mid',
+    deal_id: 'OG-015', company: 'SAMPLE — Silt Creek Pipeline Partners', vertical: 'O&G-Mid',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'TX',
     utility: 'multi', value_prop: 'Grid-fighter', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'Qualify pump-station/terminal loads — are any sites large enough?',
-    key_risk: 'Many small distributed loads; need to find sites above minimum threshold',
+    next_move: 'Find out whether any single station clears the minimum unit size',
+    key_risk: 'Many small loads; may be sub-scale everywhere',
   },
   {
-    deal_id: 'OG-016', company: 'SAMPLE — Tallgrass', vertical: 'O&G-Mid',
+    deal_id: 'OG-016', company: 'SAMPLE — Bluestem Gathering Co', vertical: 'O&G-Mid',
     relationship_type: 'Direct/Partner', geo_tier: 'Secondary', state: 'KS',
     utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'Probe dual angle: compression loads (Direct) + decarb infra ambitions (Partner)',
-    key_risk: 'Energy-transition strategy may make them partner not just buyer',
+    next_move: 'Probe both angles: compression load, and their own build ambitions',
+    key_risk: 'May want to partner rather than buy',
   },
   {
-    deal_id: 'OG-018', company: 'SAMPLE — ONEOK', vertical: 'O&G-Mid',
+    deal_id: 'OG-018', company: 'SAMPLE — Cordillera NGL Partners', vertical: 'O&G-Mid',
     relationship_type: 'Direct', geo_tier: 'Secondary', state: 'OK',
     utility: 'PSO', value_prop: 'Multiple',
-    beachhead_site: 'Mont Belvieu TX NGL fractionation', size_mw: null, champion: null,
-    next_move: 'Map fractionator + processing loads; Mont Belvieu = TX cluster play',
-    key_risk: 'Multi-state asset sprawl; OK HQ but TX loads are the prize',
+    beachhead_site: 'NGL fractionation hub', size_mw: null, champion: null,
+    next_move: 'Follow the load rather than the head office — the hub is out of state',
+    key_risk: 'Assets in several states; the biggest loads are not near HQ',
   },
   {
-    deal_id: 'OG-019', company: 'SAMPLE — Williams', vertical: 'O&G-Mid',
+    deal_id: 'OG-019', company: 'SAMPLE — Tamarack Transmission', vertical: 'O&G-Mid',
     relationship_type: 'Direct/Partner', geo_tier: 'Secondary', state: 'OK',
     utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'Dual angle: Transco compression loads + announced power-for-DC builds',
-    key_risk: 'They are building gas power themselves — buyer, partner, or neither?',
+    next_move: 'Test the dual angle: compression load, and their announced power projects',
+    key_risk: 'Building generation themselves — buyer, partner, or neither',
   },
   {
-    deal_id: 'OG-020', company: 'SAMPLE — TC Energy', vertical: 'O&G-Mid',
+    deal_id: 'OG-020', company: 'SAMPLE — Northbank Energy Transport', vertical: 'O&G-Mid',
     relationship_type: 'Direct/Partner', geo_tier: 'Secondary', state: 'TX',
     utility: 'multi', value_prop: 'Multiple', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'US decision authority (Calgary parent); dual angle incl. power ambitions',
-    key_risk: 'Foreign parent; pursuing own power plays; US autonomy unclear',
+    next_move: 'Establish where US decisions are actually made',
+    key_risk: 'Overseas parent, and pursuing its own generation projects',
   },
 
   // ── OTHER ──
   {
-    deal_id: 'OTH-011', company: 'SAMPLE — Far Niente', vertical: 'Other-Winery',
+    deal_id: 'OTH-011', company: 'SAMPLE — Verano Estate Winery', vertical: 'Other-Winery',
     relationship_type: 'Direct', geo_tier: 'Primary', state: 'CA',
-    utility: 'PG&E', value_prop: 'Grid-fighter', beachhead_site: 'Napa estate',
+    utility: 'PG&E', value_prop: 'Grid-fighter', beachhead_site: 'Estate winery',
     size_mw: null, champion: null,
-    next_move: 'Qualify load size first — likely sub-scale; fast-fail candidate',
-    key_risk: 'Winery load probably too small; verify before investing time',
+    next_move: 'Qualify load size first — a fast no is the useful outcome here',
+    key_risk: 'Probably sub-scale; verify before investing time',
   },
   {
-    deal_id: 'OTH-012', company: 'SAMPLE — Ventas', vertical: 'Other-REIT',
+    deal_id: 'OTH-012', company: 'SAMPLE — Meridian Health Properties', vertical: 'Other-REIT',
     relationship_type: 'Channel/Partner', geo_tier: 'Primary', state: 'IL',
     utility: 'multi', value_prop: 'Grid-fighter', beachhead_site: null,
     size_mw: null, champion: null,
-    next_move: 'Clarify model: REIT owns buildings, tenants own load — channel play?',
-    key_risk: 'Relationship type unclear; distributed small loads across portfolio',
+    next_move: 'Clarify who owns the load — the landlord or the tenant',
+    key_risk: 'Relationship type unclear; loads split across a portfolio',
   },
 ];
 

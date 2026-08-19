@@ -256,19 +256,19 @@ export const COMPANY_STOPWORDS = new Set([
 ]);
 
 /**
- * Loose comparison so "Valero Energy Corp" matches a deal named "Valero".
+ * Loose comparison so "Copperline Energy Corp" matches a deal named "Copperline".
  *
  * ⚠️ THE SEED MARKER IS STRIPPED FIRST, AND LEAVING IT IN BREAKS MATCHING IN
  * ONE DIRECTION ONLY — which is the direction that would have gone unnoticed.
  *
  * `isInPipeline` compares both ways: the book's name inside the news name, and
- * the news name inside the book's. With the prefix left on, "SAMPLE — Valero"
- * normalises to "sample valero", and a headline about "Valero Energy Corp"
- * normalises to "valero energy". Neither contains the other, so the match that
+ * the news name inside the book's. With the prefix left on, "SAMPLE — Copperline"
+ * normalises to "sample copperline", and a headline about "Copperline Energy Corp"
+ * normalises to "copperline energy". Neither contains the other, so the match that
  * used to succeed silently stops — peer radar, trending and the feed's account
  * mapping all go quiet in exactly the mode the render check runs in.
  *
- * "SAMPLE — BAE Systems" vs "BAE Systems" would still have matched, because
+ * "SAMPLE — Ironvale Defense Systems" vs "Ironvale Defense Systems" would still have matched, because
  * the longer string contains the shorter one. So half the fixtures would have
  * kept passing.
  *
@@ -293,7 +293,7 @@ export function isInPipeline(candidate: string, deals: Deal[]): boolean {
   return deals.some((d) => {
     const company = normalizeCompanyName(d.company);
     if (!company) return false;
-    // Substring either way: "Valero" in the book matches "Valero Energy Corp"
+    // Substring either way: "Copperline" in the book matches "Copperline Energy Corp"
     // in the news, and vice versa.
     return company === c || company.includes(c) || c.includes(company);
   });

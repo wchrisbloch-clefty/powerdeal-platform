@@ -201,7 +201,7 @@ export default function SettingsPanel({
       </Card>
 
       {/* ── Spine export ──
-          The pinned Pipeline-Spine.md had already drifted: BAE at 6/10 health
+          The pinned Pipeline-Spine.md had already drifted: one account at 6/10 health
           against a database computing 4 after the critical-event cap. A
           hand-maintained copy of a computed number is wrong from the first
           time the computation changes. */}

@@ -21,7 +21,7 @@ import {
  *
  * A blank field naming what it needs is acceptable. A populated field with a
  * cited source is acceptable. An UNTAGGED NUMBER IS NOT — it renders exactly as
- * authoritative as a sourced one, and four rounds of Williams MAPs proved how
+ * authoritative as a sourced one, and four rounds of midstream MAPs proved how
  * convincingly fixture data presents.
  *
  * No hard gates. A card built on a sparse record generates and names what is
@@ -47,7 +47,7 @@ as the intelligence feed:
 Format: the number, then the tier, then where it came from.
   "9.4c/kWh [VERIFIED — OG&E tariff sheet, retrieved 2026-07-14]"
   "roughly 18 months to interconnect [INFERRED — from the Economics scenario
-   'Williams base case', not a utility commitment]"
+   'the account's base case', not a utility commitment]"
 
 TWO SEPARATE RULES, BOTH BINDING:
 

@@ -25,7 +25,7 @@ const bare = (over: Partial<Deal> = {}): Deal =>
   ({
     id: 'x',
     deal_id: 'DEF-001',
-    company: 'BAE Systems',
+    company: 'Ironvale Defense Systems',
     stage: 'Prospecting',
     champion: null,
     economic_buyer: null,

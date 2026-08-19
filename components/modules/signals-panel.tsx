@@ -21,7 +21,7 @@ import { EmptyState } from '@/components/ui/card';
  * The dual read — what a signal means for the ACCOUNT versus what it means for
  * the BUSINESS — is the reason the layer exists at all, so the two are rendered
  * side by side and given equal weight. Collapsing them into one "summary" is
- * exactly the flattening the schema was designed to prevent: "Valero is
+ * exactly the flattening the schema was designed to prevent: "Copperline is
  * expanding Port Arthur" is an account fact; "downstream operators are adding
  * load ahead of the ozone rule" is a market thesis, and the second one is what
  * you take into the next five conversations.

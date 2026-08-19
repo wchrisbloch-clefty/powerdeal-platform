@@ -74,7 +74,7 @@ function formatList(items: string[]): string {
  *
  * Both are load-bearing. Two cards for the same deal in one downloads folder
  * have to be tellable apart, and the reader has to know which is newer, without
- * opening either. `williams-no-decision-2026-08-10.docx` answers both from the
+ * opening either. `acme-midstream-no-decision-2026-08-10.docx` answers both from the
  * file listing alone.
  */
 export function cardFilename(

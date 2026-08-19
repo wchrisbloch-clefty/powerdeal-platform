@@ -40,7 +40,7 @@ export default function CapturePage() {
           <input
             name="title"
             required
-            placeholder="Valero announces Port Arthur expansion"
+            placeholder="Copperline announces Port Arthur expansion"
             className="h-10 w-full rounded-md border border-rule bg-bg px-3 text-sm text-text placeholder:text-text-faint focus:border-accent-border focus:outline-none"
           />
         </label>

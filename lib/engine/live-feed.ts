@@ -94,7 +94,7 @@ async function buildLiveFeed(deals: Deal[]): Promise<LiveFeed> {
    * One stream, many channels.
    *
    * Social used to be a separate destination with its own rails, which meant a
-   * Reddit thread about a Valero expansion and a rate filing about the same
+   * Reddit thread about a Copperline expansion and a rate filing about the same
    * plant lived on different pages and neither knew about the other. They are
    * both signals about the same account, so they belong in the same pool,
    * graded and account-mapped by the same rules — the only thing that differs

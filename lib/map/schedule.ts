@@ -38,7 +38,7 @@ export interface MapPlan {
    *
    * This used to be a field. It drifted immediately: the header carried a
    * separately-stored value while the Energize row carried the milestone's own
-   * date, and one Williams export shipped with 2027-08-26 in the header and
+   * date, and one midstream export shipped with 2027-08-26 in the header and
    * 2027-08-12 in the table. Two energize dates in one document is worse than
    * a wrong one, because the reader cannot tell which is the commitment.
    *

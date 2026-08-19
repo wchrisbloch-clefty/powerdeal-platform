@@ -1,5 +1,18 @@
 -- ═══════════════════════════════════════════════════════
--- PowerDeal Platform — Pipeline Seed (the real 21 accounts)
+-- PowerDeal Platform — Pipeline Seed (a DEMO book, not anyone's real one)
+--
+-- ⚠️ THESE TWENTY-ONE ACCOUNTS ARE INVENTED. They used to be the operator's
+-- actual target list, with a named contact at a defense prime and forty-two
+-- cells of live BD reasoning. That made the repo unshippable: every component
+-- of this system has to be independently packageable, and a package that
+-- carries somebody's competitive strategy is a notebook, not a product.
+--
+-- The real book lives in the database, under a user_id. This file only ever
+-- writes TEMPLATE rows (user_id = NULL) and only ever deletes template rows,
+-- so replacing it does not touch a single real deal.
+--
+-- Kept in step with lib/seed-data.ts by tests/seed-visible.test.ts — the two
+-- representations of one demo dataset must not drift.
 -- Run AFTER schema.sql. Safe to re-run.
 --
 -- Works in either order:
@@ -30,137 +43,162 @@ insert into deals (
   multi_threaded, decision_mapped, champion, next_move, key_risk, user_id
 ) values
 
--- ── DEFENSE ─────────────────────────────────────────────
-('DEF-001', 'BAE Systems', 'Defense', 'Direct',
- 'Primary', 'CA', 'SDG&E', 'Both', 'ES — San Diego',
+-- ── DEFENSE ────────────────────────────────────────────────
+
+('DEF-001', 'SAMPLE — Ironvale Defense Systems', 'Defense', 'Direct',
+ 'Primary', 'CA', 'SDG&E', 'Multiple', 'Coastal test range',
  'Prospecting', 116, 1, false, false,
- 'Trevor Reitsma (Energy & Utilities Mgr)',
- 'Land San Diego feasibility convo; name EB + security gatekeeper',
- 'Single-threaded on Trevor; no load number confirmed', null),
+ 'A. Sample (Energy & Utilities Mgr)',
+ 'Book the site feasibility call; name the economic buyer and the security sponsor',
+ 'Single-threaded on the one named contact; no load number confirmed', null),
 
-('DEF-006', 'General Dynamics', 'Defense', 'Direct',
- 'Primary', 'VA', 'Dominion', 'Both', null,
+('DEF-006', 'SAMPLE — Calderwood Marine Group', 'Defense', 'Direct',
+ 'Primary', 'VA', 'Dominion', 'Multiple', null,
  'Prospecting', null, 0, false, false,
- null, 'Identify beachhead segment (land systems vs. marine)',
- 'Massive multi-segment enterprise; security gates throughout', null),
+ null,
+ 'Choose a beachhead segment before approaching the enterprise',
+ 'Several business units, each with its own clearance process', null),
 
-('DEF-007', 'L3Harris', 'Defense', 'Direct',
- 'Primary', 'FL', 'multi', 'Both', null,
+('DEF-007', 'SAMPLE — Helix Avionics Group', 'Defense', 'Direct',
+ 'Primary', 'FL', 'multi', 'Multiple', null,
  'Prospecting', null, 0, false, false,
- null, 'Map facility footprint; identify reliability-critical fabs',
- 'Multi-site; security/OPSEC gates like BAE', null),
+ null,
+ 'Map the site list and find the ones where an outage stops production',
+ 'Multi-site, and site access is controlled centrally', null),
 
-('DEF-021', 'SpaceX', 'Defense/Special', 'Direct',
- 'Primary', 'TX', 'ERCOT', 'Both', 'Starbase TX',
+('DEF-021', 'SAMPLE — Orbital Reach Industries', 'Defense/Special', 'Direct',
+ 'Primary', 'TX', 'ERCOT', 'Multiple', 'Launch complex',
  'Prospecting', null, 0, false, false,
- null, 'Qualify Starbase + factory loads; time-to-power is their language',
- 'Moves fast, vertically integrated — may self-build power; ITAR gates', null),
+ null,
+ 'Qualify the launch and factory loads; lead with time-to-power',
+ 'Vertically integrated and may build its own generation', null),
 
--- ── INDUSTRIAL / CHEMICAL ───────────────────────────────
-('IND-002', 'Cabot Corp', 'Industrial-Chemical', 'Direct',
- 'Primary', 'MA', 'multi', 'Both', null,
+-- ── INDUSTRIAL / CHEMICAL ──────────────────────────────────
+
+('IND-002', 'SAMPLE — Bramwell Chemical Works', 'Industrial-Chemical', 'Direct',
+ 'Primary', 'MA', 'multi', 'Multiple', null,
  'Prospecting', null, 0, false, false,
- null, 'Identify multi-site beachhead; map carbon black plant loads',
- 'Multi-site enterprise; no contact; load unknown', null),
+ null,
+ 'Pick one plant to qualify rather than approaching the group',
+ 'No contact yet and no load figure for any site', null),
 
-('IND-004', 'DuPont', 'Industrial-Chemical', 'Direct',
- 'Primary', 'DE', 'multi', 'Both', null,
+('IND-004', 'SAMPLE — Ardent Polymers', 'Industrial-Chemical', 'Direct',
+ 'Primary', 'DE', 'multi', 'Multiple', null,
  'Prospecting', null, 0, false, false,
- null, 'Map US plant footprint post-Qnity spin; find beachhead',
- 'Post-Qnity spinoff — footprint shrank, re-scope needed', null),
+ null,
+ 'Re-map the footprint after the recent divestiture',
+ 'Footprint changed this year; the old site list is stale', null),
 
-('IND-005', 'Evonik', 'Industrial-Chemical', 'Direct',
- 'Primary', 'multi', 'multi', 'Both', null,
+('IND-005', 'SAMPLE — Kestrelex Specialty Chemicals', 'Industrial-Chemical', 'Direct',
+ 'Primary', 'multi', 'multi', 'Multiple', null,
  'Prospecting', null, 0, false, false,
- null, 'Map US footprint; find US decision authority (German parent)',
- 'Foreign parent; US decision autonomy unclear', null),
+ null,
+ 'Establish whether the US business can decide without the parent',
+ 'Overseas parent; US decision autonomy unclear', null),
 
-('IND-008', 'Stepan Co', 'Industrial-Chemical', 'Direct',
- 'Primary', 'IL', 'multi', 'Both', null,
+('IND-008', 'SAMPLE — Northfield Surfactants', 'Industrial-Chemical', 'Direct',
+ 'Primary', 'IL', 'multi', 'Multiple', null,
  'Prospecting', null, 0, false, false,
- null, 'Qualify process-continuity + ESG pain at surfactant plants',
- 'Mid-cap; load profile unknown; no contact yet', null),
+ null,
+ 'Test whether process continuity is a live pain or a stated one',
+ 'Mid-cap; no load profile on file and no contact yet', null),
 
-('IND-009', 'Westlake Corp', 'Industrial-Chemical', 'Direct',
- 'Primary', 'TX', 'CenterPoint', 'Both', 'Gulf Coast petrochemical',
+('IND-009', 'SAMPLE — Bayline Vinyls', 'Industrial-Chemical', 'Direct',
+ 'Primary', 'TX', 'CenterPoint', 'Multiple', 'Coastal plant',
  'Prospecting', null, 0, false, false,
- null, 'HGB non-attainment permitting angle; map Gulf Coast vinyls plants',
- 'Home-turf Houston; no contact yet; HGB is the wedge', null),
+ null,
+ 'Open on air-permit headroom; map the plants in the same airshed',
+ 'Competitive home territory; no contact yet', null),
 
-('IND-014', 'Qnity Electronics', 'Industrial-Semicon', 'Direct',
- 'Primary', 'DE', 'Delmarva', 'Both', 'Newark DE fab',
+('IND-014', 'SAMPLE — Quillon Semiconductor', 'Industrial-Semicon', 'Direct',
+ 'Primary', 'DE', 'Delmarva', 'Multiple', 'Wafer fab',
  'Prospecting', null, 0, false, false,
- null, 'Map US fab footprint; fresh-spin energy strategy window NOW',
- 'New company (Nov 2025) — processes still forming; DuPont sibling', null),
+ null,
+ 'Reach them while the energy strategy is still being written',
+ 'Newly separated business; procurement process still forming', null),
 
--- ── OIL & GAS — DOWNSTREAM ──────────────────────────────
-('OG-003', 'CVR Energy', 'O&G-Down', 'Direct',
- 'Secondary', 'KS', 'multi', 'Both', null,
+-- ── OIL & GAS — DOWNSTREAM ─────────────────────────────────
+
+('OG-003', 'SAMPLE — Redstone Refining', 'O&G-Down', 'Direct',
+ 'Secondary', 'KS', 'multi', 'Multiple', null,
  'Prospecting', null, 0, false, false,
- null, 'Qualify refinery reliability + permitting pain at Coffeyville/Wynnewood',
- '2 mid-con refineries; no contact; mid-con HGB less acute than Gulf Coast', null),
+ null,
+ 'Qualify reliability pain at the two inland refineries',
+ 'Inland sites; the permitting argument lands harder on the coast', null),
 
-('OG-010', 'Valero', 'O&G-Down', 'Direct',
- 'Primary', 'TX', 'multi', 'Both', null,
+('OG-010', 'SAMPLE — Copperline Energy Partners', 'O&G-Down', 'Direct',
+ 'Primary', 'TX', 'multi', 'Multiple', null,
  'Prospecting', null, 0, false, false,
- null, 'Pick beachhead refinery; reliability + HGB permitting angle',
- '15-refinery giant; enterprise sequencing like BAE needed', null),
+ null,
+ 'Pick one refinery as the beachhead rather than pitching the fleet',
+ 'Large fleet; needs sequencing before any enterprise conversation', null),
 
-('OG-017', 'Marathon Petroleum', 'O&G-Down', 'Direct',
- 'Primary', 'OH', 'multi', 'Both', 'Galveston Bay TX (HGB)',
+('OG-017', 'SAMPLE — Halbrook Petroleum', 'O&G-Down', 'Direct',
+ 'Primary', 'OH', 'multi', 'Multiple', 'Gulf refinery',
  'Prospecting', null, 0, false, false,
- null, 'Galveston Bay refinery = HGB non-attainment wedge; pick beachhead',
- 'Largest US refiner; enterprise sequencing needed same as Valero', null),
+ null,
+ 'Lead with the coastal site where air permitting is tightest',
+ 'Large fleet; head office is far from the site that matters', null),
 
--- ── OIL & GAS — MIDSTREAM ───────────────────────────────
-('OG-013', 'Targa Resources', 'O&G-Mid', 'Direct',
- 'Primary', 'TX', 'ERCOT', 'Both', 'Permian gas processing',
+-- ── OIL & GAS — MIDSTREAM ──────────────────────────────────
+
+('OG-013', 'SAMPLE — Perdiz Midstream', 'O&G-Mid', 'Direct',
+ 'Primary', 'TX', 'ERCOT', 'Multiple', 'Gas processing complex',
  'Prospecting', null, 0, false, false,
- null, 'Map Permian processing/fractionation loads — they OWN the fuel',
- 'Multi-asset Permian sprawl; distributed loads', null),
+ null,
+ 'Map processing and fractionation loads — they already own the fuel',
+ 'Assets spread across a basin; loads are distributed', null),
 
-('OG-015', 'Plains All American', 'O&G-Mid', 'Direct',
+('OG-015', 'SAMPLE — Silt Creek Pipeline Partners', 'O&G-Mid', 'Direct',
  'Primary', 'TX', 'multi', 'Grid-fighter', null,
  'Prospecting', null, 0, false, false,
- null, 'Qualify pump-station/terminal loads — are any sites large enough?',
- 'Many small distributed loads; need to find sites above minimum threshold', null),
+ null,
+ 'Find out whether any single station clears the minimum unit size',
+ 'Many small loads; may be sub-scale everywhere', null),
 
-('OG-016', 'Tallgrass', 'O&G-Mid', 'Direct/Partner',
- 'Secondary', 'KS', 'multi', 'Both', null,
+('OG-016', 'SAMPLE — Bluestem Gathering Co', 'O&G-Mid', 'Direct/Partner',
+ 'Secondary', 'KS', 'multi', 'Multiple', null,
  'Prospecting', null, 0, false, false,
- null, 'Probe dual angle: compression loads (Direct) + decarb infra ambitions (Partner)',
- 'Energy-transition strategy may make them partner not just buyer', null),
+ null,
+ 'Probe both angles: compression load, and their own build ambitions',
+ 'May want to partner rather than buy', null),
 
-('OG-018', 'ONEOK', 'O&G-Mid', 'Direct',
- 'Secondary', 'OK', 'PSO', 'Both', 'Mont Belvieu TX NGL fractionation',
+('OG-018', 'SAMPLE — Cordillera NGL Partners', 'O&G-Mid', 'Direct',
+ 'Secondary', 'OK', 'PSO', 'Multiple', 'NGL fractionation hub',
  'Prospecting', null, 0, false, false,
- null, 'Map fractionator + processing loads; Mont Belvieu = TX cluster play',
- 'Multi-state asset sprawl; OK HQ but TX loads are the prize', null),
+ null,
+ 'Follow the load rather than the head office — the hub is out of state',
+ 'Assets in several states; the biggest loads are not near HQ', null),
 
-('OG-019', 'Williams', 'O&G-Mid', 'Direct/Partner',
- 'Secondary', 'OK', 'multi', 'Both', null,
+('OG-019', 'SAMPLE — Tamarack Transmission', 'O&G-Mid', 'Direct/Partner',
+ 'Secondary', 'OK', 'multi', 'Multiple', null,
  'Prospecting', null, 0, false, false,
- null, 'Dual angle: Transco compression loads + announced power-for-DC builds',
- 'They are building gas power themselves — buyer, partner, or neither?', null),
+ null,
+ 'Test the dual angle: compression load, and their announced power projects',
+ 'Building generation themselves — buyer, partner, or neither', null),
 
-('OG-020', 'TC Energy', 'O&G-Mid', 'Direct/Partner',
- 'Secondary', 'TX', 'multi', 'Both', null,
+('OG-020', 'SAMPLE — Northbank Energy Transport', 'O&G-Mid', 'Direct/Partner',
+ 'Secondary', 'TX', 'multi', 'Multiple', null,
  'Prospecting', null, 0, false, false,
- null, 'US decision authority (Calgary parent); dual angle incl. power ambitions',
- 'Foreign parent; pursuing own power plays; US autonomy unclear', null),
+ null,
+ 'Establish where US decisions are actually made',
+ 'Overseas parent, and pursuing its own generation projects', null),
 
--- ── OTHER ───────────────────────────────────────────────
-('OTH-011', 'Far Niente', 'Other-Winery', 'Direct',
- 'Primary', 'CA', 'PG&E', 'Grid-fighter', 'Napa estate',
+-- ── OTHER ──────────────────────────────────────────────────
+
+('OTH-011', 'SAMPLE — Verano Estate Winery', 'Other-Winery', 'Direct',
+ 'Primary', 'CA', 'PG&E', 'Grid-fighter', 'Estate winery',
  'Prospecting', null, 0, false, false,
- null, 'Qualify load size first — likely sub-scale; fast-fail candidate',
- 'Winery load probably too small; verify before investing time', null),
+ null,
+ 'Qualify load size first — a fast no is the useful outcome here',
+ 'Probably sub-scale; verify before investing time', null),
 
-('OTH-012', 'Ventas', 'Other-REIT', 'Channel/Partner',
+('OTH-012', 'SAMPLE — Meridian Health Properties', 'Other-REIT', 'Channel/Partner',
  'Primary', 'IL', 'multi', 'Grid-fighter', null,
  'Prospecting', null, 0, false, false,
- null, 'Clarify model: REIT owns buildings, tenants own load — channel play?',
- 'Relationship type unclear; distributed small loads across portfolio', null);
+ null,
+ 'Clarify who owns the load — the landlord or the tenant',
+ 'Relationship type unclear; loads split across a portfolio', null);
 
 
 -- ═══════════════════════════════════════════════════════

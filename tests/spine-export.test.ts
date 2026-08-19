@@ -7,7 +7,7 @@ import type { Deal, DealCompetitor } from '@/lib/types';
  * SPINE EXPORT — read-only, date-stamped, and it never renders seed data as a
  * pipeline.
  *
- * The pinned Pipeline-Spine.md had already drifted: BAE at 6/10 health against
+ * The pinned Pipeline-Spine.md had already drifted: one account at 6/10 health against
  * a database computing 4 after the critical-event cap. A hand-maintained copy
  * of a computed number is wrong from the first time the computation changes.
  *
@@ -21,7 +21,7 @@ const deal = (over: Partial<Deal> = {}): Deal =>
   ({
     id: 'd1',
     deal_id: 'DEF-001',
-    company: 'BAE Systems',
+    company: 'Ironvale Defense Systems',
     vertical: 'Defense',
     relationship_type: 'Direct',
     geo_tier: 'Primary',
@@ -192,7 +192,7 @@ describe('the stamp is the point', () => {
 });
 
 describe('health prints the reason, because 6 vs 4 was the whole problem', () => {
-  it('names the critical-event cap — the exact BAE disagreement', () => {
+  it('names the critical-event cap — the exact disagreement that was found', () => {
     const caps = healthCaps(deal({ critical_event: null, multi_threaded: true }));
     expect(caps).toHaveLength(1);
     expect(caps[0]).toContain('no critical event');
@@ -247,7 +247,7 @@ describe('everything needed to reason without asking', () => {
 
   it('carries the deal fields', () => {
     const out = md();
-    for (const field of ['DEF-001', 'BAE Systems', 'Defense', 'Direct', 'Discovery', 'San Diego']) {
+    for (const field of ['DEF-001', 'Ironvale Defense Systems', 'Defense', 'Direct', 'Discovery', 'San Diego']) {
       expect(out, `missing ${field}`).toContain(field);
     }
   });

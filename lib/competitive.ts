@@ -12,7 +12,7 @@ import type { CompetitorTier, DealCompetitor } from '@/lib/types';
  * each other, because a pricing defense against a utility rate and one against
  * a bundled integrator offer are different documents for different readers.
  *
- * Per-DEAL, never per-account. Williams is the proof: a midstream customer and
+ * Per-DEAL, never per-account. One midstream account is the proof: a customer and
  * an integrator competitor on the same account. One account-level posture
  * cannot hold both, and whichever half it held would be wrong for the other.
  */

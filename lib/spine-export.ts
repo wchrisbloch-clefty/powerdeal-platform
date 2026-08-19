@@ -8,7 +8,7 @@ import type { SeedState } from '@/lib/seed-state';
  * ═══════════════════════════════════════════════════════════════
  *
  * The pinned `Pipeline-Spine.md` in the Claude project is maintained by hand
- * and has already drifted: it records BAE at 6/10 health while the database
+ * and has already drifted: it records one account at 6/10 health while the database
  * computes 4 after the critical-event cap. A hand-maintained copy of a
  * computed number is a copy that is wrong from the first time the computation
  * changes — the same defect as the second stage ladder in `lib/deals.ts`, one
@@ -273,7 +273,7 @@ module that renders it. Editing this file by hand changes nothing in the
 database; re-export instead.
 
 **It supersedes any hand-maintained copy.** The previous pinned Spine recorded
-BAE at 6/10 health while the database computed 4 after the critical-event cap.
+one account at 6/10 health while the database computed 4 after the critical-event cap.
 Health, MEDDPICC and days-in-stage are all DERIVED — a hand-kept copy of a
 computed number is wrong from the first time the computation changes.
 

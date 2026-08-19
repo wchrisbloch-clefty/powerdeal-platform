@@ -5,7 +5,7 @@
 -- combustion OEM and a packaged integrator at the same time — three different
 -- arguments inside one deal, and they are not compatible with each other.
 --
--- Per-DEAL, not per-account, and Williams proves why twice over: it is a
+-- Per-DEAL, not per-account, and one midstream account proves why twice over: it is a
 -- midstream customer AND a Tier 1B integrator competitor at the account level,
 -- and a single deal there is likely to face a multi-competitor mix. One
 -- account-level posture field cannot hold either situation, and whichever half

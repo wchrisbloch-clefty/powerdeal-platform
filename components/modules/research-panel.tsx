@@ -144,7 +144,7 @@ function EmptyResearch() {
 /plugin marketplace add mvanhorn/last30days-skill
 
 # per account
-python3 skills/last30days/scripts/last30days.py "Westlake Corporation" \\
+python3 skills/last30days/scripts/last30days.py "Bayline Vinylsoration" \\
   --emit=json > westlake.json
 
 curl -X POST "https://powerdeal-platform.vercel.app/api/ingest/last30days?token=$INGEST_TOKEN" \\
