@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 /**
  * ═══════════════════════════════════════════════════════════════
- * THE REST OF THE BLAST RADIUS, ENUMERATED AND HELD FLAT.
+ * THE BLAST RADIUS IS ZERO, AND THE SCAN CAN STILL FAIL.
  * ═══════════════════════════════════════════════════════════════
  *
  * The audit that started at lib/data.ts did not end there. Every consumer of
@@ -53,29 +53,31 @@ const SAFE_WRAPPERS = [
 const BARE = /const \{ *(?:data|count)(?:: *\w+)? *\} = await/;
 
 /**
- * Known, accepted, and each one says what it does when the read is refused.
- * Not "these are fine" — "these are the ones I have looked at and left."
+ * ⚠️ THIS USED TO BE AN ALLOWLIST OF TWELVE, EACH WITH ITS CONSEQUENCE. All
+ * twelve are fixed, so the list is gone and the assertion is simply zero.
+ *
+ * That change is dangerous in a specific way and this file has to earn it: an
+ * enumeration whose expected answer is ZERO passes identically whether the
+ * defect is gone or the SCANNER is broken. Every previous version of this
+ * check had a positive count holding it honest. Nothing does now.
+ *
+ * So the matcher is exercised against a fixture that is known to contain the
+ * defect, on every run, before the real scan is trusted. `findBlindSites` and
+ * `isBlind` are the same code path — the fixture proves the path still finds
+ * what it is looking for.
  */
-const KNOWN: Record<string, string> = {
-  'app/api/cron/recap/route.ts':
-    'cross-user sweep; a refused read produces an empty recap for that user rather than an error. Not user-facing at request time.',
-  'app/api/feed/sweep/route.ts':
-    'the sweep maps nothing and reports zero items swept, which reads as "no news today".',
-  'app/api/recap/route.ts':
-    'recap renders over an empty pipeline — "nothing moved this week" about a book that did move.',
-  'app/app/economics/page.tsx':
-    'the deal-context strip vanishes; Economics renders as though no deal was linked.',
-  'lib/competitive.ts':
-    'THE WORST OF THE TWELVE. Empty is the documented zero-click default (do-nothing + grid are on with no rows), so a refused read is indistinguishable from the intended state by design.',
-  'lib/economics/scenarios.ts':
-    'pinned scenarios disappear from the deal; the tray reads as never used.',
-  'lib/map/store.ts':
-    'falls back to the starter MAP sequence, which is a real and useful state — so the fallback looks correct.',
-  'lib/research.ts': 'research context is empty; generated documents cite nothing and say so.',
-  'lib/utility/store.ts': 'the utility list is empty; resolveUtilityContext returns null.',
-  'lib/win-loss.ts':
-    'two sites. "No outcomes logged" on an account that has them — a sentence about the operator\'s record-keeping.',
-};
+const FIXTURE_BLIND = [
+  "  const { data } = await client.from('deals').select('*');",
+  '  const { data: rows } = await client.from(\'deals\').select(\'*\');',
+  "  const { count } = await client.from('deals').select('id', { count: 'exact' });",
+];
+
+const FIXTURE_FINE = [
+  "  const { data, error } = await client.from('deals').select('*');",
+  "  const { data: deals } = await getDeals();",
+  "  // const { data } = await client.from('deals').select('*');",
+  "   * const { data } = await query...;",
+];
 
 async function walk(dir: string): Promise<string[]> {
   const out: string[] = [];
@@ -91,6 +93,12 @@ async function walk(dir: string): Promise<string[]> {
   return out;
 }
 
+async function sourceCount(): Promise<number> {
+  let n = 0;
+  for (const root of ROOTS) n += (await walk(root)).length;
+  return n;
+}
+
 async function findBlindSites(): Promise<{ file: string; line: number }[]> {
   const hits: { file: string; line: number }[] = [];
   for (const root of ROOTS) {
@@ -99,61 +107,62 @@ async function findBlindSites(): Promise<{ file: string; line: number }[]> {
       if (!/ownerSelect|withOwner|getAdminClient/.test(src)) continue;
       const lines = src.split('\n');
       for (let i = 0; i < lines.length; i += 1) {
-        if (!BARE.test(lines[i])) continue;
-        // Skip the documented examples inside comment blocks — a comment
-        // quoting the defective form is not the defective form. This bit the
-        // migration tiebreak assertion the same way.
-        if (/^\s*(\*|\/\/|\/\*)/.test(lines[i])) continue;
         const ctx = lines.slice(i, i + 3).join(' ');
-        if (SAFE_WRAPPERS.some((w) => ctx.includes(w))) continue;
-        hits.push({ file, line: i + 1 });
+        if (isBlind(lines[i], ctx)) hits.push({ file, line: i + 1 });
       }
     }
   }
   return hits;
 }
 
-describe('every remaining error-blind read is known and named', () => {
-  it('the scan finds sites, and knows how it derived that number', async () => {
-    const hits = await findBlindSites();
-    // Loudest possible finding if the scan stops working: a scan that finds
-    // nothing would make every assertion below pass while proving nothing.
-    expect(hits.length, 'the scan found no sites at all — check the matcher').toBeGreaterThan(0);
-  });
+/** The single predicate, shared by the fixture check and the real scan. */
+function isBlind(line: string, ctx: string): boolean {
+  if (!BARE.test(line)) return false;
+  if (/^\s*(\*|\/\/|\/\*)/.test(line)) return false;
+  return !SAFE_WRAPPERS.some((w) => ctx.includes(w));
+}
 
-  it('lib/data.ts has none left', async () => {
-    const hits = await findBlindSites();
-    expect(hits.filter((h) => h.file === 'lib/data.ts')).toHaveLength(0);
-  });
-
-  it('every site is on the allowlist with a stated consequence', async () => {
-    const hits = await findBlindSites();
-    for (const h of hits) {
-      expect(
-        KNOWN[h.file],
-        `${h.file}:${h.line} ignores its query error and is not in KNOWN. Either destructure error, or add it with what the surface renders when the read is refused.`,
-      ).toBeTruthy();
+describe('the scanner still finds what it is looking for', () => {
+  it('flags every line in the known-bad fixture', () => {
+    // Rule 4: a check that has only ever seen the passing case is unproven,
+    // and an expected count of zero is nothing BUT the passing case.
+    for (const line of FIXTURE_BLIND) {
+      expect(isBlind(line, line), `missed: ${line}`).toBe(true);
     }
   });
 
-  it('the allowlist has no entries for files that are already fixed', async () => {
-    // The other direction. A stale allowlist entry is a claim that a defect
-    // exists where it does not, and it silently buys headroom for a new one.
-    const hits = await findBlindSites();
-    const seen = new Set(hits.map((h) => h.file));
-    for (const file of Object.keys(KNOWN)) {
-      expect(seen.has(file), `${file} is on the allowlist but has no blind site`).toBe(true);
+  it('flags nothing in the known-good fixture', () => {
+    for (const line of FIXTURE_FINE) {
+      expect(isBlind(line, line), `false positive: ${line}`).toBe(false);
     }
   });
 
-  it('the count does not grow', async () => {
+  it('the real scan reads the whole app', async () => {
+    const files = await sourceCount();
+    expect(files).toBeGreaterThan(50);
+  });
+});
+
+describe('no error-blind read remains', () => {
+  it('finds none, anywhere in app/ or lib/', async () => {
     /*
-      12 at the time of the audit, down from 18 before lib/data.ts and
-      app/api/deals/route.ts were fixed. A ceiling, not a target — the number
-      is here so that adding a thirteenth is a deliberate act with a failing
-      test attached, and so that fixing one shows up as a number to lower.
+      Twelve when the audit started, eighteen before lib/data.ts. Each was
+      fixed where its consequence lived rather than uniformly:
+
+        competitive     the no-decision and pricing-defense cards refuse
+                        rather than generate against an unknown position
+        recap crons     throw, because storeRecap PERSISTS what it is given
+        feed sweep      throws, matching its own settings read one line up
+        map plan        throws — its fallback is a real and useful starter
+                        sequence, which made it the most convincing of the twelve
+        win-loss        blocked panel; "N of M carry a verbatim" is a measurement
+        utility record  a named gap, the channel that module already uses
+        economics       the deal-context strip says it was refused instead of vanishing
+        scenarios       stops saying "Deal not found." about a read that never ran
+        research        throws; it feeds documents a customer reads
     */
     const hits = await findBlindSites();
-    expect(hits.length).toBeLessThanOrEqual(12);
+    const shown = hits.map((h) => `${h.file}:${h.line}`).join('\n  ');
+    expect(hits, `error-blind reads found:\n  ${shown}`).toHaveLength(0);
   });
 });

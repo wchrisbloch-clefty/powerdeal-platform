@@ -1,5 +1,6 @@
 import 'server-only';
 import { getAdminClient } from '@/lib/supabase/admin';
+import { describeReadFailure } from '@/lib/data';
 import {
   STATE_MARKET_STRUCTURE, resolveUtility, structureForState,
   type ResolveInput, type StateMarketStructure, type UtilityContext, type UtilityRecord,
@@ -99,14 +100,30 @@ export async function utilityRecord(
   const client = getAdminClient();
   if (!client) return null;
 
-  const { data } = await client
+  const { data, error } = await client
     .from('utilities')
     .select('*')
     .or(`key.eq.${q.toLowerCase()},name.ilike.${q}`)
     .limit(1);
 
+  /*
+    ⚠️ A REFUSED LOOKUP USED TO RETURN null, WHICH IS THE SAME ANSWER AS "THIS
+    UTILITY IS NOT IN THE TABLE". Both drop resolveUtilityContext to a lower
+    level, and the panel then says the record does not go any further — a
+    statement about coverage, made because a query failed.
+
+    `readFailed` is thrown rather than returned so the one caller cannot ignore
+    it by accident; resolveUtilityContext catches it and turns it into a named
+    gap, which is the vocabulary this module already uses for everything it
+    cannot establish.
+  */
+  if (error) throw new UtilityReadFailure(describeReadFailure(error.message));
+
   return data?.length ? toRecord(data[0] as Record<string, unknown>) : null;
 }
+
+/** Distinguishes "the table does not have it" from "the table did not answer". */
+export class UtilityReadFailure extends Error {}
 
 /**
  * Resolve as far as the record allows, from fields alone.
@@ -123,10 +140,33 @@ export async function resolveUtilityContext(
   // utility on the card and another in the risk list.
   const shallow = resolveUtility(input);
 
+  let readError: string | null = null;
   const [stateStructure, record] = await Promise.all([
     marketStructure(input.state),
-    shallow.utilityName ? utilityRecord(shallow.utilityName) : Promise.resolve(null),
+    shallow.utilityName
+      ? utilityRecord(shallow.utilityName).catch((err: unknown) => {
+          if (err instanceof UtilityReadFailure) {
+            readError = err.message;
+            return null;
+          }
+          throw err;
+        })
+      : Promise.resolve(null),
   ]);
 
-  return resolveUtility({ ...input, stateStructure, record });
+  const resolved = resolveUtility({ ...input, stateStructure, record });
+  if (readError) {
+    // A gap, not a silent level drop. `gaps` is this module's existing channel
+    // for "named, never silently skipped", so the refusal travels the same
+    // path as every other thing the record could not establish.
+    return {
+      ...resolved,
+      gaps: [
+        `Utility record could not be read, so anything below the state's market ` +
+          `structure is unknown rather than absent. ${readError}`,
+        ...resolved.gaps,
+      ],
+    };
+  }
+  return resolved;
 }

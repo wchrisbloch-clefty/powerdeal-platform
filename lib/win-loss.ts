@@ -1,5 +1,6 @@
 import 'server-only';
 import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
+import { describeReadFailure } from '@/lib/data';
 import type { OutcomeType, WinLossEntry } from '@/lib/types';
 
 /**
@@ -144,19 +145,37 @@ export async function closeDeal(
   return { ok: true, entry: data as WinLossEntry };
 }
 
-/** Outcomes for one deal, newest first. */
-export async function winLossForDeal(dealId: string): Promise<WinLossEntry[]> {
-  const client = getAdminClient();
-  if (!client) return [];
+/**
+ * Outcomes for one deal, newest first.
+ *
+ * ⚠️ RETURNS A RESULT. "No outcomes logged" is a sentence about the operator's
+ * record-keeping, and the whole argument for this table is that the capture
+ * cost is paid at the hardest moment — right after a loss. Printing it because
+ * a query was refused is the one thing that would make somebody stop trusting
+ * the log, and it would be indistinguishable from the honest empty state.
+ */
+export interface WinLossResult {
+  rows: WinLossEntry[];
+  readError: string | null;
+}
 
-  const { data } = await client
+export async function winLossForDeal(dealId: string): Promise<WinLossResult> {
+  const client = getAdminClient();
+  if (!client) return { rows: [], readError: null };
+
+  const { data, error } = await client
     .from('win_loss_log')
     .select('*')
     .eq('deal_id', dealId)
     .eq('user_id', POWERDEAL_USER_ID)
     .order('closed_at', { ascending: false });
 
-  return (data as WinLossEntry[]) ?? [];
+  if (error) {
+    const why = describeReadFailure(error.message);
+    console.warn('[win-loss] winLossForDeal failed:', why);
+    return { rows: [], readError: why };
+  }
+  return { rows: (data as WinLossEntry[]) ?? [], readError: null };
 }
 
 /**
@@ -168,9 +187,9 @@ export async function winLossForDeal(dealId: string): Promise<WinLossEntry[]> {
  */
 export async function winLossLog(
   opts: { outcome?: OutcomeType; limit?: number } = {},
-): Promise<WinLossEntry[]> {
+): Promise<WinLossResult> {
   const client = getAdminClient();
-  if (!client) return [];
+  if (!client) return { rows: [], readError: null };
 
   let query = client
     .from('win_loss_log')
@@ -181,8 +200,13 @@ export async function winLossLog(
 
   if (opts.outcome) query = query.eq('outcome_type', opts.outcome);
 
-  const { data } = await query;
-  return (data as WinLossEntry[]) ?? [];
+  const { data, error } = await query;
+  if (error) {
+    const why = describeReadFailure(error.message);
+    console.warn('[win-loss] winLossLog failed:', why);
+    return { rows: [], readError: why };
+  }
+  return { rows: (data as WinLossEntry[]) ?? [], readError: null };
 }
 
 /** Entries carrying a usable quote — the asset, as opposed to the record. */

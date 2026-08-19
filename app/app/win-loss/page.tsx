@@ -1,6 +1,7 @@
 import { winLossLog, withVerbatim } from '@/lib/win-loss';
 import WinLossList from '@/components/modules/win-loss-list';
 import PageHeader from '@/components/chrome/page-header';
+import { GapPanel } from '@/components/ui/gap';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ export const dynamic = 'force-dynamic';
  * compounds, and it only works if there is somewhere to read it.
  */
 export default async function WinLossPage() {
-  const entries = await winLossLog();
+  const { rows: entries, readError } = await winLossLog();
   const quoted = withVerbatim(entries);
 
   return (
@@ -29,6 +30,15 @@ export default async function WinLossPage() {
         }
       />
 
+      {/* ⚠️ "N of M closes carry a verbatim" IS A MEASUREMENT. Rendered from a
+          refused read it is 0 of 0, and the page below it says the log is
+          empty — a claim about the operator's record-keeping on the one
+          surface whose entire argument is that the capture cost is worth
+          paying. Blocked instead. */}
+      {readError ? (
+        <GapPanel kind="blocked" subject="the win-loss log" reason={readError} />
+      ) : (
+        <>
       {entries.length > 0 ? (
         <p className="rounded-card border border-rule bg-bg-raised px-3.5 py-2.5 text-xs text-text-dim">
           <span className="text-text">
@@ -40,6 +50,8 @@ export default async function WinLossPage() {
       ) : null}
 
       <WinLossList entries={entries} showCompany />
+        </>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import 'server-only';
 import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
+import { describeReadFailure } from '@/lib/data';
 import type { MapPlan } from './schedule';
 
 
@@ -14,16 +15,30 @@ import type { MapPlan } from './schedule';
 
 export const mapKey = (dealId: string) => `map:${dealId}`;
 
+/** Distinguishes "no plan stored" from "the store did not answer". */
+export class MapReadFailure extends Error {}
+
 export async function getMapPlan(dealId: string): Promise<MapPlan | null> {
   const client = getAdminClient();
   if (!client) return null;
 
-  const { data } = await client
+  const { data, error } = await client
     .from('app_state')
     .select('value')
     .eq('user_id', POWERDEAL_USER_ID)
     .eq('key', mapKey(dealId))
     .maybeSingle();
+
+  /*
+    ⚠️ THE FALLBACK IS A GOOD ONE, WHICH IS EXACTLY THE PROBLEM. null sends the
+    panel to `starterPlan`, a real and useful sequence — so a refused read
+    renders as a deal nobody has planned yet, complete with a sensible plan.
+    The most convincing wrong answer of the twelve.
+
+    Thrown rather than returned so the caller cannot ignore it silently; the
+    deal page already wraps this in a catch.
+  */
+  if (error) throw new MapReadFailure(describeReadFailure(error.message));
 
   return (data?.value as MapPlan) ?? null;
 }

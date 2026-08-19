@@ -1,5 +1,6 @@
 import 'server-only';
 import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
+import { describeReadFailure } from '@/lib/data';
 import { getAppState } from '@/lib/data';
 import type { Deal, DealArtifact } from '@/lib/types';
 import type { Scenario } from './types';
@@ -103,12 +104,17 @@ export async function removeScenarioFromDeal(
   const client = getAdminClient();
   if (!client) return { ok: false, error: 'Supabase is not configured.' };
 
-  const { data: deal } = await client
+  const { data: deal, error: readErr } = await client
     .from('deals')
     .select('id, artifacts')
     .eq('id', dealId)
     .eq('user_id', POWERDEAL_USER_ID)
     .maybeSingle();
+  // ⚠️ "Deal not found." ON A READ THAT NEVER RAN. This is the read half of a
+  // read-modify-write on `artifacts`; the early return means nothing is
+  // corrupted, but the operator is told their deal does not exist. The sibling
+  // saveScenarioToDeal already distinguishes the two.
+  if (readErr) return { ok: false, error: describeReadFailure(readErr.message) };
   if (!deal) return { ok: false, error: 'Deal not found.' };
 
   const next = ((deal.artifacts as DealArtifact[]) ?? []).filter(

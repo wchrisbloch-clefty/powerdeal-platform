@@ -89,10 +89,16 @@ export async function POST(request: NextRequest) {
       users = (settingsRows ?? []) as UserSettings[];
 
       for (const settings of users) {
-        const { data: deals } = await service
+        // The settings read two lines up already throws on error; this one did
+        // not, so a refused deals read swept the feed against an empty pipeline
+        // and reported "0 items mapped" as a successful sweep.
+        const { data: deals, error: dealsError } = await service
           .from('deals')
           .select('*')
           .eq('user_id', settings.user_id);
+        if (dealsError) {
+          throw new Error(`deals read failed for ${settings.user_id}: ${dealsError.message}`);
+        }
 
         results[settings.user_id] = await runSweep(
           service,

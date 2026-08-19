@@ -85,7 +85,9 @@ export default function DealDetail({
   isSeed,
   mapPlan,
   winLoss = [],
+  winLossError,
   competitors = [],
+  competitiveError,
   utility = null,
 }: {
   deal: Deal;
@@ -111,12 +113,25 @@ export default function DealDetail({
   mapPlan?: MapPlan | null;
   /** Outcomes logged against this deal. */
   winLoss?: WinLossEntry[];
+  /** Set when the outcome read was refused. Same reason as intelError. */
+  winLossError?: string | null;
   /**
    * Stored competitor rows. EMPTY IS THE DEFAULT STATE, not an absence — the
    * toggle grid has do-nothing and the grid on with no rows at all, and a row
    * exists only where someone contradicted a default or recorded detail.
    */
   competitors?: DealCompetitor[];
+  /**
+   * ⚠️ SET WHEN THE COMPETITIVE READ WAS REFUSED, AND THE PANEL CANNOT INFER IT.
+   *
+   * `[]` is the ORDINARY deal here — the grid and the status quo are on by
+   * default and store no rows — so the panel renders a complete, plausible
+   * competitive position from an empty array. There is no visual difference
+   * between "nothing is recorded against this deal" and "the database refused
+   * to say what is recorded against this deal", and the second one is the
+   * state the card buttons must not be pressed in.
+   */
+  competitiveError?: string | null;
   /**
    * The resolved utility layer. Null only when the lookup failed — Level 0
    * answers from a state alone, so an ordinary deal always has one.
@@ -703,7 +718,7 @@ export default function DealDetail({
                   ['map', 'MAP'],
                   ['competitive', 'Competitive'],
                   ['prep', 'Meeting prep'],
-                  ['outcome', `Outcome (${winLoss.length})`],
+                  ['outcome', winLossError ? 'Outcome (—)' : `Outcome (${winLoss.length})`],
                   ['history', intelError ? 'Stage history (—)' : `Stage history (${transitions.length})`],
                   ['artifacts', `Artifacts (${deal.artifacts?.length ?? 0})`],
                 ] as [Tab, string][]
@@ -872,12 +887,23 @@ export default function DealDetail({
                 <>
                   <UtilityPanel deal={deal} utility={utility} />
                   <div className="mt-5" />
-                  <CompetitivePanel
-                    deal={deal}
-                    competitors={competitors}
-                    busy={ai.streaming}
-                    onGenerate={runCard}
-                  />
+                  {competitiveError ? (
+                    /* The card buttons live in this panel. Rendering the grid
+                       from an empty array would put "Generate no-decision card"
+                       under a competitive position nobody can vouch for. */
+                    <GapPanel
+                      kind="blocked"
+                      subject="this deal's competitive position"
+                      reason={competitiveError}
+                    />
+                  ) : (
+                    <CompetitivePanel
+                      deal={deal}
+                      competitors={competitors}
+                      busy={ai.streaming}
+                      onGenerate={runCard}
+                    />
+                  )}
                 </>
               )}
 
@@ -889,7 +915,12 @@ export default function DealDetail({
                 />
               )}
 
-              {tab === 'outcome' && <WinLossList entries={winLoss} />}
+              {tab === 'outcome' &&
+                (winLossError ? (
+                  <GapPanel kind="blocked" subject="outcomes" reason={winLossError} />
+                ) : (
+                  <WinLossList entries={winLoss} />
+                ))}
 
               {tab === 'artifacts' &&
                 (!deal.artifacts || deal.artifacts.length === 0 ? (

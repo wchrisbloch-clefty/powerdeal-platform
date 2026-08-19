@@ -38,10 +38,14 @@ export async function POST() {
   }
 
   try {
-    const { data: deals } = await supabase
+    const { data: deals, error: dealsError } = await supabase
       .from('deals')
       .select('*')
       .eq('user_id', POWERDEAL_USER_ID);
+
+    // Same reason as the cron: storeRecap persists whatever is built, so an
+    // empty pipeline here becomes "nothing moved this week" on the record.
+    if (dealsError) throw new Error(`deals read failed: ${dealsError.message}`);
 
     const recap = await buildWeeklyRecap(supabase, POWERDEAL_USER_ID, (deals ?? []) as Deal[]);
     await storeRecap(supabase, POWERDEAL_USER_ID, recap);

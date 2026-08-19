@@ -59,9 +59,18 @@ export async function GET(request: NextRequest) {
   if (!deal) return NextResponse.json({ error: 'Deal not found.' }, { status: 404 });
 
   const competitors = await competitorsForDeal(dealId);
+  /*
+    ⚠️ 503 RATHER THAN A GRID OF DEFAULTS. presenceGrid(deal, []) is a valid,
+    ordinary grid — the status quo and the utility, both on — so a refused read
+    renders as "this deal has nothing recorded against it", which is a
+    statement about the operator's work rather than about the database.
+  */
+  if (competitors.readError) {
+    return NextResponse.json({ error: competitors.readError }, { status: 503 });
+  }
   return NextResponse.json({
-    rows: presenceGrid(deal, competitors),
-    cards: cardControls(deal, competitors),
+    rows: presenceGrid(deal, competitors.rows),
+    cards: cardControls(deal, competitors.rows),
   });
 }
 
@@ -96,7 +105,13 @@ export async function POST(request: NextRequest) {
   }
 
   const competitors = await competitorsForDeal(body.dealId);
-  const result = await setPresence({ ...body, competitors });
+  // ⚠️ A WRITE THAT READS FIRST. setPresence decides insert / update / delete
+  // from the rows it is handed; handed none because the read was refused, it
+  // would insert a row that already exists or skip a delete that is needed.
+  if (competitors.readError) {
+    return NextResponse.json({ error: competitors.readError }, { status: 503 });
+  }
+  const result = await setPresence({ ...body, competitors: competitors.rows });
   if (!result.ok) {
     // "Do nothing cannot be switched off" is the caller asking for something
     // the model forbids, not a server fault.
@@ -118,12 +133,15 @@ export async function PATCH(request: NextRequest) {
   }
 
   const competitors = await competitorsForDeal(body.dealId);
+  if (competitors.readError) {
+    return NextResponse.json({ error: competitors.readError }, { status: 503 });
+  }
   const entry = CATALOG_BY_KEY.get(body.key);
   const existing = entry
-    ? competitors.find(
+    ? competitors.rows.find(
         (c) => c.competitor.trim().toLowerCase() === entry.name.trim().toLowerCase(),
       ) ?? null
-    : competitors.find((c) => c.id === body.key) ?? null;
+    : competitors.rows.find((c) => c.id === body.key) ?? null;
 
   if (!entry && !existing) {
     return NextResponse.json({ error: `Unknown competitor: ${body.key}` }, { status: 400 });

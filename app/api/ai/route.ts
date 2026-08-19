@@ -179,18 +179,75 @@ async function buildInput(
     const { data: deal } = await getDeal(body.dealId);
     if (!deal) throw new Error('Deal not found.');
 
-    const [{ data: signals }, { data: marketWatch }, research] = await Promise.all([
+    const [signalsResult, marketWatchResult, research] = await Promise.all([
       getSignalsForDeal(body.dealId),
       getMarketWatchForDeal(body.dealId),
-      // Ingested last30days items for this account, capped and tier-tagged.
-      researchForDeal(body.dealId).catch(() => []),
+      /*
+        ⚠️ THE CATCH IS NARROWED, NOT REMOVED. researchForDeal now THROWS on a
+        refused read rather than returning [], and swallowing that here would
+        put the failure straight back where it was — an empty research block
+        in a document that goes to a customer, reading as "nothing has been
+        researched on this account".
+
+        A genuine absence still returns [] and still renders as a named gap,
+        which is the honest version of the same sentence.
+      */
+      researchForDeal(body.dealId),
     ]);
+
+    /*
+      Same argument as the competitive read below, one block up: every document
+      built here quotes the signals and market-watch record. An empty signals
+      block on a refused read reads as "nothing has been learned about this
+      account", in a brief handed to a customer or used to prepare for a
+      meeting with one. Refused rather than degraded.
+    */
+    const intelError = signalsResult.readError ?? marketWatchResult.readError;
+    if (intelError) {
+      throw new Error(
+        `Cannot build this document: the intelligence record for this deal could not ` +
+          `be read, and a brief that omits what you already know is worse than no ` +
+          `brief. ${intelError}`,
+      );
+    }
+    const signals = signalsResult.data;
+    const marketWatch = marketWatchResult.data;
 
     // Absent economics is a normal state, not an error — economicsBlock renders
     // an empty list as a named gap the document carries. Nothing gates on it.
     const economics = scenariosOn(deal);
-    // Posture is an INPUT to the cards, never inferred. Empty is normal.
-    const competitors = await competitorsForDeal(body.dealId).catch(() => []);
+    /*
+      Posture is an INPUT to the cards, never inferred. Empty is normal.
+
+      ⚠️ EMPTY-BECAUSE-REFUSED IS NOT NORMAL, AND THIS IS THE ONE PLACE IN THE
+      CODEBASE WHERE THAT DISTINCTION LEAVES THE BUILDING. The no-decision and
+      pricing-defense cards are documents a rep puts in front of a customer.
+      A card built from a refused read is byte-for-byte the shape of a card
+      built from a deal with nothing recorded — because a deal with nothing
+      recorded is the ORDINARY deal here, with the grid and the status quo on
+      by default.
+
+      Concretely, with a silent []:
+        · the no-decision card generates, and its "also addressing" line omits
+          every competitor the operator entered;
+        · the pricing-defense card refuses, saying the requested posture is not
+          switched on for this deal — which reads as the operator's oversight.
+
+      `.catch(() => [])` is kept for a genuine throw, which is a different
+      thing again and still must not take the whole request down.
+    */
+    const competitorsResult = await competitorsForDeal(body.dealId).catch(() => ({
+      rows: [],
+      readError: 'The competitive read threw before returning.',
+    }));
+    if (competitorsResult.readError) {
+      throw new Error(
+        `Cannot build this document: the competitive position for this deal could ` +
+          `not be read, and a card that names the wrong opponents is worse than no ` +
+          `card. ${competitorsResult.readError}`,
+      );
+    }
+    const competitors = competitorsResult.rows;
 
     // Resolved from the deal's FIELDS, never by a join from its id — the same
     // call an origination surface makes with a state and nothing else. Level 0

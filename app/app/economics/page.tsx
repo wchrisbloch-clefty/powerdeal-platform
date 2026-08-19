@@ -5,6 +5,8 @@ import { emptyGrid } from '@/lib/economics/presets';
 import type { Deal } from '@/lib/types';
 import type { Scenario } from '@/lib/economics/types';
 import PageHeader from '@/components/chrome/page-header';
+import { GapPanel } from '@/components/ui/gap';
+import { describeReadFailure } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,15 +27,25 @@ export default async function EconomicsPage({
   const client = getAdminClient();
 
   let deal: DealContext | null = null;
+  let dealError: string | null = null;
   let scenarios: Scenario[] = [];
 
   if (params.deal && client) {
-    const { data } = await client
+    const { data, error } = await client
       .from('deals')
       .select('id, deal_id, company, utility, state, size_mw, artifacts')
       .eq('id', params.deal)
       .eq('user_id', POWERDEAL_USER_ID)
       .maybeSingle();
+
+    /*
+      ⚠️ THE DEAL-CONTEXT STRIP JUST DISAPPEARED. A refused read left `deal`
+      null, which is exactly the state of Economics opened with no ?deal at
+      all — so the page rendered as a standalone calculator, and a scenario
+      pinned from it would attach to nothing. The reader arrived from a deal
+      and the surface silently forgot which one.
+    */
+    if (error) dealError = describeReadFailure(error.message);
 
     if (data) {
       const row = data as unknown as Deal;
@@ -64,6 +76,14 @@ export default async function EconomicsPage({
           </p>
         }
       />
+
+      {dealError ? (
+        <GapPanel
+          kind="blocked"
+          subject="the deal this model was opened for"
+          reason={dealError}
+        />
+      ) : null}
 
       {/* Stated once, on the surface, rather than only in a source comment.
           Someone opening this for the first time needs to know the presets are

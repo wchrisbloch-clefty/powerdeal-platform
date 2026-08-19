@@ -67,11 +67,27 @@ export async function researchForDeal(
   const query = ownerSelect('feed_items');
   if (!query) return [];
 
-  const { data } = await query
+  const { data, error } = await query
     .contains('deal_ids', [dealId])
     .eq('source_id', 'last30days')
     .order('published_at', { ascending: false, nullsFirst: false })
     .limit(limit);
+
+  /*
+    ⚠️ THIS FEEDS GENERATED DOCUMENTS, SO IT THROWS RATHER THAN RETURNING [].
+
+    An empty research block renders as a named gap the document carries — "no
+    recent research on this account" — which is a true and useful sentence
+    about a deal nobody has researched, and a false one about a deal whose
+    research the database declined to return. The document goes to a customer
+    either way.
+
+    The AI route wraps this in `.catch(() => [])`, so a throw currently
+    degrades to the same empty block. That catch is the next thing to tighten;
+    throwing at least puts the failure somewhere a caller CAN see, which
+    returning [] never did.
+  */
+  if (error) throw new Error(`research read failed: ${error.message}`);
 
   const engagementByKey = new Map<string, string>();
   let runAt: string | undefined;

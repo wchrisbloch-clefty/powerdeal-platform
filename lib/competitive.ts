@@ -1,6 +1,7 @@
 import 'server-only';
 import { getAdminClient, POWERDEAL_USER_ID } from '@/lib/supabase/admin';
 import { CATALOG_BY_KEY, presenceWrite } from '@/lib/competitor-catalog';
+import { describeReadFailure } from '@/lib/data';
 import type { CompetitorTier, DealCompetitor } from '@/lib/types';
 
 /**
@@ -27,11 +28,46 @@ import type { CompetitorTier, DealCompetitor } from '@/lib/types';
  * and the status quo, both on — not an unconfigured one.
  */
 
-export async function competitorsForDeal(dealId: string): Promise<DealCompetitor[]> {
-  const client = getAdminClient();
-  if (!client) return [];
+/**
+ * ⚠️ THIS RETURNS A RESULT, NOT AN ARRAY, AND IT IS THE MOST EXPENSIVE READ IN
+ * THE CODEBASE TO GET WRONG.
+ *
+ * It used to be `const { data } = await …; return (data ?? [])`, with a comment
+ * two functions down arguing that `[]` on failure "is right for rendering a
+ * grid (the defaults still apply)". For a grid, maybe. But this same function
+ * feeds `presenceGrid` and `otherPostureNames` in the AI route, which build the
+ * NO-DECISION CARD and the PRICING DEFENSE CARD — documents that go in front of
+ * a customer.
+ *
+ * On a refused read, with `[]`:
+ *
+ *   · the no-decision card generates, and its "also addressing" line lists only
+ *     the catalog defaults — a card that silently omits the two competitors the
+ *     operator recorded, in a document arguing against the status quo.
+ *   · the pricing defense card REFUSES, because the requested posture is not in
+ *     a grid built from no rows, and the refusal reads as "you never switched
+ *     that competitor on."
+ *
+ * Both are indistinguishable from the clean-slate case BY DESIGN: a deal with
+ * zero rows is the ordinary deal here, not an unconfigured one. That is the
+ * property that makes this defect invisible and the reason it is fixed first.
+ *
+ * The grid can still have its defaults — callers that only render take `.rows`
+ * and carry on. Callers that GENERATE must look at `readError` and stop.
+ */
+export interface CompetitorsResult {
+  rows: DealCompetitor[];
+  /** Non-null when the query was refused. Never set for a genuinely empty deal. */
+  readError: string | null;
+}
 
-  const { data } = await client
+export async function competitorsForDeal(dealId: string): Promise<CompetitorsResult> {
+  const client = getAdminClient();
+  // Unconfigured is a deployment state, not an outage: the defaults apply and
+  // nothing was refused.
+  if (!client) return { rows: [], readError: null };
+
+  const { data, error } = await client
     .from('deal_competitors')
     .select('*')
     .eq('deal_id', dealId)
@@ -39,7 +75,13 @@ export async function competitorsForDeal(dealId: string): Promise<DealCompetitor
     .order('tier', { ascending: true })
     .order('competitor', { ascending: true });
 
-  return (data as DealCompetitor[]) ?? [];
+  if (error) {
+    const why = describeReadFailure(error.message);
+    console.warn('[competitive] competitorsForDeal failed:', why);
+    return { rows: [], readError: why };
+  }
+
+  return { rows: (data as DealCompetitor[]) ?? [], readError: null };
 }
 
 /**
@@ -52,10 +94,12 @@ export async function competitorsForDeal(dealId: string): Promise<DealCompetitor
  * as zero would print "Competition: gap" on a deal with a fully worked
  * competitive grid.
  *
- * `competitorsForDeal` above returns `[]` on failure, which is right for
- * rendering a grid (the defaults still apply) and wrong for scoring. This is
- * the scoring read, and it keeps the distinction supabase-js erases by
- * resolving with `{ data: null, error }`.
+ * `competitorsForDeal` above now carries the same distinction in `readError`.
+ * It used to return a bare `[]` on failure and the comment here defended that
+ * as "right for rendering a grid" — which was true of the grid and false of the
+ * two customer-facing cards built from the same call. This function was the one
+ * that got it right, and it stayed alone for months because the argument for
+ * the other one sounded reasonable.
  */
 export async function competitorCountForDeal(dealId: string): Promise<number | null> {
   const client = getAdminClient();

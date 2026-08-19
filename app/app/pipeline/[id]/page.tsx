@@ -35,11 +35,11 @@ export default async function DealPage({
     // what makes solo mode useful on a deal nobody has planned yet.
     getMapPlan(id).catch(() => null),
     // Empty is normal — the table has never been written to before this pass.
-    winLossForDeal(id).catch(() => []),
+    winLossForDeal(id).catch(() => ({ rows: [], readError: 'The win-loss read threw.' })),
     // Empty is the ZERO-CLICK DEFAULT, not an absence: do-nothing and the grid
     // are on for a deal with no rows at all. Rows exist only where someone
     // contradicted the default or recorded detail.
-    competitorsForDeal(id).catch(() => []),
+    competitorsForDeal(id).catch(() => ({ rows: [], readError: 'The competitive read threw.' })),
   ]);
 
   // Resolved from the deal's FIELDS, not by a join from its id. The same call
@@ -66,8 +66,10 @@ export default async function DealPage({
       readError={dealError}
       isSeed={isSeed}
       mapPlan={mapPlan}
-      winLoss={winLoss}
-      competitors={competitors}
+      winLoss={winLoss.rows}
+      winLossError={winLoss.readError}
+      competitors={competitors.rows}
+      competitiveError={competitors.readError}
       utility={utility}
     />
   );

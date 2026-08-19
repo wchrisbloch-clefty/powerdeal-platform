@@ -37,7 +37,19 @@ export async function GET(request: NextRequest) {
   // Cron covers every user, so this deliberately does not scope to the single
   // operator — it iterates user_settings itself.
   const startedAt = Date.now();
-  const { data: settingsRows } = await service.from('user_settings').select('*');
+  const { data: settingsRows, error: settingsError } = await service
+    .from('user_settings')
+    .select('*');
+  // ⚠️ NO USERS AND A REFUSED READ ARE THE SAME LOOP BODY: zero iterations,
+  // 200 OK, and a cron log saying the run succeeded. The sibling sweep route
+  // already throws here; this one did not, so a refused read reported a clean
+  // weekly run across every account.
+  if (settingsError) {
+    return NextResponse.json(
+      { error: `user_settings read failed: ${settingsError.message}` },
+      { status: 503 },
+    );
+  }
   const users = (settingsRows ?? []) as UserSettings[];
   const results: Record<string, string> = {};
 
@@ -50,10 +62,17 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const { data: deals } = await service
+      const { data: deals, error: dealsError } = await service
         .from('deals')
         .select('*')
         .eq('user_id', settings.user_id);
+
+      // ⚠️ THE RECAP IS STORED. A recap built from zero deals is not a blank
+      // screen that goes away on reload — storeRecap persists it, and next
+      // week's comparison reads it back as last week's truth. The catch below
+      // records the failure against this user and leaves the previous recap
+      // standing, which is the honest outcome.
+      if (dealsError) throw new Error(`deals read failed: ${dealsError.message}`);
 
       const recap = await buildWeeklyRecap(service, settings.user_id, (deals ?? []) as Deal[]);
       await storeRecap(service, settings.user_id, recap);
