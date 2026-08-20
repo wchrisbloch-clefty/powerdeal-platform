@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2, Send, Trash2, RotateCcw } from 'lucide-react';
 import LearnAnswer from '@/components/learn/answer';
 import LearnPaths from '@/components/learn/paths';
+import { followUpsFor } from '@/lib/learn/pacing';
 import type { ResolvedPath } from '@/lib/learn/paths-resolve';
 import { MODES, detectMode, explainDetection, type LearnMode } from '@/lib/learn/modes';
 import { sessionLabel, type LearnSession } from '@/lib/learn/session';
@@ -80,8 +81,14 @@ export default function LearnPanel({ paths = [] }: { paths?: ResolvedPath[] }) {
     void loadList();
   }, []);
 
-  async function ask(continuing = false) {
-    const text = input.trim();
+  /**
+   * @param continuing keep the answer so far and thread the session id.
+   * @param instead    send this instead of the box's contents — a follow-up
+   *                   chip, which must not require the reader to have left
+   *                   anything typed. The box is untouched either way.
+   */
+  async function ask(continuing = false, instead?: string) {
+    const text = (instead ?? input).trim();
     if (!text || streaming) return;
 
     setStreaming(true);
@@ -107,7 +114,9 @@ export default function LearnPanel({ paths = [] }: { paths?: ResolvedPath[] }) {
         return;
       }
 
-      setInput('');
+      // A follow-up did not come out of the box, so it does not empty it.
+      // Clearing something the reader typed and has not sent is a small theft.
+      if (instead === undefined) setInput('');
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -275,6 +284,37 @@ export default function LearnPanel({ paths = [] }: { paths?: ResolvedPath[] }) {
             className="rounded-card border border-rule bg-bg-raised px-3.5 py-3"
           >
             <LearnAnswer text={answer} />
+
+            {/**
+             * ⚠️ PACING'S SECOND HALF, AND IT IS WHAT MAKES THE FIRST HONEST.
+             * The model is told to stop where a person would stop. Shortening
+             * an answer without a way forward is withholding, which this
+             * product does not do — so the ways forward are on the screen, one
+             * click, continuing the same session.
+             *
+             * Declared per mode in lib/learn/pacing.ts rather than asked of the
+             * model: a generated menu is a claim that there is something useful
+             * down each road, made by the thing that would then have to write
+             * it.
+             *
+             * Hidden WHILE STREAMING only. Clicking one mid-answer would send a
+             * follow-up to a question that has not finished being answered.
+             */}
+            {!streaming ? (
+              <div className="mt-rhythm-block flex flex-wrap gap-1.5 border-t border-rule-faint pt-2">
+                {followUpsFor(activeMode).map((f) => (
+                  <button
+                    key={f.label}
+                    type="button"
+                    title={f.ask}
+                    onClick={() => void ask(true, f.ask)}
+                    className="inline-flex min-h-tap items-center rounded-sm border border-rule px-2 py-1 text-2xs text-text-dim hover:text-text lg:min-h-0"
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : (
           <ul className="grid gap-1.5 sm:grid-cols-2">

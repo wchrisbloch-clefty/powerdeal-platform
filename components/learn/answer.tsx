@@ -1,5 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
 import LearnVisual from '@/components/learn/visual';
+import FormattedText from '@/components/ui/formatted-text';
 import { parseBlocks, type Block } from '@/lib/learn/blocks';
 
 /**
@@ -38,7 +39,17 @@ export default function LearnAnswer({ text }: { text: string }) {
 
 function BlockView({ block }: { block: Block }) {
   if (block.kind === 'prose') {
-    return <p className="whitespace-pre-wrap text-read text-text-dim">{block.text}</p>;
+    /*
+      ⚠️ THE READING SCALE, WHICH THIS SURFACE WAS NOT USING. `.prose` was
+      written in globals.css for "Learn, and anywhere someone reads rather than
+      scans" and no component in the product had ever applied it — the answer
+      rendered at text-sm in the dim text colour, four steps below the scale the
+      design system declares for the one surface it names by name.
+
+      The formatter also matters here rather than being polish: a model writes
+      `**bold**` and `## headings`, and a pre-wrap div renders the asterisks.
+    */
+    return <FormattedText text={block.text} scale="reading" />;
   }
 
   if (block.kind === 'visual') {

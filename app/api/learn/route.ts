@@ -5,6 +5,7 @@ import { POWERDEAL_IDENTITY } from '@/lib/prompts/system';
 import { knowledgeBlocksForSkill } from '@/lib/skills/knowledge';
 import { detectMode, instructionFor, type LearnMode } from '@/lib/learn/modes';
 import { blockFormatInstruction } from '@/lib/learn/blocks';
+import { PACING_INSTRUCTION } from '@/lib/learn/pacing';
 import { visualInstruction } from '@/lib/learn/visual/prompt';
 import { newSession, recallContext, resumable } from '@/lib/learn/session';
 import { listSessions, getSession, saveSession, appendAndSave, deleteSession } from '@/lib/learn/store';
@@ -153,6 +154,8 @@ export async function POST(request: NextRequest) {
    */
   const system = [
     POWERDEAL_IDENTITY,
+    '',
+    PACING_INSTRUCTION,
     '',
     blockFormatInstruction(),
     '',

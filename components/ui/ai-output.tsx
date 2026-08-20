@@ -4,6 +4,7 @@ import { Check, Copy, Square } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import Button from './button';
+import FormattedText from './formatted-text';
 
 /**
  * Streaming AI output panel.
@@ -111,81 +112,4 @@ export default function AiOutput({
       </div>
     </div>
   );
-}
-
-/** Minimal, stream-safe formatter. Never throws on a half-written token. */
-function FormattedText({ text }: { text: string }) {
-  const lines = text.split('\n');
-
-  return (
-    <div className="space-y-1.5 text-sm text-text">
-      {lines.map((line, i) => {
-        const key = `${i}-${line.slice(0, 12)}`;
-        const trimmed = line.trim();
-
-        if (!trimmed) return <div key={key} className="h-2" />;
-
-        if (trimmed.startsWith('### ')) {
-          return (
-            <h4 key={key} className="pt-2 font-display text-sm font-medium text-text">
-              {inline(trimmed.slice(4))}
-            </h4>
-          );
-        }
-        if (trimmed.startsWith('## ')) {
-          return (
-            <h3 key={key} className="pt-3 font-display text-base text-text">
-              {inline(trimmed.slice(3))}
-            </h3>
-          );
-        }
-        if (trimmed.startsWith('# ')) {
-          return (
-            <h2 key={key} className="pt-3 font-display text-lg text-text">
-              {inline(trimmed.slice(2))}
-            </h2>
-          );
-        }
-        if (/^[-*•]\s+/.test(trimmed)) {
-          return (
-            <div key={key} className="flex gap-2 pl-1">
-              <span className="select-none text-text-faint">·</span>
-              <span>{inline(trimmed.replace(/^[-*•]\s+/, ''))}</span>
-            </div>
-          );
-        }
-        if (/^\d+[.)]\s+/.test(trimmed)) {
-          const marker = /^(\d+)[.)]/.exec(trimmed)?.[1] ?? '';
-          return (
-            <div key={key} className="flex gap-2 pl-1">
-              <span className="select-none font-mono text-xs text-text-faint">
-                {marker}.
-              </span>
-              <span>{inline(trimmed.replace(/^\d+[.)]\s+/, ''))}</span>
-            </div>
-          );
-        }
-        if (/^[-—]{3,}$/.test(trimmed)) {
-          return <hr key={key} className="rule-line my-3" />;
-        }
-
-        return <p key={key}>{inline(line)}</p>;
-      })}
-    </div>
-  );
-}
-
-/** Bold spans only. A partial `**` at the stream edge renders as literal text. */
-function inline(text: string): React.ReactNode {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
-      return (
-        <strong key={i} className="font-semibold text-text">
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
-    return <span key={i}>{part}</span>;
-  });
 }
