@@ -4,6 +4,8 @@ import { routeStream, toSseResponse, canRun } from '@/lib/engine/model-routing';
 import { POWERDEAL_IDENTITY } from '@/lib/prompts/system';
 import { knowledgeBlocksForSkill } from '@/lib/skills/knowledge';
 import { detectMode, instructionFor, type LearnMode } from '@/lib/learn/modes';
+import { blockFormatInstruction } from '@/lib/learn/blocks';
+import { visualInstruction } from '@/lib/learn/visual/prompt';
 import { newSession, recallContext, resumable } from '@/lib/learn/session';
 import { listSessions, getSession, saveSession, appendAndSave, deleteSession } from '@/lib/learn/store';
 import { POWERDEAL_USER_ID } from '@/lib/supabase/admin';
@@ -139,7 +141,27 @@ export async function POST(request: NextRequest) {
    */
   const shelf = knowledgeBlocksForSkill('discovery-call-prep');
 
-  const system = [POWERDEAL_IDENTITY, '', instructionFor(mode), '', shelf]
+  /**
+   * ⚠️ THE FORMAT AND SCHEMA INSTRUCTIONS SIT INSIDE THE CACHED PREFIX, before
+   * the mode instruction rather than after it. They are byte-identical on every
+   * call; putting them after the mode block would give five cache entries that
+   * differ only in a suffix they all share.
+   *
+   * Both are BUILT from the same constants the parser and validator enforce.
+   * The instruction naming a fence tag the parser does not recognise produces
+   * an answer full of raw JSON with nothing anywhere saying why.
+   */
+  const system = [
+    POWERDEAL_IDENTITY,
+    '',
+    blockFormatInstruction(),
+    '',
+    visualInstruction(),
+    '',
+    instructionFor(mode),
+    '',
+    shelf,
+  ]
     .filter(Boolean)
     .join('\n\n');
 
@@ -154,7 +176,14 @@ export async function POST(request: NextRequest) {
   const stream = routeStream('learn', {
     system,
     user,
-    maxTokens: 2000,
+    /**
+     * Raised from 2,000 when figures became possible. A visual is several
+     * hundred tokens of JSON, and an answer truncated mid-fence renders as an
+     * `arriving` placeholder that never resolves — the prose is fine and the
+     * figure simply never lands, which reads as a bug in the renderer rather
+     * than as a budget that ran out.
+     */
+    maxTokens: 3000,
     // Prompt caching is a prefix match and the shelf is identical across every
     // learn call, so the system block caches cleanly. The mode instruction sits
     // inside it and there are five of them — five cache entries, not one per

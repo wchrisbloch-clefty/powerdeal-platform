@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, Send, Trash2, RotateCcw } from 'lucide-react';
+import LearnAnswer from '@/components/learn/answer';
+import LearnPaths from '@/components/learn/paths';
+import type { ResolvedPath } from '@/lib/learn/paths-resolve';
 import { MODES, detectMode, explainDetection, type LearnMode } from '@/lib/learn/modes';
 import { sessionLabel, type LearnSession } from '@/lib/learn/session';
 import { relativeTime, cn } from '@/lib/utils';
@@ -46,7 +49,7 @@ interface Meta {
   writeError?: string | null;
 }
 
-export default function LearnPanel() {
+export default function LearnPanel({ paths = [] }: { paths?: ResolvedPath[] }) {
   const [input, setInput] = useState('');
   const [override, setOverride] = useState<LearnMode | null>(null);
   const [answer, setAnswer] = useState('');
@@ -259,11 +262,19 @@ export default function LearnPanel() {
         ) : null}
 
         {answer ? (
+          /**
+           * ⚠️ PARSED ON EVERY CHUNK, WHICH IS THE POINT RATHER THAN A COST.
+           * An answer half-written is the state this is in for most of its
+           * life, and `parseBlocks` is written for that: an unclosed fence
+           * becomes a placeholder rather than a wall of partial JSON scrolling
+           * past. The previous version rendered the raw string, so a figure
+           * arrived as its own source code.
+           */
           <div
             ref={answerRef}
-            className="whitespace-pre-wrap rounded-card border border-rule bg-bg-raised px-3.5 py-3 text-sm text-text-dim"
+            className="rounded-card border border-rule bg-bg-raised px-3.5 py-3"
           >
-            {answer}
+            <LearnAnswer text={answer} />
           </div>
         ) : (
           <ul className="grid gap-1.5 sm:grid-cols-2">
@@ -290,8 +301,26 @@ export default function LearnPanel() {
         )}
       </div>
 
-      {/* ── Resume. The only thing persistence is for. ── */}
-      <aside className="space-y-2">
+      <aside className="space-y-rhythm-block">
+        {/* ── Somewhere to start, when the box is the problem ── */}
+        {paths.length > 0 ? (
+          <div className="space-y-2">
+            <p className="eyebrow">Where to start</p>
+            <LearnPaths
+              paths={paths}
+              onPick={(ask) => {
+                /* Into the box, NOT into the model. The reader almost always
+                   wants to bend the question towards the deal in front of them
+                   before sending it. */
+                setInput(ask);
+                setOverride(null);
+              }}
+            />
+          </div>
+        ) : null}
+
+        {/* ── Resume. The only thing persistence is for. ── */}
+        <div className="space-y-2">
         <div className="flex items-baseline justify-between">
           <p className="eyebrow">Pick back up</p>
           {sessionId ? (
@@ -354,6 +383,7 @@ export default function LearnPanel() {
             ))}
           </ul>
         )}
+        </div>
       </aside>
     </div>
   );

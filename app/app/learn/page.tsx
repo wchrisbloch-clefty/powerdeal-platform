@@ -1,5 +1,6 @@
 import LearnPanel from '@/components/modules/learn-panel';
 import ShapeVocabulary from '@/components/learn/shape-vocabulary';
+import { resolvePaths } from '@/lib/learn/paths-resolve';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import PageHeader from '@/components/chrome/page-header';
 
@@ -47,7 +48,10 @@ export default function LearnPage() {
           </div>
         </CardHeader>
         <CardBody>
-          <LearnPanel />
+          {/* Resolved on the server: `loadKnowledge` reads the disk, and a path
+              whose doctrine is missing must render as a gap rather than as
+              questions with nothing behind them. */}
+          <LearnPanel paths={resolvePaths()} />
         </CardBody>
       </Card>
 

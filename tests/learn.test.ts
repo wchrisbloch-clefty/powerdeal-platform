@@ -167,18 +167,37 @@ describe('lib/learn is structurally deal-free', () => {
     // "We didn't mean to" is not a constraint. A learn surface that needed a
     // deal selected first would be unusable in the ninety seconds between
     // meetings that is the only time anyone opens it.
-    const files = (await readdir('lib/learn')).filter((f) => f.endsWith('.ts'));
-    expect(files.length).toBeGreaterThan(0);
+    /**
+     * ⚠️ RECURSIVE, AND IT WAS NOT. `readdir('lib/learn')` returns the top
+     * level only, so the whole of `lib/learn/visual/` — schema, validator,
+     * prompt, fixtures — sat outside this assertion from the day it was added
+     * while the suite reported the constraint held. Rule 18 on a directory:
+     * the check answers "are these N files clean", and the harder half is
+     * knowing what N is.
+     */
+    const walk = async (dir: string): Promise<string[]> => {
+      const out: string[] = [];
+      for (const e of await readdir(dir, { withFileTypes: true })) {
+        const full = `${dir}/${e.name}`;
+        if (e.isDirectory()) out.push(...(await walk(full)));
+        else if (e.name.endsWith('.ts')) out.push(full);
+      }
+      return out;
+    };
+    const files = await walk('lib/learn');
+    // The subdirectory has to be in there, or this widened nothing.
+    expect(files.some((f) => f.includes('/visual/'))).toBe(true);
+    expect(files.length).toBeGreaterThan(4);
 
     for (const f of files) {
-      const src = await readFile(`lib/learn/${f}`, 'utf8');
+      const src = await readFile(f, 'utf8');
       const imports = [...src.matchAll(/^import[\s\S]*?from '([^']+)';/gm)].map((m) => m[1]);
       for (const i of imports) {
-        expect(i, `lib/learn/${f} imports ${i}`).not.toMatch(/lib\/data|lib\/deals|lib\/stage/);
+        expect(i, `${f} imports ${i}`).not.toMatch(/lib\/data|lib\/deals|lib\/stage/);
       }
       // Deal-shaped identifiers, not just the module path.
       const code = src.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
-      expect(code, `lib/learn/${f} references a Deal type`).not.toMatch(
+      expect(code, `${f} references a Deal type`).not.toMatch(
         /\b(Deal|DealStage|MeddpiccResult|Pipeline)\b/,
       );
     }
