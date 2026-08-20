@@ -93,6 +93,146 @@ async function loadMangledForms() {
 
 const MANGLED_FORMS = await loadMangledForms();
 
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * ENFORCEMENT POINT (c) — READ THE COLOUR OFF THE PIXEL.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * Generated content can name a colour. The schema in lib/learn/visual has no
+ * field that accepts one, the validator strips colour notation out of every
+ * string it passes through, and the renderer is the only place an index becomes
+ * a fill. That is enforcement points (a) and (b), and both of them are source.
+ *
+ * A source scan is subject to the defects it is scanning for. It cannot see a
+ * token name typed wrong — `var(--chart-5)` resolves to nothing and paints
+ * black — an inline style added later by someone who did not read the schema,
+ * or a variable that is simply not declared in the theme that happens to be
+ * active. Those are facts about the rendered page, so something has to read the
+ * rendered page.
+ *
+ * ══ WHAT COUNTS AS A TOKEN VALUE ══
+ *
+ * Every colour literal declared in styles/tokens.css, in BOTH themes, reduced
+ * to an RGB triple.
+ *
+ * ⚠️ ALPHA IS DISCARDED ON PURPOSE, AND IT IS A REAL HOLE. `bg-danger/5`
+ * compiles to a `color-mix` against transparent and computes to the danger hue
+ * at 5% — same triple, different alpha. Requiring an exact match would flag
+ * every tinted panel in the product and the check would be off within a day.
+ * So the question this asks is "is this HUE in the palette", not "is this exact
+ * value declared". A hue not in tokens.css is caught; an opacity nobody
+ * intended is not.
+ *
+ * ⚠️ AND BOTH THEMES ARE ALLOWED AT ONCE, which is a second hole: a light-theme
+ * hex rendered in dark would pass. Splitting by theme means tracking which
+ * block is live at measure time, and the failure it would catch — a hard-coded
+ * hex that happens to equal the other theme's token — is not the failure this
+ * exists for. Stated rather than fixed.
+ */
+function parseColour(raw) {
+  const s = String(raw).trim().toLowerCase();
+
+  const hex = /^#([0-9a-f]{3,8})$/.exec(s);
+  if (hex) {
+    const h = hex[1];
+    const wide = h.length <= 4 ? [...h].map((c) => c + c).join('') : h;
+    if (wide.length < 6) return null;
+    return [
+      parseInt(wide.slice(0, 2), 16),
+      parseInt(wide.slice(2, 4), 16),
+      parseInt(wide.slice(4, 6), 16),
+    ];
+  }
+
+  const fn = /^rgba?\(([^)]+)\)$/.exec(s);
+  if (fn) {
+    const parts = fn[1].split(/[\s,/]+/).filter(Boolean);
+    if (parts.length < 3) return null;
+    const n = parts.slice(0, 3).map((p) =>
+      p.endsWith('%') ? Math.round((parseFloat(p) / 100) * 255) : Math.round(parseFloat(p)),
+    );
+    return n.some(Number.isNaN) ? null : n;
+  }
+
+  /**
+   * Tailwind's `/40` opacity modifier compiles to `color-mix(in oklab, …)`,
+   * which Chromium serialises in the sRGB float form rather than as rgba.
+   * Ignoring it would mean silently skipping every tinted surface — the
+   * check would pass by not looking.
+   */
+  const srgb = /^color\(\s*srgb\s+([^)]+)\)$/.exec(s);
+  if (srgb) {
+    const parts = srgb[1].split(/[\s/]+/).filter(Boolean);
+    if (parts.length < 3) return null;
+    const n = parts.slice(0, 3).map((p) => Math.round(parseFloat(p) * 255));
+    return n.some(Number.isNaN) ? null : n;
+  }
+
+  return null;
+}
+
+/** Transparent, and the keywords that mean "do not paint". */
+function isUnpainted(raw) {
+  const s = String(raw).trim().toLowerCase();
+  if (s === 'none' || s === 'transparent' || s === '') return true;
+  const alpha = /^(?:rgba?\([^)]*[,/]\s*|color\(\s*srgb[^)]*\/\s*)(0|0?\.0+)\s*\)$/.exec(s);
+  return Boolean(alpha);
+}
+
+async function loadTokenColours() {
+  const src = await readFile('styles/tokens.css', 'utf8');
+  const allowed = new Set();
+  let declarations = 0;
+
+  for (const m of src.matchAll(/--[a-z0-9-]+\s*:\s*([^;{}]+);/gi)) {
+    const rgb = parseColour(m[1]);
+    if (!rgb) continue;
+    declarations += 1;
+    allowed.add(rgb.join(','));
+  }
+
+  /**
+   * ⚠️ RULE 4 ON THE EXTRACTOR ITSELF. A regex that matched nothing would leave
+   * `allowed` empty, every colour on the page would be a finding, and the first
+   * person to see 400 findings would delete the check rather than read it. A
+   * regex that matched everything would leave `allowed` enormous and the check
+   * would pass on any input at all — which is the failure that does not
+   * announce itself. The floor catches the first; the palette assertion below
+   * catches the second.
+   */
+  if (declarations < 30) {
+    throw new Error(
+      `render-check: only ${declarations} colour token(s) parsed from styles/tokens.css. ` +
+        `The extractor is broken, and a broken extractor is not a clean run.`,
+    );
+  }
+  for (const token of ['--chart-1', '--chart-2', '--chart-3', '--chart-4']) {
+    if (!new RegExp(`${token}\\s*:`).test(src)) {
+      throw new Error(`render-check: ${token} is not declared in styles/tokens.css`);
+    }
+  }
+  return allowed;
+}
+
+const TOKEN_COLOURS = await loadTokenColours();
+
+/**
+ * Sub-pixel slack. An oklab round-trip through `color-mix` and back out as an
+ * sRGB float does not land on the integer it started from, and a channel one
+ * off is a rounding artifact rather than a colour nobody declared.
+ */
+const CHANNEL_TOLERANCE = 2;
+
+function isTokenColour(raw) {
+  const rgb = parseColour(raw);
+  if (!rgb) return null; // Unparseable — reported as its own kind, never as a pass.
+  for (const key of TOKEN_COLOURS) {
+    const t = key.split(',').map(Number);
+    if (rgb.every((c, i) => Math.abs(c - t[i]) <= CHANNEL_TOLERANCE)) return true;
+  }
+  return false;
+}
+
 const PORT = Number(process.env.RENDER_CHECK_PORT ?? 3210);
 const PASSWORD = 'render-check';
 const OUT = process.env.RENDER_CHECK_OUT ?? '.render-check';
@@ -223,6 +363,10 @@ const overlaps = [];
 const blockedRequests = [];
 /** Rule 18: the gap system must actually appear somewhere in the run. */
 let gapSlotsSeen = 0;
+/** Rule 18 again: enforcement point (c) must have had visuals to read. */
+const visualKindsSeen = new Set();
+let visualColoursRead = 0;
+let seriesMarksSeen = 0;
 /** Surfaces whose network never went quiet. Informational on this runner. */
 const neverSettled = [];
 const note = (surface, breakpoint, kind, detail) =>
@@ -296,15 +440,69 @@ function buildFirst() {
   }
 }
 
+/**
+ * Take down the server AND confirm the port went quiet.
+ *
+ * ⚠️ THE CONFIRMATION IS THE POINT. `kill()` returning is not the port closing,
+ * and the whole reason this function exists is that a teardown which looked
+ * like it worked did not. If the port is still answering, say so here — where
+ * it is a note about this run — rather than leaving the next run to refuse to
+ * start and look like a different problem.
+ */
+async function stopServer(server) {
+  try {
+    process.kill(-server.pid, 'SIGTERM');
+  } catch {
+    server.kill('SIGTERM');
+  }
+
+  for (let i = 0; i < 20; i += 1) {
+    try {
+      await fetch(`http://localhost:${PORT}/`, {
+        redirect: 'manual',
+        signal: AbortSignal.timeout(500),
+      });
+    } catch {
+      return; // Not answering. Gone.
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+
+  try {
+    process.kill(-server.pid, 'SIGKILL');
+  } catch {
+    /* Already gone, or never a group. */
+  }
+  console.error(
+    `render-check: the server on port ${PORT} did not stop cleanly. ` +
+      `A leftover process will make the next run refuse to start.`,
+  );
+}
+
 async function main() {
   await mkdir(OUT, { recursive: true });
   buildFirst();
   await refuseIfPortBusy();
 
+  /**
+   * ⚠️ DETACHED SO THE WHOLE GROUP CAN BE KILLED, WHICH IS NOT WHAT DETACHED
+   * USUALLY MEANS HERE.
+   *
+   * `npx next start` is two processes: npx, and the `next-server` it spawns.
+   * SIGTERM to npx does not reach the child, so the previous version left a
+   * server listening on this port after every run — and the NEXT run refused to
+   * start, correctly, saying the port was busy. Two runs in a row worked; three
+   * did not, and the failure looked like the port guard misfiring rather than
+   * the teardown never having worked.
+   *
+   * `detached: true` puts both in their own process group, and killing the
+   * negative pid takes the group. Nothing is actually detached from this
+   * process's lifetime — `unref()` is deliberately not called.
+   */
   const server = spawn('npx', ['next', 'start', '-p', String(PORT)], {
     env: { ...process.env, APP_PASSWORD: PASSWORD },
     stdio: 'ignore',
-    detached: false,
+    detached: true,
   });
 
   try {
@@ -573,8 +771,84 @@ async function main() {
           ({ selector, min, isTouch, mangledForms }) => {
             const out = {
               occluded: [], overlapped: [], small: [], lining: [], overflow: null,
-              encroached: [], mangled: [],
+              encroached: [], mangled: [], palette: [], visualKinds: [], unpainted: [],
             };
+
+            /**
+             * ⚠️ ENFORCEMENT POINT (c). Every painted colour inside a rendered
+             * visual, as the browser computed it, collected here and matched
+             * against tokens.css in the runner.
+             *
+             * The values go out as strings rather than being judged in the
+             * page: the parser is shared with the token extractor, and two
+             * copies of colour parsing is two things to keep in step. This
+             * repo has watched that pair fail with the tokens/Tailwind classes,
+             * the TS/SQL seed halves, and a design constant that drifted from
+             * its own fixture.
+             */
+            const SVG_NS = 'http://www.w3.org/2000/svg';
+            for (const root of document.querySelectorAll('[data-visual]')) {
+              const kind = root.getAttribute('data-visual') || '(unnamed)';
+              out.visualKinds.push(kind);
+
+              for (const el of [root, ...root.querySelectorAll('*')]) {
+                const r = el.getBoundingClientRect();
+                if (r.width === 0 || r.height === 0) continue;
+                const cs = getComputedStyle(el);
+                if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+                if (Number(cs.opacity) === 0) continue;
+
+                const cls = (el.getAttribute('class') || '').split(/\s+/).filter(Boolean);
+                const where =
+                  el.tagName.toLowerCase() + (cls.length ? `.${cls.slice(0, 2).join('.')}` : '');
+                const push = (prop, value) => {
+                  out.palette.push({ kind, prop, value: String(value ?? ''), where });
+                };
+
+                push('color', cs.color);
+                push('background-color', cs.backgroundColor);
+
+                /**
+                 * ⚠️ A MARK THAT DECLARES ITSELF PAINTED MUST BE PAINTED.
+                 *
+                 * `data-series` is the renderer's promise that this element's
+                 * background IS the series encoding. Without this arm the pass
+                 * had a blind spot big enough to swallow the exact defect it
+                 * was built for: `var(--chart-1-9)` is invalid at
+                 * computed-value time, background falls back to transparent,
+                 * and every skipped-because-transparent value is a bar that is
+                 * not on the screen. The mutation ran green.
+                 */
+                if (el.hasAttribute('data-series')) {
+                  out.unpainted.push({
+                    kind,
+                    where,
+                    series: el.getAttribute('data-series'),
+                    value: String(cs.backgroundColor ?? ''),
+                  });
+                }
+
+                /**
+                 * ⚠️ fill AND stroke ONLY ON SVG ELEMENTS. They are inherited
+                 * SVG properties, so `getComputedStyle(div).fill` returns
+                 * `rgb(0, 0, 0)` — the initial value, on an element that paints
+                 * nothing with it. Reading them everywhere would put a black
+                 * finding on every <div> in the figure and bury the one that
+                 * matters.
+                 */
+                if (el.namespaceURI === SVG_NS) {
+                  push('fill', cs.fill);
+                  push('stroke', cs.stroke);
+                }
+
+                // A border colour on a zero-width border is not on the screen.
+                for (const side of ['Top', 'Right', 'Bottom', 'Left']) {
+                  if (parseFloat(cs[`border${side}Width`]) > 0) {
+                    push(`border-${side.toLowerCase()}`, cs[`border${side}Color`]);
+                  }
+                }
+              }
+            }
 
             /**
              * ⚠️ TABULAR FIGURES, CHECKED AS A COMPUTED STYLE.
@@ -971,6 +1245,51 @@ async function main() {
               `kW is a kilowatt and kw is nothing.`,
           );
         }
+        for (const k of result.visualKinds) visualKindsSeen.add(k);
+        {
+          const seenBlank = new Set();
+          for (const u of result.unpainted) {
+            seriesMarksSeen += 1;
+            if (!isUnpainted(u.value)) continue;
+            const key = `${u.kind}|${u.series}`;
+            if (seenBlank.has(key)) continue;
+            seenBlank.add(key);
+            note(
+              surface,
+              bp.name,
+              'unpainted-series',
+              `series ${u.series} on ${u.where} in the "${u.kind}" visual computed to ` +
+                `"${u.value}" — it declares itself painted and is not on the screen. ` +
+                `An unresolvable var() is invalid at computed-value time and falls ` +
+                `back to transparent, which reads as clean to a palette check.`,
+            );
+          }
+        }
+        {
+          // One finding per distinct offending value, not per element painted
+          // with it — a bad token on a four-series bar is one defect.
+          const seenColour = new Set();
+          for (const p of result.palette) {
+            if (isUnpainted(p.value)) continue;
+            visualColoursRead += 1;
+            const verdict = isTokenColour(p.value);
+            const key = `${p.kind}|${p.prop}|${p.value}`;
+            if (verdict === true || seenColour.has(key)) continue;
+            seenColour.add(key);
+            note(
+              surface,
+              bp.name,
+              verdict === null ? 'palette-unreadable' : 'off-palette',
+              verdict === null
+                ? `${p.prop} on ${p.where} in the "${p.kind}" visual computed to ` +
+                  `"${p.value}", which this check cannot parse. Unparsed is not clean.`
+                : `${p.prop} on ${p.where} in the "${p.kind}" visual computed to ` +
+                  `"${p.value}" — no such hue is declared in styles/tokens.css. ` +
+                  `Generated content reaches this renderer, and a colour it names ` +
+                  `must never reach the pixel.`,
+            );
+          }
+        }
         for (const e of result.encroached) {
           note(
             surface,
@@ -1000,13 +1319,50 @@ async function main() {
 
     await browser.close();
   } finally {
-    server.kill('SIGTERM');
+    await stopServer(server);
   }
 
   // ⚠️ RULE 18, APPLIED TO THIS SCRIPT'S OWN NEWEST SUBJECT. A clean report
   // about a component that never rendered is the empty-universe pass again.
   if (gapSlotsSeen === 0) {
     note('(all)', '(all)', 'nothing-to-check', 'no gap slot rendered on any surface — every assertion about the gap system was made against pages that do not contain one');
+  }
+
+  /**
+   * ⚠️ THE SAME RULE, POINTED AT ENFORCEMENT POINT (c). A palette pass that
+   * found no visuals reports zero findings, which is byte-identical to a
+   * palette pass that found visuals and approved of all of them. The fixtures
+   * on /app/learn exist precisely so this cannot happen quietly — if they stop
+   * rendering, the check that would have caught it is the check that stopped
+   * running, so it has to say so itself.
+   */
+  const REQUIRED_VISUAL_KINDS = ['magnitude', 'parts', 'chain', 'contrast', 'unrenderable'];
+  /**
+   * ⚠️ AND THE SERIES ARM HAS THE SAME FAILURE MODE AS EVERYTHING ELSE HERE. If
+   * `data-series` is ever dropped from the renderer, `result.unpainted` is empty
+   * on every surface, no finding is raised, and the arm that caught the token
+   * typo is off with nothing to say about it.
+   */
+  if (seriesMarksSeen === 0) {
+    note(
+      '(all)',
+      '(all)',
+      'nothing-to-check',
+      'no [data-series] mark rendered anywhere — the arm that catches an ' +
+        'unresolvable token has nothing to read, so its silence means nothing',
+    );
+  }
+
+  const missingKinds = REQUIRED_VISUAL_KINDS.filter((k) => !visualKindsSeen.has(k));
+  if (missingKinds.length > 0) {
+    note(
+      '(all)',
+      '(all)',
+      'nothing-to-check',
+      `the palette pass never saw ${missingKinds.join(', ')} — ` +
+        `${visualColoursRead} colour(s) read across ${visualKindsSeen.size} visual kind(s). ` +
+        `Every shape has to render somewhere or the assertion about it is about nothing.`,
+    );
   }
 
   // ── Report ──
@@ -1025,6 +1381,12 @@ async function main() {
         `not app defects: ${Object.entries(bySurface).map(([k, v]) => `${k} x${v}`).join(', ')}`,
     );
   }
+
+  console.log(
+    `render-check: palette pass read ${visualColoursRead} painted colour(s) and ` +
+      `${seriesMarksSeen} series mark(s) across ${visualKindsSeen.size} visual kind(s), ` +
+      `against ${TOKEN_COLOURS.size} declared token hue(s).`,
+  );
 
   if (overlaps.length > 0) {
     console.log(`render-check: ${overlaps.length} element(s) under fixed chrome at scroll 0 — informational, scrolling reveals them.`);

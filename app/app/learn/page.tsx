@@ -1,4 +1,5 @@
 import LearnPanel from '@/components/modules/learn-panel';
+import ShapeVocabulary from '@/components/learn/shape-vocabulary';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import PageHeader from '@/components/chrome/page-header';
 
@@ -47,6 +48,21 @@ export default function LearnPage() {
         </CardHeader>
         <CardBody>
           <LearnPanel />
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>What it can draw</CardTitle>
+            <p className="mt-0.5 text-xs text-text-dim">
+              The whole visual vocabulary, and the panel you get when a question
+              needs a shape this does not have.
+            </p>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <ShapeVocabulary />
         </CardBody>
       </Card>
     </div>

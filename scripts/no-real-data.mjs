@@ -178,7 +178,27 @@ async function walk(dir) {
   return out;
 }
 
-const ref = process.argv[2] ?? 'HEAD';
+/**
+ * ⚠️ NOT `HEAD`, AND THAT DEFAULT WAS ALREADY WRONG WHEN IT SHIPPED.
+ *
+ * `HEAD` was right for exactly one run: the one before the scrub was committed.
+ * The moment it was, `HEAD:lib/seed-data.ts` became the DEMO seed, so a bare
+ * invocation extracted the invented names and searched the tree for them —
+ * found all 230 of them, in the files that are supposed to contain them, and
+ * reported failure. A check whose default run always fails is a check that gets
+ * read once and ignored afterwards, and the obvious way to quiet it is to
+ * loosen it.
+ *
+ * Worse was available. Had the working tree and the reference drifted the other
+ * way, the same comparison would have passed while proving nothing, because
+ * synthetic data does not match the operator's book either.
+ *
+ * So the reference is PINNED to the commit before the scrub, and the guard
+ * below refuses a ref whose files are byte-identical to the working tree rather
+ * than trusting the sha.
+ */
+const PRE_SCRUB_REF = '5d18230~1';
+const ref = process.argv[2] ?? PRE_SCRUB_REF;
 
 const reference = [];
 for (const path of REFERENCE_FILES) {
@@ -188,6 +208,43 @@ for (const path of REFERENCE_FILES) {
     process.exit(2);
   }
   for (const lit of literals(past, path)) reference.push({ path, lit });
+}
+
+/**
+ * ⚠️ IS THE REFERENCE THE REAL BOOK, OR THE DEMO COMPARED WITH ITSELF?
+ *
+ * The count floor below cannot tell those apart: the demo seed yields MORE
+ * strings than the original did, so "enough strings" is satisfied either way.
+ *
+ * ⚠️ AND THE OBVIOUS DISCRIMINATOR IS WRONG. The first version of this guard
+ * asked whether the reference strings carry the `SAMPLE — ` mark, on the
+ * reasoning that no real account had one. They do — because MARKING the rows
+ * and REPLACING them were two separate commits, in that order. At the pinned
+ * ref every company is a real account wearing a SAMPLE prefix, and the guard
+ * rejected the one revision it exists to accept. It was only visible by running
+ * it in both directions, which is the standing rule: a check that has only ever
+ * seen the passing case is unproven.
+ *
+ * What actually answers the question is whether the reference file and the
+ * working-tree file are the SAME BYTES. If they are, this is a file being
+ * compared with itself and no result it produces means anything.
+ */
+for (const path of REFERENCE_FILES) {
+  const past = gitShow(ref, path);
+  let now = null;
+  try {
+    now = await readFile(path, 'utf8');
+  } catch {
+    /* Missing from the tree: not this guard's business. */
+  }
+  if (now !== null && past === now) {
+    console.error(
+      `✗ ${path} at ${ref} is byte-identical to the working tree. The reference ` +
+        `has to be the version from BEFORE the scrub — comparing a file with ` +
+        `itself proves nothing in either direction.`,
+    );
+    process.exit(2);
+  }
 }
 
 // Rule 18: an enumeration is a claim, and "nothing to inspect" is the loudest
