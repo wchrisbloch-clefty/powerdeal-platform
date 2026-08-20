@@ -108,10 +108,23 @@ export default function CcusTracker({
           <Card>
             <CardHeader><CardTitle>Recent CCUS events</CardTitle></CardHeader>
             {events.length === 0 ? (
+              /* ⚠️ "unchecked" WAS WRONG ONCE THE RATE WAS MEASURED. It says
+                 nobody has looked, which was true before the sweep was
+                 deployed and is false now: the sweep runs daily and finds
+                 almost nothing, because there is almost nothing to find.
+
+                 A 336-hour backfill against a 48-hour window returned one
+                 additional candidate, already stored. Fourteen days of feed
+                 history held one CCUS item. Two rows in two weeks is the real
+                 rate.
+
+                 So the empty state says that. A near-empty CCUS view is
+                 accurate, and a surface that cannot say "this is normal" reads
+                 as broken every time somebody opens it. */
               <EmptyState
-                kind="unchecked"
-                title="No CCUS events logged"
-                body="The daily CCUS sweep writes Class VI permit movement, GCCSI project updates, and DOE funding here. Deploy the ccus-sweep edge function to start collecting."
+                kind="unavailable"
+                title="Nothing new — which is usual here"
+                body="The daily sweep reads GCCSI and DOE for Class VI permit movement and carbon-management funding. Those sources are slow: a fourteen-day backfill found one item. Expect a couple of entries a fortnight, not a feed. If the sweep itself stops, the banner above this panel says so."
               />
             ) : (
               <CardBody className="space-y-3">

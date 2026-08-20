@@ -1,5 +1,5 @@
 import { isAuthorized, unauthorized, ok, serverError } from '../_shared/auth.ts';
-import { contractStamp } from '../_shared/contract.ts';
+import { EDGE_CONTRACT, contractStamp } from '../_shared/contract.ts';
 import { serviceClient, listUsers, listDeals, writeState, type DealRow } from '../_shared/appState.ts';
 import { recordAgentRun } from '../_shared/appState.ts';
 
@@ -35,7 +35,7 @@ interface StallAlert {
 
 Deno.serve(async (request: Request) => {
   const startedAt = Date.now();
-  if (!isAuthorized(request)) return unauthorized();
+  if (!isAuthorized(request)) return unauthorized(EDGE_CONTRACT);
 
   try {
     const supabase = serviceClient();
@@ -130,7 +130,7 @@ Deno.serve(async (request: Request) => {
       ran_at: new Date().toISOString(),
       users: users.length,
       summary,
-    });
+    }, EDGE_CONTRACT);
   } catch (err) {
     // Recorded on the failure path as well — an unrecorded failure looks
     // exactly like a job that was never deployed.
@@ -148,7 +148,7 @@ Deno.serve(async (request: Request) => {
         error: err instanceof Error ? err.message : String(err),
       });
     } catch { /* bookkeeping must never mask the original error */ }
-    return serverError(err);
+    return serverError(err, EDGE_CONTRACT);
   }
 });
 

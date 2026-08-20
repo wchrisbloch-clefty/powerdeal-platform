@@ -33,8 +33,14 @@
  *
  *   1  the original shape
  *   2  + window_hours (ccus-sweep), + contract on all three
+ *   3  + the contract as a RESPONSE HEADER on every status, including 401
+ *
+ * ⚠️ 3 EXISTS BECAUSE 2 LEFT ONE FUNCTION UNVERIFIABLE. A body field only
+ * arrives on the success path, and stall-alert's success path increments
+ * days_in_stage on every in-flight deal — so reading its version cost a day of
+ * the operator's book. The header answers the question from a refused request.
  */
-export const EDGE_CONTRACT = 2;
+export const EDGE_CONTRACT = 3;
 
 /** Every function's response carries this, so "is it deployed" is one field. */
 export function contractStamp(): { contract: number } {

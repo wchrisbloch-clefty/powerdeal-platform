@@ -4,6 +4,7 @@ import {
   bookkeepingLooksBroken,
 } from '@/lib/agent-runs';
 import { isAdminConfigured } from '@/lib/supabase/admin';
+import { edgeContractStatus } from '@/lib/edge-contract';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,11 +32,20 @@ export async function GET() {
     });
   }
 
-  const [jobs, alert, runs, writeFailure] = await Promise.all([
+  const [jobs, alert, runs, writeFailure, contracts] = await Promise.all([
     getAgentStatuses(),
     getAgentAlert(),
     getAgentRuns(),
     getBookkeepingFailure(),
+    // ⚠️ DEPLOYED-BEHIND IS A STATE THIS PAGE OWES THE READER. A function can
+    // be running daily, reporting healthy, and be several commits behind the
+    // source — which is how a parameter was accepted and discarded for a week
+    // with the only evidence being a field missing from a curl response.
+    //
+    // Probed with a deliberately wrong secret, so the check is refused by every
+    // function and changes nothing. stall-alert's success path ages every
+    // in-flight deal by a day; a status page must never be able to trigger it.
+    edgeContractStatus().catch(() => null),
   ]);
 
   // Six jobs reading "never run" at once, beside an alert written minutes ago,
@@ -46,6 +56,7 @@ export async function GET() {
   return NextResponse.json({
     persistence: true,
     checkedAt: new Date().toISOString(),
+    contracts,
     bookkeeping: bookkeeping
       ? {
           ok: false,

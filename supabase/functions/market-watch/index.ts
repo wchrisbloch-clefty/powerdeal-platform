@@ -1,5 +1,5 @@
 import { isAuthorized, unauthorized, ok, serverError } from '../_shared/auth.ts';
-import { contractStamp } from '../_shared/contract.ts';
+import { EDGE_CONTRACT, contractStamp } from '../_shared/contract.ts';
 import { serviceClient, listUsers, listDeals, writeState } from '../_shared/appState.ts';
 import { recordAgentRun } from '../_shared/appState.ts';
 import { callClaude, parseJsonArray, anthropicConfigured } from '../_shared/anthropic.ts';
@@ -16,7 +16,7 @@ import { POWERDEAL_IDENTITY } from '../_shared/identity.ts';
  */
 Deno.serve(async (request: Request) => {
   const startedAt = Date.now();
-  if (!isAuthorized(request)) return unauthorized();
+  if (!isAuthorized(request)) return unauthorized(EDGE_CONTRACT);
 
   try {
     const supabase = serviceClient();
@@ -167,7 +167,7 @@ ${feed}`,
       sweep: sweepResult,
       users: Object.keys(summaries).length,
       summaries,
-    });
+    }, EDGE_CONTRACT);
   } catch (err) {
     // Recorded on the failure path as well — an unrecorded failure looks
     // exactly like a job that was never deployed.
@@ -185,6 +185,6 @@ ${feed}`,
         error: err instanceof Error ? err.message : String(err),
       });
     } catch { /* bookkeeping must never mask the original error */ }
-    return serverError(err);
+    return serverError(err, EDGE_CONTRACT);
   }
 });

@@ -32,11 +32,20 @@ interface DriftResponse {
   drift: { kind: string; table: string; detail: string; severity: string; why: string }[];
 }
 
+interface ContractRow {
+  fn: string;
+  deployed: number | null;
+  expected: number;
+  state: 'current' | 'behind' | 'ahead' | 'unreachable' | 'unstamped';
+  detail: string;
+}
+
 interface StatusResponse {
   persistence: boolean;
   note?: string;
   jobs: AgentJobStatus[];
   summary?: { total: number; ok: number; failing: number; stale: number; neverRun: number };
+  contracts?: ContractRow[] | null;
 }
 
 interface ModelProbeRow {
@@ -188,6 +197,8 @@ export default function AgentHealth() {
           Refresh
         </Button>
       </div>
+
+      <DeployedBehind contracts={data.contracts} />
 
       <div className="scrollbar-thin overflow-x-auto">
         <table className="w-full min-w-col-widest-min text-sm">
@@ -451,4 +462,58 @@ function ModelHealth({ models }: { models: ModelHealthResponse | null }) {
 
 function Th({ children }: { children: React.ReactNode }) {
   return <th className="pb-1.5 pr-3 font-normal text-2xs uppercase tracking-label text-text-faint">{children}</th>;
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * DEPLOYED-BEHIND, AS A VISIBLE STATE.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * A `window_hours: 336` request and a `window_hours: 48` request returned
+ * byte-identical bodies for a week. The parameter was in the source and not in
+ * the deployment, and the only evidence was a field MISSING from a curl
+ * response — which is a signal that works once, for a reader who already knows
+ * what the source returns.
+ *
+ * ⚠️ SILENT WHEN EVERY FUNCTION IS CURRENT, for the same reason the freshness
+ * note is: a permanent green row saying "all three at contract 2" is furniture,
+ * and furniture goes invisible exactly when it stops being true.
+ *
+ * `unreachable` is deliberately NOT a finding. It says something about the
+ * network this page is rendering on, not about a deployment, and reporting it
+ * beside a real version gap would bury the one that matters.
+ */
+function DeployedBehind({ contracts }: { contracts?: ContractRow[] | null }) {
+  if (!contracts || contracts.length === 0) return null;
+
+  const stale = contracts.filter((c) => c.state === 'behind' || c.state === 'unstamped');
+  const ahead = contracts.filter((c) => c.state === 'ahead');
+  if (stale.length === 0 && ahead.length === 0) return null;
+
+  return (
+    <div
+      role="status"
+      className="rounded-card border border-danger/40 bg-danger/5 px-3 py-2.5 text-sm text-danger"
+    >
+      <p className="font-medium">
+        {stale.length > 0
+          ? `${stale.length} edge function${stale.length > 1 ? 's are' : ' is'} behind this repo.`
+          : 'An edge function is deployed from a newer tree than this one.'}
+      </p>
+      <ul className="mt-1.5 space-y-1">
+        {[...stale, ...ahead].map((c) => (
+          <li key={c.fn} className="max-w-measure text-xs">
+            {c.detail}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 max-w-measure text-xs">
+        Redeploy with{' '}
+        <span className="font-mono">
+          supabase functions deploy {[...stale, ...ahead].map((c) => c.fn).join(' ')} --no-verify-jwt
+        </span>
+        . See supabase/functions/ROTATION.md.
+      </p>
+    </div>
+  );
 }
