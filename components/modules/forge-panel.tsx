@@ -15,6 +15,7 @@ import AiOutput from '@/components/ui/ai-output';
 import type { ForgeFormat } from '@/lib/forge/generate';
 import PageHeader from '@/components/chrome/page-header';
 import { GapInline } from '@/components/ui/gap';
+import { suggestedAction, suggestionReason } from '@/lib/forge/stage-fit';
 
 interface ForgeAction {
   id: string;
@@ -101,6 +102,10 @@ export default function ForgePanel({
 
   const deal = deals.find((d) => d.id === dealId) ?? null;
   const action = FORGE_ACTIONS.find((a) => a.id === actionId) ?? FORGE_ACTIONS[0];
+  // Null on a closed deal, and on any stage with no honest answer — a
+  // suggestion invented to fill the slot is noise wearing the same mark as a
+  // real one.
+  const suggested = deal ? suggestedAction(deal.stage) : null;
   const blocked = !brainReady || !aiAvailable;
 
   async function generate() {
@@ -220,10 +225,22 @@ export default function ForgePanel({
           {/* The decision. Full-weight card, and the only block in this column
               that carries a rule. */}
           <div className="space-y-1.5 rounded-card border border-rule bg-bg p-3">
-            <p className="eyebrow">Document type</p>
+            {/* ⚠️ WAS `<p className="eyebrow">`, WHICH IS 2xs UPPERCASE MONO —
+                a step BELOW the `text-sm font-medium` labels on the six buttons
+                it governs, and the same step as the format line inside each of
+                them. An eyebrow is a label above a heading; used as the heading
+                it inverts the hierarchy it exists to create. Same defect, and
+                the same fix, as the four in the Economics panel. */}
+            <h3 className="font-display text-base text-text">Document type</h3>
+            {suggested && deal ? (
+              <p className="max-w-measure text-2xs text-text-faint">
+                {suggestionReason(deal.stage)} Every document stays available.
+              </p>
+            ) : null}
             {FORGE_ACTIONS.map((a) => {
               const Icon = a.icon;
               const active = a.id === actionId;
+              const isSuggested = a.id === suggested;
               return (
                 <button
                   key={a.id}
@@ -240,9 +257,18 @@ export default function ForgePanel({
                       : 'border-rule bg-bg-raised hover:bg-bg-overlay',
                   )}
                 >
-                  <span className="flex min-h-tap items-center gap-2 text-sm xl:min-h-0 font-medium text-text">
+                  <span className="flex min-h-tap flex-wrap items-center gap-2 text-sm font-medium text-text xl:min-h-0">
                     <Icon size={14} strokeWidth={1.75} />
                     {a.label}
+                    {/* ⚠️ A MARK, NOT A GATE. The other five are untouched —
+                        not hidden, not disabled, not reordered out of reach.
+                        Ordering rather than pressure, which is the same trade
+                        nextGaps makes and the same non-negotiable behind it. */}
+                    {isSuggested ? (
+                      <span className="rounded-sm bg-accent-bg px-1.5 py-0.5 font-mono text-2xs uppercase tracking-label text-accent-dim">
+                        suggested
+                      </span>
+                    ) : null}
                   </span>
                   <span className="mt-0.5 block text-xs text-text-dim">
                     {a.description}
