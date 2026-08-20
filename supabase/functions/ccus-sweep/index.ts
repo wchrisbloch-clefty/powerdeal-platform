@@ -1,4 +1,5 @@
 import { isAuthorized, unauthorized, ok, serverError } from '../_shared/auth.ts';
+import { contractStamp } from '../_shared/contract.ts';
 import { serviceClient, listUsers, listDeals, writeState, readState } from '../_shared/appState.ts';
 import { recordAgentRun } from '../_shared/appState.ts';
 
@@ -78,10 +79,12 @@ Deno.serve(async (request: Request) => {
   if (!isAuthorized(request)) return unauthorized();
 
   let windowHours = DEFAULT_WINDOW_HOURS;
+  let windowAsked: number | null = null;
   try {
     const body = await request.clone().json();
     const asked = Number(body?.window_hours);
     if (Number.isFinite(asked) && asked > 0) {
+      windowAsked = asked;
       windowHours = Math.min(asked, MAX_WINDOW_HOURS);
     }
   } catch {
@@ -267,10 +270,20 @@ Deno.serve(async (request: Request) => {
     });
 
     return ok({
+      ...contractStamp(),
       ran_at: new Date().toISOString(),
-      // Self-describing: a run that swept a different window says so, rather
-      // than leaving a reader to infer it from the count.
+      /*
+        ⚠️ BOTH NUMBERS, NOT JUST THE APPLIED ONE. `window_hours` alone answers
+        "what did you sweep" and leaves "did you get what I sent" open — a
+        request for 5000 hours and a request for 2160 both come back as 2160,
+        which is the clamp doing its job invisibly.
+
+        `window_hours_requested` is null when no parameter was sent, so the
+        scheduled call is distinguishable from a manual one asking for the
+        default. Three states, three answers.
+      */
       window_hours: windowHours,
+      window_hours_requested: windowAsked,
       fetched: entries.length,
       recent: recent.length,
       users: users.length,

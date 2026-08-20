@@ -1,4 +1,5 @@
 import { isAuthorized, unauthorized, ok, serverError } from '../_shared/auth.ts';
+import { contractStamp } from '../_shared/contract.ts';
 import { serviceClient, listUsers, listDeals, writeState } from '../_shared/appState.ts';
 import { recordAgentRun } from '../_shared/appState.ts';
 import { callClaude, parseJsonArray, anthropicConfigured } from '../_shared/anthropic.ts';
@@ -161,6 +162,7 @@ ${feed}`,
     });
 
     return ok({
+      ...contractStamp(),
       ran_at: new Date().toISOString(),
       sweep: sweepResult,
       users: Object.keys(summaries).length,

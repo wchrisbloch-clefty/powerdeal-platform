@@ -224,6 +224,47 @@ describe('the edge functions write their heartbeat unconditionally', () => {
     }
   });
 
+  it('every function stamps its contract, so "is it deployed" is one field', async () => {
+    /*
+      ⚠️ THE QUESTION THAT COULD NOT BE ANSWERED FROM OUTSIDE. A
+      `window_hours: 336` request and a `window_hours: 48` request returned
+      byte-identical bodies. Either the parameter worked and found nothing
+      extra, or the deployed code had never heard of it — and the only thing
+      separating those readings was a field MISSING from the response, which
+      is a signal that works once, for a reader who already knows the source.
+
+      A stamped contract answers it in one comparison: the number coming back
+      versus the number in the repo.
+    */
+    const shared = await readFile('supabase/functions/_shared/contract.ts', 'utf8');
+    expect(shared).toMatch(/export const EDGE_CONTRACT = \d+/);
+
+    for (const fn of ['ccus-sweep', 'market-watch', 'stall-alert']) {
+      const src = await readFile(`supabase/functions/${fn}/index.ts`, 'utf8');
+      expect(src, `${fn} does not import the contract stamp`).toContain('contractStamp');
+      // Spread into the SUCCESS response, not merely imported.
+      const success = src.slice(src.indexOf('return ok('));
+      expect(success.slice(0, 200), `${fn} imports the stamp without using it`)
+        .toContain('...contractStamp()');
+    }
+  });
+
+  it('the ccus window echoes what was asked as well as what was applied', async () => {
+    /*
+      `window_hours` alone answers "what did you sweep" and leaves "did you get
+      what I sent" open — a request for 5000 and a request for 2160 both come
+      back as 2160, the clamp working invisibly. Null when nothing was sent, so
+      the scheduled call is distinguishable from a manual one asking for the
+      default.
+    */
+    const src = await readFile('supabase/functions/ccus-sweep/index.ts', 'utf8');
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    expect(code).toContain('window_hours_requested: windowAsked');
+    expect(code).toMatch(/windowAsked: number \| null = null/);
+    // The raw value is captured BEFORE the clamp, or it echoes the clamp.
+    expect(code).toMatch(/windowAsked = asked;\s*\n\s*windowHours = Math\.min/);
+  });
+
   it('the ccus window is an input, bounded, and reported back', async () => {
     /*
       The 48h window covers ONE missed run. August missed seven, so everything

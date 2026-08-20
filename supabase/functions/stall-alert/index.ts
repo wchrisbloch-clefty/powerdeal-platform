@@ -1,4 +1,5 @@
 import { isAuthorized, unauthorized, ok, serverError } from '../_shared/auth.ts';
+import { contractStamp } from '../_shared/contract.ts';
 import { serviceClient, listUsers, listDeals, writeState, type DealRow } from '../_shared/appState.ts';
 import { recordAgentRun } from '../_shared/appState.ts';
 
@@ -124,7 +125,12 @@ Deno.serve(async (request: Request) => {
       durationMs: Date.now() - startedAt,
       itemsProcessed: Object.keys(summary).length,
     });
-    return ok({ ran_at: new Date().toISOString(), users: users.length, summary });
+    return ok({
+      ...contractStamp(),
+      ran_at: new Date().toISOString(),
+      users: users.length,
+      summary,
+    });
   } catch (err) {
     // Recorded on the failure path as well — an unrecorded failure looks
     // exactly like a job that was never deployed.
