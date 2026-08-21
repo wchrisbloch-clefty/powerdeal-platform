@@ -41,11 +41,16 @@ export default function LearnPage() {
       <Card>
         <CardHeader>
           <div>
-            <CardTitle>Practice</CardTitle>
-            <p className="mt-0.5 text-xs text-text-dim">
-              No scores, no levels, no mastery ratings — deliberately. The point is
-              to work on the argument you are worst at, and a number on the screen
-              is enough to stop that.
+            {/* ⚠️ NOT "Practice". This card was called that when it was the only
+                card on the page, and the rehearsal card below inherited the same
+                title — two headings reading "Practice" on one surface, each
+                leading somewhere different. The render check asserts ONE <h1> per
+                surface and these are card titles, so nothing caught it. */}
+            <CardTitle>Ask</CardTitle>
+            <p className="mt-0.5 max-w-measure text-xs text-text-dim">
+              One box — it reads the question. No scores, no levels, no mastery
+              ratings, deliberately: the point is to work on the argument you are
+              worst at, and a number on the screen is enough to stop that.
             </p>
           </div>
         </CardHeader>

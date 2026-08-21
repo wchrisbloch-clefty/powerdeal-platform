@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Send, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Loader2, Send, RotateCcw } from 'lucide-react';
 import { GapPanel } from '@/components/ui/gap';
 import FormattedText from '@/components/ui/formatted-text';
+import Observations from '@/components/learn/observations';
 import { parsePractice, type PracticeResponse } from '@/lib/learn/practice/response';
 import type { ResolvedScenario } from '@/lib/learn/practice/scenarios-resolve';
 import { cn } from '@/lib/utils';
@@ -230,8 +231,6 @@ function Exchange({
 }) {
   return (
     <div className="space-y-rhythm-block">
-      {response.findings.length > 0 ? <GuardrailNote response={response} /> : null}
-
       <FormattedText text={response.reply} scale="reading" />
 
       {response.pending ? (
@@ -246,71 +245,16 @@ function Exchange({
         </p>
       ) : null}
 
-      {/* Two observations about the CONVERSATION. Neither says how it went. */}
-      {response.tookAway || response.stillOpen.length > 0 ? (
-        <div className="space-y-1.5 border-t border-rule-faint pt-2">
-          {response.tookAway ? (
-            <p className="max-w-measure text-2xs text-text-dim">
-              <span className="font-mono uppercase tracking-label text-text-faint">
-                What they took away
-              </span>{' '}
-              {response.tookAway}
-            </p>
-          ) : null}
-          {response.stillOpen.length > 0 ? (
-            <div>
-              <p className="font-mono text-2xs uppercase tracking-label text-text-faint">
-                Still open
-              </p>
-              <ul className="mt-0.5 space-y-0.5">
-                {response.stillOpen.map((s, i) => (
-                  <li key={i} className="max-w-measure text-2xs text-text-dim">
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </div>
-      ) : streaming ? null : (
-        /* Said rather than left blank: no observations at all is a state, and
-           it is not the same as observations that have not arrived. */
-        <p className="border-t border-rule-faint pt-2 text-2xs text-text-faint">
-          No observations came back with this turn.
-        </p>
+      {/* ⚠️ NOT RENDERED WHILE THE TAIL IS STILL ARRIVING. "No observations came
+          back" and "they have not finished being written" are different states,
+          and the shared component says the first one out loud. */}
+      {response.pending || streaming ? null : (
+        <Observations
+          tookAway={response.tookAway}
+          stillOpen={response.stillOpen}
+          findings={response.findings}
+        />
       )}
-    </div>
-  );
-}
-
-/**
- * ⚠️ THE FINDING IS SHOWN AND THE TEXT IS LEFT ALONE.
- *
- * Removing the graded sentence would leave a surface that always looks
- * compliant, and the reader would never learn the prompt had drifted. The
- * quote is verbatim so the call can be checked — a guardrail that reports
- * without evidence is asking to be trusted, which is the thing this product
- * does not do anywhere else either.
- */
-function GuardrailNote({ response }: { response: PracticeResponse }) {
-  return (
-    <div className="rounded-card border border-warning/40 bg-warning/5 px-3 py-2">
-      <p className="flex items-start gap-2 text-2xs text-text">
-        <AlertTriangle size={13} className="mt-0.5 shrink-0 text-warning" aria-hidden />
-        <span className="max-w-measure">
-          This reply graded you. Practice here is ungraded, so that is a defect in the
-          prompt rather than something to take on board — the reply is shown unedited
-          below.
-        </span>
-      </p>
-      <ul className="mt-1.5 space-y-1">
-        {response.findings.map((f, i) => (
-          <li key={i} className="max-w-measure text-2xs text-text-dim">
-            <span className="font-mono uppercase tracking-label text-warning">{f.rule}</span>{' '}
-            <span className="text-text">“{f.phrase}”</span> in {f.where} — {f.why}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

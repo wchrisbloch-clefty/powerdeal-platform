@@ -381,8 +381,19 @@ describe('nothing on the practice surface keeps score', () => {
   });
 
   it('the panel renders the offending phrase verbatim', async () => {
-    const src = await readFile('components/learn/practice.tsx', 'utf8');
+    // Lives in the SHARED observations component: the live exchange and a
+    // resumed transcript must show the same finding, or a grade would be
+    // visible in the room and invisible when the session is read back.
+    const src = await readFile('components/learn/observations.tsx', 'utf8');
     expect(src).toContain('{f.phrase}');
     expect(src).toContain('{f.why}');
+  });
+
+  it('both surfaces render observations through the same component', async () => {
+    for (const f of ['components/learn/practice.tsx', 'components/learn/answer.tsx']) {
+      expect(await readFile(f, 'utf8'), f).toContain(
+        "from '@/components/learn/observations'",
+      );
+    }
   });
 });

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseBlocks, hasStructure, blockFormatInstruction, VISUAL_FENCE } from '@/lib/learn/blocks';
+import { PRACTICE_FENCE } from '@/lib/learn/practice/response';
 
 /**
  * The block parser runs on every streamed chunk, so most of these assertions
@@ -149,6 +150,51 @@ describe('parseBlocks — the failures that must stay visible', () => {
   it('a JSON code sample without a `kind` is a code sample', () => {
     const blocks = parseBlocks(fenced('{"a": 1}', 'json'));
     expect(blocks.map((b) => b.kind)).toEqual(['prose']);
+  });
+});
+
+describe('a resumed practice exchange comes back through this parser', () => {
+  /**
+   * ⚠️ FOUND BY READING WHAT THE SURFACE ACTUALLY PRODUCES, NOT BY A TEST.
+   * Practice writes its turns to the same session store as everything else, and
+   * the resume list replays them into the answer pane. The
+   * `powerdeal-practice` fence was an unrecognised tag, so it fell through to
+   * the ordinary-code-fence branch and put the raw JSON tail on screen as a
+   * code block — the exact "arrives as its own source code" defect this parser
+   * was written to stop, reappearing one route over.
+   */
+  const TAIL =
+    '```' + PRACTICE_FENCE + '\n' +
+    '{"tookAway":"They heard cost.","stillOpen":["The steam load is still open."]}\n' +
+    '```';
+
+  it('renders the tail as observations, never as raw JSON', () => {
+    const blocks = parseBlocks(`The budget is frozen.\n\n${TAIL}`);
+    expect(blocks.map((b) => b.kind)).toEqual(['prose', 'observations']);
+    const b = blocks[1];
+    if (b.kind !== 'observations') throw new Error('expected observations');
+    expect(b.tookAway).toBe('They heard cost.');
+    expect(b.stillOpen).toEqual(['The steam load is still open.']);
+    // The failure this replaces: the JSON reaching the reader as text.
+    for (const p of blocks) {
+      if (p.kind === 'prose') expect(p.text).not.toContain('tookAway');
+    }
+  });
+
+  it('carries the guardrail with it, so a grade is visible on the way back too', () => {
+    const graded =
+      '```' + PRACTICE_FENCE + '\n' +
+      '{"tookAway":"That was a strong answer.","stillOpen":["You missed permitting."]}\n' +
+      '```';
+    const b = parseBlocks(`Fine.\n\n${graded}`)[1];
+    if (b.kind !== 'observations') throw new Error('expected observations');
+    expect(b.findings.map((f) => f.rule).sort()).toEqual(['miss', 'verdict']);
+  });
+
+  it('a broken tail is reported rather than shown as a code block', () => {
+    const b = parseBlocks('Fine.\n\n```' + PRACTICE_FENCE + '\n{oops}\n```')[1];
+    if (b.kind !== 'malformed') throw new Error('expected malformed');
+    expect(b.reason).toMatch(/did not parse/);
   });
 });
 

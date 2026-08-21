@@ -1,4 +1,6 @@
 import { validateVisual } from './visual/validate';
+import { PRACTICE_FENCE, readObservations } from './practice/response';
+import type { Finding } from './practice/guardrail';
 import type { Visual } from './visual/schema';
 
 /**
@@ -49,6 +51,17 @@ export type Block =
   | { kind: 'prose'; text: string }
   /** A validated visual, plus whatever the validator had to correct. */
   | { kind: 'visual'; visual: Visual; problems: string[] }
+  /**
+   * The tail of a practice exchange.
+   *
+   * ⚠️ HERE BECAUSE A RESUMED PRACTICE SESSION COMES BACK THROUGH THIS PARSER.
+   * Practice writes its turns to the same session store as everything else, and
+   * the resume list replays them into the answer pane. Without this branch the
+   * `powerdeal-practice` fence was an unrecognised tag, so it rendered as a code
+   * block — raw JSON on the screen, which is the exact defect the fence
+   * machinery exists to prevent, reappearing one route over.
+   */
+  | { kind: 'observations'; tookAway: string | null; stillOpen: string[]; findings: Finding[] }
   /** An open fence with no close yet. A state, not a failure. */
   | { kind: 'arriving' }
   | { kind: 'malformed'; raw: string; reason: string };
@@ -136,6 +149,27 @@ export function parseBlocks(text: string): Block[] {
 
     const body = after.slice(0, close.index + close[1].length);
     rest = after.slice(close.index + close[0].length);
+
+    if (tag.toLowerCase() === PRACTICE_FENCE) {
+      /*
+        Reuses the practice reader rather than re-parsing the tail here. Two
+        parsers for one fence is the second-copy pattern, and this one would
+        drift in the direction that matters: the guardrail runs inside
+        `readObservations`, so a private copy would be a rendering path with no
+        guardrail on it at all.
+      */
+      const tail = readObservations(body);
+      blocks.push(
+        tail
+          ? { kind: 'observations', ...tail }
+          : {
+              kind: 'malformed',
+              raw: body,
+              reason: 'The practice observations did not parse as JSON.',
+            },
+      );
+      continue;
+    }
 
     if (tag.toLowerCase() !== VISUAL_FENCE) {
       const reason = misTagged(tag, body);

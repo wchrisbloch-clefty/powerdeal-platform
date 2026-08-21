@@ -1,6 +1,7 @@
 import { AlertTriangle } from 'lucide-react';
 import LearnVisual from '@/components/learn/visual';
 import FormattedText from '@/components/ui/formatted-text';
+import Observations from '@/components/learn/observations';
 import { parseBlocks, type Block } from '@/lib/learn/blocks';
 
 /**
@@ -67,6 +68,22 @@ function BlockView({ block }: { block: Block }) {
           </ul>
         ) : null}
       </div>
+    );
+  }
+
+  if (block.kind === 'observations') {
+    /*
+      A resumed practice exchange. Rendered by the same component the live
+      Practice card uses, so a transcript read back tomorrow says exactly what
+      it said in the room — including any guardrail finding, which is re-derived
+      on the way to the screen rather than stored.
+    */
+    return (
+      <Observations
+        tookAway={block.tookAway}
+        stillOpen={block.stillOpen}
+        findings={block.findings}
+      />
     );
   }
 
