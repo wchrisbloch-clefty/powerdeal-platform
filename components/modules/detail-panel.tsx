@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Check, Copy, ExternalLink, Loader2, X } from 'lucide-react';
 import type { Deal, FeedItem, SourceTier } from '@/lib/types';
-import { relativeTime, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { entitiesIn } from '@/lib/engine/entities';
 import { platformOf, PLATFORM_LABELS } from '@/lib/platforms';
 import ProvenanceChip, { ConfidenceRule } from '@/components/ui/provenance-chip';
 import { EntityChip } from '@/components/ui/entity-link';
 import Badge from '@/components/ui/badge';
+import TimeAgo from '@/components/ui/time-ago';
 
 interface Coverage {
   title: string;
@@ -157,7 +158,7 @@ role="presentation"
               <span className="truncate text-xs text-text-dim">{item.source_name}</span>
             ) : null}
             <span className="ml-auto text-xs text-text-faint">
-              {relativeTime(item.published_at ?? item.cached_at)}
+              <TimeAgo value={item.published_at ?? item.cached_at} />
             </span>
           </div>
 

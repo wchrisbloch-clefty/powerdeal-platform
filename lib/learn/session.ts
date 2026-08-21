@@ -31,9 +31,24 @@ export interface LearnTurn {
   at: string;
 }
 
+/**
+ * ⚠️ WIDER THAN `LearnMode`, AND DELIBERATELY NOT A SIXTH MODE.
+ *
+ * `MODES` is what the BOX reads a question into, and there are five of them.
+ * Practice is not one: it is entered on purpose from a scenario, never
+ * detected from typed text, and adding it to the union would put a sixth
+ * option in front of a reader who is supposed to just type.
+ *
+ * But a practice session is a session — it resumes, it is labelled by its
+ * opener, it is deleted the same way — so the STORED mode has to be able to
+ * say what it was. Recording one as `roleplay` would make the resume list
+ * quietly wrong about what the reader did.
+ */
+export type SessionMode = LearnMode | 'practice';
+
 export interface LearnSession {
   id: string;
-  mode: LearnMode;
+  mode: SessionMode;
   /** The question that opened it. Used as the label in the resume list. */
   opener: string;
   turns: LearnTurn[];
@@ -119,7 +134,7 @@ export function recallContext(sessions: LearnSession[]): string {
 /** A new session, before anything has been asked of a model. */
 export function newSession(
   id: string,
-  mode: LearnMode,
+  mode: SessionMode,
   opener: string,
   now: string,
   userId: string | null,

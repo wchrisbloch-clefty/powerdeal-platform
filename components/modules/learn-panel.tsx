@@ -8,7 +8,8 @@ import { followUpsFor } from '@/lib/learn/pacing';
 import type { ResolvedPath } from '@/lib/learn/paths-resolve';
 import { MODES, detectMode, explainDetection, type LearnMode } from '@/lib/learn/modes';
 import { sessionLabel, type LearnSession } from '@/lib/learn/session';
-import { relativeTime, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import TimeAgo from '@/components/ui/time-ago';
 
 /**
  * LEARN — one box, five modes, and no score anywhere.
@@ -172,7 +173,15 @@ export default function LearnPanel({ paths = [] }: { paths?: ResolvedPath[] }) {
 
   async function resume(session: LearnSession) {
     setSessionId(session.id);
-    setOverride(session.mode);
+    /**
+     * ⚠️ A PRACTICE SESSION HAS NO BOX MODE TO RESTORE. It resumes as a
+     * readable transcript, and the next thing typed is read fresh — forcing an
+     * override here would need a sixth mode that the box cannot detect and the
+     * reader never chose.
+     */
+    if (MODES.some((m) => m.mode === session.mode)) {
+      setOverride(session.mode as LearnMode);
+    }
     setAnswer(
       session.turns
         .map((t) => (t.role === 'user' ? `**${t.text}**` : t.text))
@@ -408,7 +417,7 @@ export default function LearnPanel({ paths = [] }: { paths?: ResolvedPath[] }) {
                 >
                   <span className="block truncate">{sessionLabel(s)}</span>
                   <span className="block text-text-faint">
-                    {s.mode} · {relativeTime(s.updated_at)}
+                    {s.mode} · <TimeAgo value={s.updated_at} />
                   </span>
                 </button>
                 <button

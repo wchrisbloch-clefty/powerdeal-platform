@@ -1,6 +1,8 @@
 import LearnPanel from '@/components/modules/learn-panel';
 import ShapeVocabulary from '@/components/learn/shape-vocabulary';
+import LearnPractice from '@/components/learn/practice';
 import { resolvePaths } from '@/lib/learn/paths-resolve';
+import { resolveScenarios } from '@/lib/learn/practice/scenarios-resolve';
 import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import PageHeader from '@/components/chrome/page-header';
 
@@ -52,6 +54,22 @@ export default function LearnPage() {
               whose doctrine is missing must render as a gap rather than as
               questions with nothing behind them. */}
           <LearnPanel paths={resolvePaths()} />
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Practice</CardTitle>
+            <p className="mt-0.5 max-w-measure text-xs text-text-dim">
+              Rehearsal, not quizzing. The buyer responds to what you actually said —
+              and responds as that person, not as a difficulty setting. Nothing here
+              rates you, and nothing is kept but the transcript.
+            </p>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <LearnPractice scenarios={resolveScenarios()} />
         </CardBody>
       </Card>
 

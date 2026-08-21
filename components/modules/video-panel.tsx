@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { ExternalLink, Loader2, Youtube } from 'lucide-react';
 import type { YouTubeItem } from '@/lib/engine/youtube';
-import { relativeTime, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import ProvenanceChip from '@/components/ui/provenance-chip';
 import Badge from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/card';
+import TimeAgo from '@/components/ui/time-ago';
 
 /**
  * VIDEO — longer-form treatment for transcript-backed items.
@@ -114,7 +115,7 @@ function VideoCard({ video }: { video: YouTubeItem }) {
           <Badge tone="warning">Description only</Badge>
         )}
         <span className="ml-auto whitespace-nowrap text-xs text-text-faint">
-          {relativeTime(video.publishedAt)}
+          <TimeAgo value={video.publishedAt} />
         </span>
       </div>
 

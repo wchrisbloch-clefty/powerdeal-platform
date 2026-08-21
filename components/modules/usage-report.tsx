@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { formatMs, type UsageReport as Report } from '@/lib/usage';
-import { relativeTime, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import Button from '@/components/ui/button';
+import TimeAgo from '@/components/ui/time-ago';
 
 /**
  * THE WEEK, AS RECORDED RATHER THAN AS REMEMBERED.
@@ -126,7 +127,7 @@ export default function UsageReport() {
               <li key={`${w.at}-${i}`} className="text-xs">
                 <p className="text-text">{w.text}</p>
                 <p className="text-2xs text-text-faint">
-                  <span className="font-mono">{w.path}</span> · {relativeTime(w.at)}
+                  <span className="font-mono">{w.path}</span> · <TimeAgo value={w.at} />
                 </p>
               </li>
             ))}
@@ -160,7 +161,7 @@ export default function UsageReport() {
                   <td className="py-1 pr-3 font-mono">{s.openedCount}</td>
                   <td className="py-1 pr-3 font-mono">{formatMs(s.totalMs)}</td>
                   <td className="py-1 text-text-faint">
-                    {s.lastAt ? relativeTime(s.lastAt) : '—'}
+                    <TimeAgo value={s.lastAt} />
                   </td>
                 </tr>
               ))}

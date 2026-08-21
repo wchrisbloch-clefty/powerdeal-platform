@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import type { AgentJobStatus, AgentStatus } from '@/lib/agent-runs';
-import { relativeTime, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import Button from '@/components/ui/button';
+import TimeAgo from '@/components/ui/time-ago';
 
 /**
  * AGENT HEALTH — the table that says whether the scheduled work is alive.
@@ -239,7 +240,7 @@ export default function AgentHealth() {
                          row most likely to mean "never deployed". */
                       <span className="text-text-faint">No record — never fired</span>
                     ) : (
-                      relativeTime(job.run?.lastSuccessAt ?? job.run?.lastAttemptAt)
+                      <TimeAgo value={job.run?.lastSuccessAt ?? job.run?.lastAttemptAt} />
                     )}
                   </td>
                   <td className="py-2 pr-3 font-mono text-2xs text-text-dim">
@@ -438,11 +439,22 @@ function ModelHealth({ models }: { models: ModelHealthResponse | null }) {
                   <li key={r.task} className="text-2xs">
                     <span className="font-mono text-text-dim">{r.task}</span>{' '}
                     <span className={r.resolution?.ok ? 'text-text-faint' : 'text-danger'}>
-                      {r.resolution
-                        ? r.resolution.ok
-                          ? `${r.resolution.provider} · ${r.resolution.model} · ${relativeTime(r.resolution.at)}`
-                          : `no provider answered — ${r.resolution.error ?? 'unknown'}`
-                        : 'never called'}
+                      {r.resolution ? (
+                        r.resolution.ok ? (
+                          /* Split out of a template literal so the time is its
+                             own element: `suppressHydrationWarning` applies to
+                             a node, and a clock interpolated into a longer
+                             string cannot carry one. */
+                          <>
+                            {r.resolution.provider} · {r.resolution.model} ·{' '}
+                            <TimeAgo value={r.resolution.at} />
+                          </>
+                        ) : (
+                          `no provider answered — ${r.resolution.error ?? 'unknown'}`
+                        )
+                      ) : (
+                        'never called'
+                      )}
                       {r.stale ? ' · stale' : ''}
                     </span>
                   </li>

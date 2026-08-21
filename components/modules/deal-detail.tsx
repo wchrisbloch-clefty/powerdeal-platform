@@ -15,7 +15,7 @@ import { meddpiccBreakdown, riskFlags, utilityRiskFlags } from '@/lib/deals';
 import { resolveKind, nextGaps, noGapMessage } from '@/lib/design/next-gap';
 import { GapInline, GapPanel } from '@/components/ui/gap';
 import ReadFailureBanner from '@/components/ui/read-failure';
-import { formatMw, formatUsd, formatDate, relativeTime, cn } from '@/lib/utils';
+import { formatMw, formatUsd, formatDate, cn } from '@/lib/utils';
 import { nonAttainmentForState, primacyFor } from '@/lib/geo/epa-api';
 import { useAiStream } from '@/lib/use-ai-stream';
 import type { TaskKind } from '@/lib/engine/model-routing';
@@ -41,6 +41,7 @@ import { starterPlan } from '@/lib/map/schedule';
 import type { MapPlan } from '@/lib/map/schedule';
 import { TERMINAL_STAGES } from '@/lib/types';
 import type { DealStage, WinLossEntry } from '@/lib/types';
+import TimeAgo from '@/components/ui/time-ago';
 
 type Tab =
   | 'intel' | 'signals' | 'market' | 'map' | 'competitive' | 'prep'
@@ -796,7 +797,7 @@ export default function DealDetail({
                         <div className="flex items-center gap-2">
                           <Badge tone="accent">{s.signal_type}</Badge>
                           <span className="text-xs text-text-faint">
-                            {relativeTime(s.logged_at)}
+                            <TimeAgo value={s.logged_at} />
                           </span>
                         </div>
                         <p className="mt-1.5 text-sm text-text">{s.raw_signal}</p>
@@ -823,7 +824,7 @@ export default function DealDetail({
                           <ProvenanceChip tier={m.source_tier} />
                           <Badge tone="neutral">{m.category}</Badge>
                           <span className="text-xs text-text-faint">
-                            {relativeTime(m.swept_at)}
+                            <TimeAgo value={m.swept_at} />
                           </span>
                         </div>
                         <p className="mt-1.5 text-sm font-medium text-text">{m.headline}</p>

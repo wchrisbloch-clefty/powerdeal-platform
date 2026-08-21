@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { FeedItem as FeedItemType, Deal } from '@/lib/types';
 import type { ItemState } from '@/lib/feed-state';
-import { relativeTime, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { categoryLabel, getActiveVertical } from '@/lib/active-vertical';
 import { entitiesIn } from '@/lib/engine/entities';
 import { PLATFORM_LABELS, platformOf } from '@/lib/platforms';
@@ -20,6 +20,7 @@ import { EntityChip } from '@/components/ui/entity-link';
 import Badge from '@/components/ui/badge';
 import DetailPanel from './detail-panel';
 import PromoteToSignal from './promote-to-signal';
+import TimeAgo from '@/components/ui/time-ago';
 
 const ARRIVAL_LABELS: Record<string, string> = {
   rss: 'RSS',
@@ -336,7 +337,7 @@ export default function FeedItemCard({
               <Badge tone="neutral">{ARRIVAL_LABELS[item.arrival] ?? item.arrival}</Badge>
             ) : null}
             <span className="whitespace-nowrap text-xs text-text-faint">
-              {relativeTime(item.published_at ?? item.cached_at)}
+              <TimeAgo value={item.published_at ?? item.cached_at} />
             </span>
           </span>
         </div>

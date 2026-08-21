@@ -17,7 +17,7 @@ import {
   platformOf,
   type FeedPlatform,
 } from '@/lib/platforms';
-import { cn, relativeTime } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import FeedItemCard, { DismissedRow } from './feed-item';
 import CoverageGapBlock from './coverage-gap';
 import TrendingPanel from './trending-panel';
@@ -26,6 +26,7 @@ import WeeklyRecapPanel from './weekly-recap';
 import Ticker, { type TickerData } from './ticker';
 import Button from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/card';
+import TimeAgo from '@/components/ui/time-ago';
 
 type View = 'grid' | 'list';
 
@@ -219,7 +220,7 @@ export default function IntelFeed({
           <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-text-faint">
             <span>
               {live ? 'Live from' : 'Seed content —'} {vertical.sources.length} configured sources ·
-              updated {relativeTime(fetchedAt)}
+              updated <TimeAgo value={fetchedAt} />
             </span>
             {/* Feed health from the weekly probe. A dead publisher just makes
                 the stream quieter with no error, so the count belongs where

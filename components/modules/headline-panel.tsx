@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { Loader2, ExternalLink, RefreshCw } from 'lucide-react';
 import type { Headline } from '@/lib/engine/headlines';
 import type { HeadlinesPayload, SeedCopy } from '@/lib/seed-state';
-import { relativeTime, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import Button from '@/components/ui/button';
+import TimeAgo from '@/components/ui/time-ago';
 
 /**
  * HEADLINES — what to read first, and why it ranked there.
@@ -179,7 +180,7 @@ export default function HeadlinePanel() {
 
                   <p className="mt-0.5 text-2xs text-text-faint">
                     {h.item.source_name ?? 'Unknown source'} ·{' '}
-                    {relativeTime(h.item.published_at ?? h.item.cached_at)} · {h.item.tier}
+                    <TimeAgo value={h.item.published_at ?? h.item.cached_at} /> · {h.item.tier}
                   </p>
 
                   {h.item.synthesis ? (

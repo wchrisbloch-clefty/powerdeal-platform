@@ -4,12 +4,13 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink, Gauge } from 'lucide-react';
 import type { Deal, MarketWatchEntry } from '@/lib/types';
-import { relativeTime, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { entitiesIn } from '@/lib/engine/entities';
 import ProvenanceChip from '@/components/ui/provenance-chip';
 import { EntityChip } from '@/components/ui/entity-link';
 import Badge from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/card';
+import TimeAgo from '@/components/ui/time-ago';
 
 /**
  * MARKET WATCH — the curated subset that matters to a deal.
@@ -142,7 +143,7 @@ function MarketWatchRow({ entry, deals }: { entry: MarketWatchEntry; deals: Deal
         <span className="ml-auto flex items-center gap-2">
           <ImpactMeter rank={entry.impact_rank} />
           <span className="whitespace-nowrap text-xs text-text-faint">
-            {relativeTime(entry.swept_at)}
+            <TimeAgo value={entry.swept_at} />
           </span>
         </span>
       </div>
