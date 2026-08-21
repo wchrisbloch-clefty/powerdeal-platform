@@ -289,6 +289,14 @@ const BREAKPOINTS = [
 const SURFACES = [
   '/app',
   '/app/pipeline',
+  /**
+   * ⚠️ ADDED WITH THE SURFACE, NOT AFTER IT. This list has been wrong twice
+   * while reporting clean, and both times the omission was a surface that
+   * shipped without its row here. `/app/log` is a primary nav destination, so
+   * the NAV_ITEMS count assertion in tests/nav.test.ts would have caught it —
+   * but only after a run that reported eighteen surfaces clean.
+   */
+  '/app/log',
   '/app/intelligence',
   '/app/chat',
   '/app/maps',
@@ -670,7 +678,27 @@ async function main() {
             if (!bar) return null;
             const box = bar.getBoundingClientRect();
             const items = [...bar.querySelectorAll('a[href]')].map((a) => {
-              const span = a.querySelector('span') || a;
+              /**
+               * ⚠️ THE FIRST *VISIBLE* SPAN, NOT THE FIRST SPAN — and this
+               * reported 171 findings before it said `:not(.sr-only)` and
+               * checked the box.
+               *
+               * Nav items carry two labels now: a short form for the narrow
+               * bars and the full one for desktop, one of them display:none at
+               * any given width. `querySelector('span')` took whichever came
+               * first in the DOM, which at desktop is the hidden one — a
+               * zero-size rect at the origin, reported as clipped by the whole
+               * width of the bar.
+               *
+               * Rule 19: a check that measures something the reader never sees
+               * is reporting on a state that does not exist in use. Every one
+               * of those 171 findings was about an element with no pixels.
+               */
+              const span =
+                [...a.querySelectorAll('span')].find((el) => {
+                  const b = el.getBoundingClientRect();
+                  return b.width > 0 && b.height > 0;
+                }) || a;
               const r = span.getBoundingClientRect();
               return {
                 text: (span.textContent || '').trim(),
@@ -760,7 +788,7 @@ async function main() {
            * it. If the count is unexpectedly zero on a surface that should
            * fetch, that is worth noticing too.
            */
-          if (/ERR_TUNNEL_CONNECTION_FAILED|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|ERR_PROXY/.test(e)) {
+          if (/ERR_TUNNEL_CONNECTION_FAILED|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|ERR_PROXY|ERR_CERT_AUTHORITY_INVALID/.test(e)) {
             blockedRequests.push(`${bp.name} ${surface}`);
           } else {
             note(surface, bp.name, 'page-error', e);

@@ -228,6 +228,18 @@
   /* 64px x 8 = 512px, inside a 768px iPad portrait viewport. Also the
      touch-target width at that breakpoint — over the 44pt floor. */
   --nav-item-min-w: 64px;
+  /* ⚠️ NINE ITEMS DO NOT FIT AT 64px AND THE LABELS ARE NOT THE REASON.
+     Adding the Log destination took the stacked bar to 9 x 64 = 576px of
+     minimum width inside a 510px box at 834px, and "Learn" clipped by 58px.
+     Shortening two labels recovered 8px of the 68 needed, which is what
+     measuring rather than guessing is for: the constraint was the per-item
+     floor, not the text.
+
+     56px x 9 = 504px, inside 510px. Still 12px over the 44pt touch floor, and
+     the touch-target pass in render-check measures that rather than trusting
+     this comment. Scoped to the stacked breakpoint: the desktop bar has room
+     and keeps the wider item. */
+  --nav-item-min-w-stacked: 56px;
   /* The active marker. 2px reads at a glance without becoming a rule. */
   --nav-active-border: 2px;
 

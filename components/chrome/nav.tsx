@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, BarChart3, RadioTower, Map,
   FileText, MessageSquare, SlidersHorizontal, Calculator, GraduationCap,
-  MoreHorizontal, X, Search, LogOut,
+  MoreHorizontal, X, Search, LogOut, Mic,
 } from 'lucide-react';
 import ThemeToggle from './theme-toggle';
 import type { LucideIcon } from 'lucide-react';
@@ -17,6 +17,21 @@ import { cn } from '@/lib/utils';
 export interface NavItem {
   href: string;
   label: string;
+  /**
+   * The bottom tab bar's label, when the full one will not fit.
+   *
+   * ⚠️ ADDED BECAUSE A FIFTH PRIMARY ITEM MADE THE ARITHMETIC BITE, and the
+   * alternative was worse. At 390px the bar is five slots plus More; a sixth
+   * takes each to ~65px against a 64px floor, and "Intelligence" clips — which
+   * the nav-label pass in render-check correctly calls a defect.
+   *
+   * The other options were demoting a primary item (a product call nobody has
+   * data for, and `/api/usage` is collecting it) or leaving Capture out of the
+   * nav (which is the thing that was asked for). A shorter label on the
+   * narrowest bar costs nothing: the icon carries the identity, the full label
+   * is on every other surface, and the destination is unchanged.
+   */
+  short?: string;
   icon: LucideIcon;
   /**
    * Shown in the mobile bottom tab bar. Four slots; the fifth is More.
@@ -41,9 +56,23 @@ export interface NavItem {
  * row of reading surfaces is a category error, not a usage question.
  */
 export const NAV_ITEMS: NavItem[] = [
-  { href: '/app', label: 'Dashboard', icon: Home, primary: true },
+  { href: '/app', label: 'Dashboard', short: 'Home', icon: Home, primary: true },
   { href: '/app/pipeline', label: 'Pipeline', icon: BarChart3, primary: true },
-  { href: '/app/intelligence', label: 'Intelligence', icon: RadioTower, primary: true },
+  /**
+   * ⚠️ PRIMARY BECAUSE OF WHERE IT GETS USED, NOT HOW OFTEN. This is the
+   * surface someone opens in a car park with one hand, thirty seconds after a
+   * call, and a fact that needs a desk to record is a fact that never lands.
+   * Behind the More sheet it would be two taps and a decision; in the bar it
+   * is one tap and none.
+   *
+   * ⚠️ `/app/log`, NOT `/app/capture`. That path is already the Web Share
+   * Target's POST handler and a route handler cannot share a path with a page.
+   * The name is the honest one either way: this writes the Intelligence Log,
+   * and `/app/intelligence/capture` — which grades and files a shared link — is
+   * a different job that already owns the word "capture".
+   */
+  { href: '/app/log', label: 'Log', icon: Mic, primary: true },
+  { href: '/app/intelligence', label: 'Intelligence', short: 'Intel', icon: RadioTower, primary: true },
   { href: '/app/chat', label: 'Chat', icon: MessageSquare, primary: true },
   { href: '/app/maps', label: 'Maps', icon: Map },
   { href: '/app/economics', label: 'Economics', icon: Calculator },
@@ -209,10 +238,12 @@ export function NavBar() {
                     aria-current={active ? 'page' : undefined}
                     className={cn(
                       NAV_BASE,
-                      // Stacked at md, inline at lg. `min-w-nav-item` is the
-                      // touch target at the stacked breakpoint and is what
-                      // makes eight fit inside an iPad portrait viewport.
-                      'min-w-nav-item flex-col gap-0.5 px-1.5 text-2xs',
+                      // Stacked at md, inline at lg. `min-w-nav-item-stacked`
+                      // is the touch target at this breakpoint and is what
+                      // makes NINE fit inside an iPad portrait viewport — it
+                      // was `min-w-nav-item` at 64px, which fit eight and not
+                      // nine. Measured; see styles/tokens.css.
+                      'min-w-nav-item-stacked flex-col gap-0.5 px-1.5 text-2xs',
                       'lg:min-w-0 lg:flex-row lg:gap-2 lg:px-3 lg:text-sm',
                       // The border is on the ELEMENT, not a pseudo-element, so
                       // it participates in layout identically whether active or
@@ -224,7 +255,20 @@ export function NavBar() {
                     )}
                   >
                     <Icon size={17} strokeWidth={active ? 2 : 1.75} aria-hidden />
-                    <span className="whitespace-nowrap">{item.label}</span>
+                    {/*
+                      ⚠️ THE SHORT FORM IS USED ON THE STACKED iPAD BAR TOO, and
+                      it had to be. Adding a ninth destination pushed the bar to
+                      586px of content in a 510px box at 834px, clipping "Learn"
+                      by 58px — the same iPad clipping defect that was fixed
+                      once already, returning through a different door.
+
+                      Measured, not guessed: render-check reports the label's
+                      overflow against the nav's own box at rest.
+                    */}
+                    <span className="whitespace-nowrap lg:hidden">
+                      {item.short ?? item.label}
+                    </span>
+                    <span className="hidden whitespace-nowrap lg:inline">{item.label}</span>
                   </Link>
                 </li>
               );
@@ -445,7 +489,11 @@ export function TabBar() {
               )}
             >
               <Icon size={19} strokeWidth={active ? 2 : 1.75} aria-hidden />
-              {item.label}
+              {/* The short form only exists on this bar. Everywhere else,
+                  including the accessible name, the destination keeps its
+                  real name. */}
+              <span className="sr-only">{item.label}</span>
+              <span aria-hidden>{item.short ?? item.label}</span>
             </Link>
           );
         })}

@@ -77,6 +77,28 @@ const UpdateDeal = z
     identified_pain: z.string().max(2000).nullable(),
     champion: z.string().max(200).nullable(),
     competition: z.string().max(1000).nullable(),
+    /**
+     * ⚠️ ABSENT FROM THIS SCHEMA UNTIL 2026-08-21, WHICH MADE ONE OF THE TWO
+     * HEALTH CAPS IMPOSSIBLE TO SATISFY FROM THE APPLICATION.
+     *
+     * `compute_health_score` caps a deal at 6 when `critical_event` is null.
+     * The column has existed since 20260810_critical_event.sql, it is read in
+     * five places, and NOTHING in the product could ever write it — not this
+     * PATCH, not the create route, not any component. Every deal was held
+     * against a field that was structurally unreachable, and the cap reported
+     * as a finding about the deal rather than about the platform.
+     *
+     * Found by auditing the write surface, not by a test: there is no assertion
+     * that can fail for a field nobody references.
+     */
+    critical_event: z.string().max(2000).nullable(),
+    /** Null is legitimate — the surface renders "no date on record". */
+    critical_event_date: z.string().nullable(),
+    /**
+     * Wins over account-level `utility` in the resolver: the account field
+     * describes the company, the beachhead is where the tariff actually is.
+     */
+    beachhead_utility: z.string().max(120).nullable(),
     landed_site: z.string().max(200).nullable(),
     next_target_site: z.string().max(200).nullable(),
     expansion_mw_captured: z.number().nonnegative(),

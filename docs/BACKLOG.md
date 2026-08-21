@@ -1,11 +1,44 @@
 # Backlog
 
-Items found during the build that are real, are not fixed, and should not be
-discovered again from scratch.
+Items found during the build that are real and should not be discovered again
+from scratch. Several are now closed and are kept for the record of why the fix
+looks the way it does.
+
+## ⚠️ EVERY HEADING CARRIES ITS STATE, AND THAT IS NOT A STYLE PREFERENCE
+
+Item 1 read "Nothing in the application ever changes a deal's stage" for ten
+days after it shipped. The `**Status:** SHIPPED` line was directly underneath
+and nobody scanning the contents saw it — including the author of this file,
+who told the operator there were six open items when there were three.
+
+A heading is what gets read. A finding written in the present tense goes on
+being true-looking long after it stops being true, which is the stale-comment
+class this repo has already caught in code twice: a comment that describes
+behaviour the code no longer has.
+
+So the state goes in the heading — OPEN, BLOCKED, SHIPPED, CLOSED or CUT — and
+the `**Status:**` line underneath carries the date and the detail.
+
+## Where things stand
+
+| # | Item | State |
+|---|---|---|
+| 1 | Stage never changes from the app | SHIPPED |
+| 2 | `Archived` collapses three losses | CLOSED |
+| 3 | `generatePptx` ignores the docx theme | **OPEN** |
+| 4 | PDF export | SHIPPED |
+| 5 | MAP share link | CUT |
+| 6 | `deals.competition` scores a MEDDPICC point | CLOSED |
+| 7 | Meeting Prep generator | SHIPPED |
+| 8 | §6 / repo reconciliation | CLOSED |
+| 9 | `vertical-playbooks.md` split | **BLOCKED** — needs a doctrine version |
+| 12 | Recip and fuel-cell preset data | **BLOCKED** — environmental |
+
+Three are live: one open, two blocked on something outside the repo.
 
 ---
 
-## 1. Nothing in the application ever changes a deal's stage
+## 1. Nothing in the application ever changes a deal's stage — SHIPPED
 
 **Status:** SHIPPED 2026-08-11 — `components/modules/stage-control.tsx` +
 `lib/stage.ts`. Kept here because the finding, the four affected features and
@@ -116,7 +149,7 @@ The first real move on a deal makes its counter honest.
 
 ---
 
-## 2. `Archived` collapses three different losses
+## 2. `Archived` collapses three different losses — CLOSED
 
 **Status:** CLOSED 2026-08-15 — `archivedOutcome()` / `outcomesByDeal()` in
 `lib/win-loss.ts`. The collapse stands, because it is correct: `DEAL_STAGES`
@@ -143,7 +176,7 @@ pipeline view that wants to separate them must join `win_loss_log` on
 
 ---
 
-## 3. `generatePptx` does not consume the docx theme
+## 3. `generatePptx` does not consume the docx theme — OPEN
 
 **Status:** queued, after Part 3
 **Severity:** the highest-visibility output is the one off-palette
@@ -158,7 +191,7 @@ being plain.
 
 ---
 
-## 4. PDF export
+## 4. PDF export — SHIPPED
 
 **Status:** SHIPPED 2026-08-11 — `lib/forge/pdf.ts`, wired into
 `/api/forge`. The 501 with its reason is gone.
@@ -233,7 +266,7 @@ a schema migration. The share route comes after, never instead.
 
 ---
 
-## 6. `deals.competition` still scores one MEDDPICC point
+## 6. `deals.competition` still scores one MEDDPICC point — CLOSED
 
 **Status:** CLOSED 2026-08-15 — `meddpiccResult()` in `lib/deals.ts`.
 
@@ -434,7 +467,7 @@ should pull what it needs rather than all six.
 
 ---
 
-## 9. `vertical-playbooks.md` wants splitting by vertical
+## 9. `vertical-playbooks.md` wants splitting by vertical — BLOCKED
 
 **Status:** DESIGN SETTLED, BLOCKED ON A DOCTRINE VERSION — 2026-08-15
 
@@ -516,7 +549,7 @@ Defense should have one, which is a content question, not a code one.
 
 ---
 
-## 12. Recip and fuel-cell preset data
+## 12. Recip and fuel-cell preset data — BLOCKED
 
 **Status:** BLOCKED — environmental, 2026-08-15
 **Severity:** `recip-engine` is an empty preset the economics page offers and

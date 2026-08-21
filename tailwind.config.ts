@@ -141,6 +141,9 @@ const config: Config = {
         topbar: 'var(--topbar-height)',
         'topbar-stacked': 'var(--topbar-height-stacked)',
         'nav-item': 'var(--nav-item-min-w)',
+        // The stacked (md–lg) bar's narrower floor. Nine destinations do not
+        // fit at the wider one; see the arithmetic in styles/tokens.css.
+        'nav-item-stacked': 'var(--nav-item-min-w-stacked)',
         tap: 'var(--tap-target)',
         'tap-sm': 'var(--tap-target-sm)',
         'col-tiny': 'var(--col-tiny)',

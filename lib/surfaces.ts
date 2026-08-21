@@ -24,6 +24,14 @@ export const KNOWN_SURFACES: KnownSurface[] = [
   { path: '/app/forge', label: 'Forge' },
   { path: '/app/chat', label: 'Chat' },
   { path: '/app/learn', label: 'Learn' },
+  /**
+   * ⚠️ INSTRUMENTED FROM THE DAY IT SHIPPED, not after. The primary four were
+   * always going to be re-derived from open counts once the usage week had
+   * data, and a destination that is not counted cannot take part in that — it
+   * would look unused because nothing was watching, which is the shape of every
+   * silent failure in this build.
+   */
+  { path: '/app/log', label: 'Log' },
   { path: '/app/settings', label: 'Settings' },
 
   /**

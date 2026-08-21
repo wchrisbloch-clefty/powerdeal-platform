@@ -39,6 +39,7 @@ export type TaskKind =
   | 'pricing-defense-card' // Pricing defense vs one posture → Claude (domain)
   | 'meeting-prep' // Persona + stage-aware meeting brief → Claude (domain)
   | 'learn' // Teaching the doctrine back to the rep → Claude (domain)
+  | 'extract' // Sentence -> proposed deal fields → Claude (domain)
   | 'persuade' // Persuasion enhancement → Claude (domain)
   | 'forge-doc' // Document generation (PPTX/DOCX) → Claude (domain)
   | 'recap'; // Weekly recap → Claude Haiku (structured)
@@ -64,6 +65,22 @@ export const DOMAIN_TASKS: readonly TaskKind[] = [
   // accurate — a cheaper model here would teach a subtly wrong version of the
   // doctrine, and the reader has no way to tell.
   'learn',
+  /**
+   * ⚠️ EXTRACTION IS A DOMAIN TASK, WHICH IS NOT THE OBVIOUS CALL. Turning a
+   * sentence into `{field, value, phrase}` looks like cheap structured work,
+   * and the cheap tier can do the structure perfectly.
+   *
+   * What it cannot do is RESTRAIN itself. The whole instruction is about what
+   * not to propose — a name mentioned is not a champion, two people are not
+   * multi-threading, a deadline in passing is not a critical event. A model
+   * that over-proposes does not produce wrong data, because every proposal is
+   * confirmed by a human; it produces a confirm step the reader stops reading,
+   * and a rubber-stamped proposal writes a score for knowledge nobody has.
+   *
+   * The failure is one layer out from the output, which is why the cheaper
+   * model looks fine when you inspect its JSON.
+   */
+  'extract',
 ];
 
 export function isDomainTask(task: TaskKind): boolean {
@@ -91,6 +108,7 @@ const ORDER: Record<TaskKind, Provider[]> = {
   'pricing-defense-card': ['claude'],
   'meeting-prep': ['claude'],
   learn: ['claude'],
+  extract: ['claude'],
   persuade: ['claude'],
   'forge-doc': ['claude'],
 };

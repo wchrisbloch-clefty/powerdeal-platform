@@ -58,8 +58,21 @@ async function palette(theme: 'light' | 'dark'): Promise<Record<string, string>>
 }
 
 describe('every destination is reachable at every breakpoint', () => {
-  it('there are eight, and the count is stated so a ninth is a decision', () => {
-    expect(NAV_ITEMS).toHaveLength(8);
+  it('there are nine, and the count is stated so a tenth is a decision', () => {
+    /**
+     * ⚠️ THIS ASSERTION DID ITS JOB. It was 8 and it failed the moment Log was
+     * added, which is exactly what "a ninth is a decision" is for — the number
+     * is not bumped to make a suite green, it is bumped because the decision
+     * was made and written down.
+     *
+     * THE DECISION: Log is the ninth destination and the fifth PRIMARY one. It
+     * is where a fact gets recorded from a car park thirty seconds after a
+     * call, and until it existed the application could write exactly two fields
+     * on an existing deal — `stage` and `verified_empty`. A capture surface
+     * behind the More sheet is two taps and a decision at the moment the
+     * reader has neither.
+     */
+    expect(NAV_ITEMS).toHaveLength(9);
   });
 
   it('desktop and iPad show ALL EIGHT — no overflow menu', async () => {
@@ -103,10 +116,40 @@ describe('every destination is reachable at every breakpoint', () => {
     expect(new Set(mobile).size).toBe(mobile.length);
   });
 
-  it('the bottom bar holds exactly four, so the fifth slot stays More', () => {
-    // Five items plus More is six across 375px — 62px each, under the 44pt
-    // target once padding is taken.
-    expect(primaryItems()).toHaveLength(4);
+  it('the bottom bar holds five plus More, and the labels are what make that fit', () => {
+    /**
+     * ⚠️ THE ARITHMETIC THAT USED TO FORBID THIS IS STILL TRUE — it was the
+     * LABELS that changed, not the geometry.
+     *
+     * Six slots across 390px is 65px each against a 64px floor. That fits the
+     * TARGET and does not fit the word "Intelligence", which the nav-label pass
+     * in render-check correctly reports as a clipped label — an item you must
+     * scroll to read is not a label.
+     *
+     * So two items carry a `short` form used only on this bar: Dashboard ->
+     * Home, Intelligence -> Intel. The icon carries identity, the accessible
+     * name stays the real one, and the full label is on every other surface.
+     *
+     * The alternative was demoting one of the existing four, which is a product
+     * call nobody has data for — `/api/usage` is still collecting it, and the
+     * provisional-four note below is the standing commitment to re-derive this
+     * from counts rather than argument.
+     */
+    expect(primaryItems()).toHaveLength(5);
+
+    /**
+     * ⚠️ AND THE LENGTH OF THOSE LABELS IS NOT ASSERTED HERE, because this file
+     * already records why not fifty lines above: a source test cannot see
+     * layout. The first version of this counted characters against a threshold
+     * of six and failed on "Pipeline" — a number picked to match the labels I
+     * had in mind rather than measured against anything. That is the deleted
+     * `not.toContain('overflow-x-auto')` assertion wearing a new hat: a layout
+     * claim made where layout does not exist.
+     *
+     * `scripts/render-check.mjs` measures each label against the nav's own box
+     * at 390px, at rest, before any hit-test scrolls it. That is the check that
+     * can actually answer this, and it is the one that governs.
+     */
   });
 
   it('Settings is reachable at every breakpoint too', async () => {
@@ -187,7 +230,7 @@ describe('the mobile call, and the arithmetic behind it', () => {
 describe('the iPad-portrait breakpoint is stated, not left to wrap', () => {
   it('stacks icon over label between md and lg', async () => {
     const src = await NAV;
-    expect(src).toContain('min-w-nav-item flex-col');
+    expect(src).toContain('min-w-nav-item-stacked flex-col');
     expect(src).toContain('lg:flex-row');
   });
 
