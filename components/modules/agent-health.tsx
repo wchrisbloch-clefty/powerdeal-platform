@@ -24,6 +24,24 @@ const STATUS_STYLES: Record<AgentStatus, { dot: string; label: string }> = {
   'never-run': { dot: 'bg-rule', label: 'Never run' },
 };
 
+interface ScoreDriftResponse {
+  ok: boolean;
+  /** False when the check could not run at all. */
+  checked: boolean;
+  /** ⚠️ NULL, NOT 0, WHEN THE CHECK DID NOT RUN. See the note at the render. */
+  drifted: number | null;
+  rows: {
+    deal_id: string;
+    company: string;
+    stored_health: number;
+    computed_health: number;
+    stored_meddpicc: number;
+    computed_meddpicc: number;
+  }[];
+  truncated?: number;
+  error: string | null;
+}
+
 interface DriftResponse {
   ok: boolean;
   checkedTables: number;
@@ -113,6 +131,13 @@ export default function AgentHealth() {
    */
   const [drift, setDrift] = useState<DriftResponse | null>(null);
   /**
+   * SCORE DRIFT IS A FOURTH INDEPENDENT FETCH, for the reason the other three
+   * are separate: a failure in one must not blank the others. It is also the
+   * one that found the largest defect in this build — twenty-one deals whose
+   * stored health had never been produced by the function that names it.
+   */
+  const [scoreDrift, setScoreDrift] = useState<ScoreDriftResponse | null>(null);
+  /**
    * MODEL HEALTH IS THE THIRD INDEPENDENT FETCH, for the same reason.
    *
    * Gemini retired a model and Groq hit its daily ceiling in the same hour, and
@@ -143,6 +168,12 @@ export default function AgentHealth() {
       setModels((await m.json()) as ModelHealthResponse);
     } catch {
       setModels(null);
+    }
+    try {
+      const h = await fetch('/api/health/drift');
+      setScoreDrift((await h.json()) as ScoreDriftResponse);
+    } catch {
+      setScoreDrift(null);
     }
     setLoading(false);
   }
@@ -267,6 +298,89 @@ export default function AgentHealth() {
           in first.
         </p>
       ) : null}
+
+      {/* ── Score drift ──
+          The schema-drift defect one layer in: a STORED value disagreeing with
+          the function that produced it. Twenty-one deals carried hand-written
+          whole-integer health scores for the life of this build, inflated
+          100-167%, while compute_health_score sat in the schema being read by
+          nothing. The average, the at-risk count and the needs-attention
+          ORDERING were all fiction.
+
+          Placed above schema drift deliberately: this one is about the numbers
+          the operator makes decisions from. */}
+      <div className="border-t border-rule pt-4">
+        <div className="flex items-baseline justify-between">
+          <p className="eyebrow">Score drift</p>
+          {/* ⚠️ "COULD NOT LOOK" AND "LOOKED AND FOUND NOTHING" GET DIFFERENT
+              COPY. `drifted` is null in the first case and 0 in the second,
+              and rendering "0" for a failed check is the exact claim this
+              check exists to catch. */}
+          {scoreDrift === null || !scoreDrift.checked ? (
+            <p className="text-2xs text-text-faint">
+              {scoreDrift === null ? 'not checked' : 'could not read'}
+            </p>
+          ) : (
+            <p className="text-2xs">
+              <span
+                className={cn(
+                  'font-mono',
+                  (scoreDrift.drifted ?? 0) > 0 ? 'text-danger' : 'text-success',
+                )}
+              >
+                {scoreDrift.drifted}
+              </span>{' '}
+              <span className="text-text-faint">
+                deal{scoreDrift.drifted === 1 ? '' : 's'} disagree with their own function
+              </span>
+            </p>
+          )}
+        </div>
+
+        {scoreDrift === null ? (
+          <p className="mt-1.5 text-2xs text-text-faint">
+            The score check did not answer. That is not the same as no drift — it
+            means nothing looked.
+          </p>
+        ) : !scoreDrift.checked ? (
+          <p className="mt-1.5 rounded-sm border border-rule bg-bg-raised px-2.5 py-1.5 text-2xs text-text-dim">
+            {scoreDrift.error}
+          </p>
+        ) : scoreDrift.ok ? (
+          <p className="mt-1.5 text-2xs text-text-dim">
+            Every stored health and MEDDPICC score matches what its function
+            produces for that row.
+          </p>
+        ) : (
+          <>
+            <ul className="mt-2 space-y-1.5">
+              {scoreDrift.rows.map((r) => (
+                <li key={r.deal_id} className="text-2xs">
+                  <span className="text-danger">{'\u25CF'}</span>{' '}
+                  <span className="font-mono text-text">{r.deal_id}</span>{' '}
+                  <span className="text-text-dim">{r.company}</span>{' '}
+                  <span className="font-mono tabular-nums text-text-faint">
+                    health {r.stored_health} stored / {r.computed_health} computed
+                    {r.stored_meddpicc !== r.computed_meddpicc
+                      ? ` · meddpicc ${r.stored_meddpicc} / ${r.computed_meddpicc}`
+                      : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {scoreDrift.truncated ? (
+              <p className="mt-1.5 text-2xs text-text-faint">
+                and {scoreDrift.truncated} more — the count above is the whole number.
+              </p>
+            ) : null}
+            <p className="mt-1.5 max-w-measure text-2xs text-text-dim">
+              A stored value that disagrees with its own function is worse than a
+              wrong one: the derivation claims otherwise. Apply
+              supabase/migrations/20260822_health_recompute.sql.
+            </p>
+          </>
+        )}
+      </div>
 
       {/* ── Schema drift ──
           schema.sql declared feed_items.url_hash for the whole life of the feed

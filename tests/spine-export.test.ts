@@ -193,10 +193,43 @@ describe('the stamp is the point', () => {
 
 describe('health prints the reason, because 6 vs 4 was the whole problem', () => {
   it('names the critical-event cap — the exact disagreement that was found', () => {
-    const caps = healthCaps(deal({ critical_event: null, multi_threaded: true }));
+    // Multi-threaded, economic buyer, decision mapped, champion, 8 pillars:
+    // uncapped is above 6, so the cap is BINDING and holds it down.
+    const capped = deal({
+      critical_event: null,
+      multi_threaded: true,
+      economic_buyer: 'A. Buyer',
+      decision_mapped: true,
+      champion: 'A. Champion',
+      meddpicc_score: 8,
+      days_in_stage: 5,
+    });
+    const caps = healthCaps(capped);
     expect(caps).toHaveLength(1);
     expect(caps[0]).toContain('no critical event');
-    expect(caps[0]).toContain('capped at 6');
+    expect(caps[0]).toContain('holding this at 6');
+  });
+
+  it('⚠️ and says the OPPOSITE when the cap binds nothing', () => {
+    /**
+     * The defect: "capped at 6" printed on every deal missing a critical
+     * event, including the twenty that compute to 1.5 — where a cap at 6
+     * holds nothing down. The sentence described a rule that was not
+     * operating and read as the reason the number was low.
+     */
+    const flat = deal({
+      critical_event: null,
+      multi_threaded: true,
+      economic_buyer: null,
+      decision_mapped: false,
+      champion: null,
+      meddpicc_score: 0,
+      days_in_stage: 5,
+    });
+    const caps = healthCaps(flat);
+    expect(caps).toHaveLength(1);
+    expect(caps[0]).toContain('not what is holding this back today');
+    expect(caps[0]).not.toContain('holding this at');
   });
 
   it('names the single-thread cap', () => {

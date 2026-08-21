@@ -63,7 +63,7 @@ export default function DealCard({
               title={
                 deal.multi_threaded
                   ? 'Multi-threaded'
-                  : 'Single-threaded — health is capped at 6'
+                  : 'Single-threaded — health cannot pass 6 while this is true'
               }
             >
               <Users size={12} strokeWidth={2} />

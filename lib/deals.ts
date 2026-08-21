@@ -415,8 +415,15 @@ export function leadMetric(snap: PortfolioSnapshot): LeadMetric {
 export const LEAD_HINTS: Record<LeadMetric, string> = {
   atRisk: 'Health below 5, or no stage movement in 30 days. This is the list to work today.',
   stalled: 'No stage movement in over 30 days. Every one of these needs a next move or a close.',
+  /**
+   * ⚠️ NO LONGER CLAIMS THE CAP IS BINDING. This is a pipeline-wide hint over
+   * a set of deals, so it cannot know whether the cap holds any of them down —
+   * and on the live book it holds none of them down, because twenty compute to
+   * 1.5. The per-deal version of this statement lives in
+   * components/ui/health-composition.tsx, which can see the terms.
+   */
   singleThreaded:
-    'One contact and no second thread. Health is capped at 6 until someone else is engaged.',
+    'One contact and no second thread. The deal dies when that person changes jobs, and health cannot pass 6 while it is true.',
   activeCount: 'Nothing is flagged — no deal is at risk, stalled, or single-threaded.',
 };
 

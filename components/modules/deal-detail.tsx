@@ -21,6 +21,7 @@ import { useAiStream } from '@/lib/use-ai-stream';
 import type { TaskKind } from '@/lib/engine/model-routing';
 import { Card, CardBody, CardHeader, CardTitle, Stat } from '@/components/ui/card';
 import HealthRing from '@/components/ui/health-ring';
+import HealthComposition from '@/components/ui/health-composition';
 import Badge, { StagePill } from '@/components/ui/badge';
 import ProvenanceChip from '@/components/ui/provenance-chip';
 import EntityLink, { EntityChip } from '@/components/ui/entity-link';
@@ -493,6 +494,25 @@ export default function DealDetail({
             </CardBody>
           </Card>
 
+          {/* ── What the health number is made of ──
+              The ring at the top of this page showed a score and nothing else,
+              and the one sentence that explained it — "capped at 6" — was wrong
+              on twenty of twenty-one deals, where the cap holds nothing down.
+              Six terms with what each earned says it without a sentence. */}
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>Health, term by term</CardTitle>
+                <p className="mt-0.5 max-w-measure text-xs text-text-dim">
+                  Every term, what it is worth, and what this deal earned.
+                </p>
+              </div>
+            </CardHeader>
+            <CardBody>
+              <HealthComposition deal={deal} />
+            </CardBody>
+          </Card>
+
           {/* ── Critical event ── */}
           {/* Rendered in both states. An absent forcing function is the single
               strongest predictor of a no-decision loss, so leaving the section
@@ -613,7 +633,7 @@ export default function DealDetail({
               <Person
                 role="Threading"
                 name={deal.multi_threaded ? 'Multi-threaded' : null}
-                emptyLabel="Single-threaded — health capped at 6"
+                emptyLabel="Single-threaded — health cannot pass 6 while this is true"
               />
               <Person
                 role="Decision process"

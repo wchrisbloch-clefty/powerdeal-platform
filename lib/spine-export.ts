@@ -1,5 +1,6 @@
 import { MEDDPICC_FIELDS, TERMINAL_STAGES, type Deal, type DealCompetitor, type DealStage } from '@/lib/types';
 import { meddpiccResult } from '@/lib/deals';
+import { healthComposition } from '@/lib/health-composition';
 import type { SeedState } from '@/lib/seed-state';
 
 /**
@@ -60,14 +61,24 @@ export interface SpineExportInput {
  * Mirrors the caps in `computeHealthScore` and in `compute_health_score()`.
  */
 export function healthCaps(deal: Deal): string[] {
-  const caps: string[] = [];
-  if (!deal.multi_threaded) {
-    caps.push('single-threaded — capped at 6 (the deal dies when one contact changes jobs)');
-  }
-  if (!deal.critical_event?.trim()) {
-    caps.push('no critical event — capped at 6 (nothing forces a decision on any date)');
-  }
-  return caps;
+  /**
+   * ⚠️ "CAPPED AT 6" IS ONLY TRUE WHEN THE CAP IS BINDING, and for the whole
+   * life of this export it was printed whenever the condition was absent.
+   *
+   * Twenty of twenty-one deals compute to 1.5. A cap at 6 holds nothing down
+   * there — the sentence describes a rule that is not operating, and it reads
+   * as the reason the number is low. A reader chasing it goes and finds a
+   * second contact, and the number moves by nothing.
+   *
+   * So the two states get different sentences: the cap that is holding the
+   * score down, and the condition that is simply absent.
+   */
+  const c = healthComposition(deal);
+  return c.caps.map((cap) =>
+    cap.binding
+      ? `${cap.inline} — holding this at ${c.final}, from ${c.uncapped} on the terms (${cap.why})`
+      : `${cap.inline} — not what is holding this back today; it scores ${c.final} before any cap (${cap.why})`,
+  );
 }
 
 function fmtDate(iso: string | null | undefined): string {

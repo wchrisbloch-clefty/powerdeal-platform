@@ -1,10 +1,10 @@
 # Migration checklist
 
-Every migration in this directory must satisfy all nineteen. They are not style
+Every migration in this directory must satisfy all twenty. They are not style
 preferences — each one is here because its absence caused a real, silent
 failure in this project.
 
-Rules 4 and 6 through 19 generalise past migrations to anything this build ships;
+Rules 4 and 6 through 20 generalise past migrations to anything this build ships;
 they are kept here because this is the file that gets read before something goes
 out.
 
@@ -661,3 +661,56 @@ and all five were real.
 Generalises: when adding a check beside an existing one that covers adjacent
 ground, read the existing one's exclusions first. They are usually there
 because somebody already paid for them.
+
+## 20. Verify the RE-SCORE, not the rule
+
+A migration that recomputes a stored value must assert that **what is in the
+table equals what the function produces for that row**, on real data.
+
+```sql
+select
+  count(*) filter (where health_score is distinct from compute_health_score(d.*))::text
+    || ' disagree of ' || count(*)::text                          as observed,
+  case
+    when count(*) = 0 then 'FAIL — no rows, so this proves nothing'
+    when count(*) filter (where health_score is distinct from compute_health_score(d.*)) = 0
+      then 'PASS' else 'FAIL'
+  end
+from deals d;
+```
+
+Note the first branch: **zero rows is a FAIL, not a PASS.** An assertion over an
+empty set is rule 10 in a new place.
+
+**Why:** `20260810_critical_event.sql` ran `update deals set updated_at =
+updated_at` for exactly this purpose and reported four PASSes. Its checks proved
+that `compute_health_score` READS the column, and that no deal without a
+critical event EXCEEDS 6. Both statements were true. Neither could detect that
+no stored value on the table had ever been produced by the function at all.
+
+Twenty-one deals carried hand-written whole-integer health scores for the life
+of the build, inflated 100–167%. The average, the at-risk count, the
+distribution and the needs-attention ordering were all fiction — and the
+ordering was the worst of it, because deals appeared to differ from one another
+when twenty of them were identical.
+
+The distinction is exact and it is the whole rule:
+
+| The migration asserted | What it could not see |
+|---|---|
+| the function reads the column | that nothing had ever run the function |
+| the rule holds where it applies | that the data never met the rule |
+| the cap is correct | that the capped value was never computed |
+
+**A verification that proves the RULE while the DATA never met it is a check
+that cannot fail.** Rule 4 with a stored value in it.
+
+Two corollaries:
+
+- **Never re-score with a no-op update alone.** `set updated_at = updated_at`
+  depends entirely on the trigger firing, and a broken trigger is the most
+  likely reason a re-score is needed. Write the recompute explicitly, so the
+  repair does not assume the broken mechanism works.
+- **Read the shape of the data, not just the count.** Whole integers across
+  twenty-one rows of a `round(score, 1)` function is not a coincidence. The
+  distribution was the tell, and no assertion was looking at it. Print it.
