@@ -28,7 +28,7 @@
  * "behind" on a database that is current, which trains a reader to ignore it —
  * the same failure as an intermittent gate.
  */
-export const SCHEMA_REVISION = 4;
+export const SCHEMA_REVISION = 5;
 
 export interface SchemaSentinel {
   /** What the database reports. Null when the sentinel function is absent. */

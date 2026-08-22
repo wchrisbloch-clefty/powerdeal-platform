@@ -543,9 +543,43 @@ begin
 end;
 $$ language plpgsql immutable;
 
+-- ═══════════════════════════════════════════════════════
+-- MEDDPICC (server-side authority, same as health)
+--
+-- Mirrors meddpiccResult() in lib/deals.ts: eight pillars, one point each.
+--
+-- ⚠️ THIS LIVES HERE AND NOT ONLY IN A MIGRATION, and the reason is a trap this
+-- file would otherwise set. 20260822_health_recompute.sql replaced
+-- `deals_set_health` with the version below. If schema.sql still carried the
+-- OLD one-line version, re-running this file — the remedy recommended for a
+-- half-applied schema — would silently revert that migration and stop
+-- meddpicc_score being maintained. The number would keep updating and stop
+-- being right.
+--
+-- A schema file that undoes a migration when re-run is a repair instruction
+-- that damages. Every function a migration changes gets folded back to here.
+--
+-- ⚠️ `stable`, NOT `immutable` — the 'C' pillar reads deal_competitors.
+create or replace function compute_meddpicc_score(d deals)
+returns integer as $$
+  select
+      (case when coalesce(d.metrics_known, false) then 1 else 0 end)
+    + (case when d.economic_buyer is not null and d.economic_buyer <> '' then 1 else 0 end)
+    + (case when d.decision_criteria is not null and d.decision_criteria <> '' then 1 else 0 end)
+    + (case when d.decision_process is not null and d.decision_process <> '' then 1 else 0 end)
+    + (case when d.identified_pain is not null and d.identified_pain <> '' then 1 else 0 end)
+    + (case when d.champion is not null and d.champion <> '' then 1 else 0 end)
+    + (case when exists (select 1 from deal_competitors dc where dc.deal_id = d.id) then 1 else 0 end)
+    + (case when coalesce(d.decision_mapped, false) then 1 else 0 end);
+$$ language sql stable;
+
+-- ⚠️ MEDDPICC IS SET FIRST AND HEALTH READS THE FRESH VALUE. Reversing these
+-- two lines computes health from the previous MEDDPICC score, and the error is
+-- invisible: plausible, off by at most 2.5, and nothing anywhere says so.
 create or replace function deals_set_health()
 returns trigger as $$
 begin
+  new.meddpicc_score := compute_meddpicc_score(new);
   new.health_score := compute_health_score(new);
   return new;
 end;
@@ -805,7 +839,7 @@ on conflict (key) do nothing;
 -- after the sentinel would be claimed as applied by a sentinel written before
 -- it ran, which is worse than having no sentinel at all.
 create or replace function schema_applied_through()
-returns integer as $$ select 4 $$ language sql immutable;
+returns integer as $$ select 5 $$ language sql immutable;
 
 comment on function schema_applied_through is
   'The revision of supabase/schema.sql that ran to completion on this database. '

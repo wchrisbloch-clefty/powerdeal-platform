@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { SCHEMA_REVISION, readSentinel } from '@/lib/schema-revision';
 import { codeOnly } from './helpers/source';
 
@@ -157,5 +157,95 @@ describe('the inventory counts stay in step with the schema', () => {
     }
     // And it must not be counting indiscriminately any more.
     expect(inv).not.toMatch(/tgrelid = 'deals'::regclass and not tgisinternal/);
+  });
+
+  it('and NO migration reaches a verdict from an unnamed trigger count', async () => {
+    /**
+     * ⚠️ THE SAME DEFECT WAS ALSO IN §0 OF 20260822 — the block that produced
+     * the "1 of 3" reading this whole repair started from. It counted every
+     * non-internal trigger on `deals`, which includes `deals_field_history`
+     * from 20260821. So "1 of 3" could have been one of schema.sql's three, or
+     * ZERO of them plus the unrelated one, and those are different findings.
+     *
+     * Fixing the one instance is not the same as the pattern not recurring, so
+     * this asserts over every migration rather than over the file that had it.
+     * `not tgisinternal` is still allowed where it feeds an INFORMATIONAL
+     * listing — what may not happen is a verdict resting on the count.
+     */
+    const files = (await readdir('supabase/migrations')).filter((f) => f.endsWith('.sql'));
+    expect(files.length).toBeGreaterThan(5);
+
+    for (const f of files) {
+      const sql = codeOnly(await readFile(`supabase/migrations/${f}`, 'utf8'), 'sql');
+      const blocks = sql.split(/\bunion all\b/i);
+      for (const b of blocks) {
+        if (!/not tgisinternal/.test(b)) continue;
+        expect(
+          /'informational'/.test(b) || /tgname not in \(/.test(b),
+          `${f} reaches a verdict from a trigger count that names nothing`,
+        ).toBe(true);
+      }
+    }
+  });
+});
+
+describe('re-running schema.sql cannot undo a migration', () => {
+  /**
+   * ═══════════════════════════════════════════════════════════════
+   * A REPAIR INSTRUCTION THAT DAMAGES.
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * The remedy for a half-applied schema is "re-run schema.sql". That is only
+   * safe if the file carries the CURRENT definition of everything a migration
+   * has since changed.
+   *
+   * 20260822 replaced `deals_set_health` with a version that maintains
+   * meddpicc_score as well as health_score. schema.sql still held the old
+   * one-line version — so re-running it, on the advice this repo was about to
+   * give, would silently revert that migration. `meddpicc_score` would stop
+   * being maintained: the number keeps updating and stops being right, which
+   * is the exact defect the migration existed to fix, reintroduced by the fix
+   * for a different one.
+   *
+   * Caught by reading what the recommendation would actually do, before
+   * sending it.
+   */
+  /**
+   * ⚠️ indexOf RATHER THAN A REGEX, because the first version's escaping was
+   * mangled on the way into the file and it reported "deals_set_health was not
+   * found" about a function that is plainly there. A matcher that fails to
+   * match reads exactly like the defect it was written to catch.
+   */
+  const bodyOf = (sql: string, name: string): string => {
+    const head = `create or replace function ${name}()`;
+    const at = sql.indexOf(head);
+    expect(at, `${name} was not found`).toBeGreaterThan(-1);
+    const end = sql.indexOf('$$ language', at);
+    expect(end, `${name} has no terminator`).toBeGreaterThan(at);
+    return sql.slice(at, end).replace(/\s+/g, ' ').trim();
+  };
+
+  it('schema.sql and the migration define deals_set_health identically', async () => {
+    const schema = await readFile(SCHEMA, 'utf8');
+    const migration = await readFile(
+      'supabase/migrations/20260822_health_recompute.sql',
+      'utf8',
+    );
+    expect(bodyOf(schema, 'deals_set_health')).toBe(bodyOf(migration, 'deals_set_health'));
+  });
+
+  it('and schema.sql carries compute_meddpicc_score at all', async () => {
+    const schema = await readFile(SCHEMA, 'utf8');
+    expect(schema).toContain('create or replace function compute_meddpicc_score');
+    // Order is load-bearing inside the trigger; assert it here too, because a
+    // reversed pair computes health from the previous MEDDPICC score and
+    // nothing anywhere says so.
+    const fn = bodyOf(schema, 'deals_set_health');
+    expect(fn.indexOf('meddpicc_score')).toBeLessThan(fn.indexOf('health_score :='));
+  });
+
+  it('the inventory counts the function the migration added', async () => {
+    const inv = await readFile(INVENTORY, 'utf8');
+    expect(inv).toContain("'compute_meddpicc_score'");
   });
 });

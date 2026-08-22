@@ -44,7 +44,7 @@
 -- to detect lies: it would report "revision 4 completed" about a database
 -- missing two triggers. §2 first, then this.
 create or replace function schema_applied_through()
-returns integer as $$ select 4 $$ language sql immutable;
+returns integer as $$ select 5 $$ language sql immutable;
 
 comment on function schema_applied_through is
   'The revision of supabase/schema.sql that ran to completion on this database. '
@@ -81,12 +81,12 @@ where table_schema = 'public'
 union all
 
 select 'functions',
-       count(*)::text || ' of 5',
-       case when count(*) = 5 then 'ok' else 'INCOMPLETE' end
+       count(*)::text || ' of 6 named',
+       case when count(*) = 6 then 'ok' else 'INCOMPLETE' end
 from pg_proc
 where proname in (
-  'update_updated_at','compute_health_score','deals_set_health',
-  'deals_log_transition','seed_new_user')
+  'update_updated_at','compute_health_score','compute_meddpicc_score',
+  'deals_set_health','deals_log_transition','seed_new_user')
 
 union all
 
@@ -141,7 +141,7 @@ select 'the sentinel itself',
 select
   'the sentinel answers'                                        as check,
   coalesce((select schema_applied_through()::text), '(absent)') as observed,
-  case when (select schema_applied_through()) = 4 then 'PASS' else 'FAIL' end as verdict
+  case when (select schema_applied_through()) = 5 then 'PASS' else 'FAIL' end as verdict
 
 union all
 

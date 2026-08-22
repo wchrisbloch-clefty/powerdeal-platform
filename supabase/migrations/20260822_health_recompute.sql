@@ -107,12 +107,36 @@ union all
 -- in schema.sql is defined after line 460. If they are ALL missing, the file
 -- stopped early — and the `raise exception` guard for pg_cron/pg_net sits at
 -- line 54, above everything.
+--
+-- ⚠️ NAMED, NOT COUNTED — AND THIS ROW IS WHY THE RULE EXISTS. It first read
+-- `not tgisinternal`, which counts EVERY trigger on `deals` including
+-- `deals_field_history` from migration 20260821. So the "1 of 3" this file
+-- reported could have been one of schema.sql's three, or it could have been
+-- ZERO of them plus the unrelated one. A count is satisfied by the wrong set as
+-- easily as the right one, and here the wrong set changes the conclusion.
+-- The third column lists what was actually found, so the reading is never again
+-- a number that has to be trusted.
 select
   'triggers on deals, of the 3 schema.sql defines',
-  count(*)::text,
-  case when count(*) = 3 then 'ok' else 'SCHEMA NOT FULLY APPLIED' end
+  count(*)::text || ' of 3 named',
+  case when count(*) = 3 then 'ok'
+       else 'SCHEMA NOT FULLY APPLIED — found: '
+            || coalesce(string_agg(tgname, ', ' order by tgname), '(none)') end
+from pg_trigger
+where tgrelid = 'deals'::regclass
+  and tgname in ('deals_updated_at', 'deals_health_score', 'deals_stage_transition')
+
+union all
+
+-- And, separately, everything else that is on the table. Not a verdict — a
+-- reading, so the named count above can be interpreted rather than guessed at.
+select
+  'other triggers on deals (not from schema.sql)',
+  coalesce(string_agg(tgname, ', ' order by tgname), '(none)'),
+  'informational'
 from pg_trigger
 where tgrelid = 'deals'::regclass and not tgisinternal
+  and tgname not in ('deals_updated_at', 'deals_health_score', 'deals_stage_transition')
 
 union all
 
