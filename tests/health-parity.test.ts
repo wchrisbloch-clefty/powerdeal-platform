@@ -279,3 +279,66 @@ describe('the cap message distinguishes binding from inert', () => {
     }
   });
 });
+
+describe('nothing carries a THIRD implementation of either score', () => {
+  /**
+   * ⚠️ THE AUDIT THE OPERATOR ASKED FOR, AS AN ASSERTION. The defect was two
+   * implementations of one score with last-writer-wins. A third would be the
+   * same failure with more places to look, and the point of writing it down is
+   * that "we checked once" decays and a test does not.
+   */
+  it('health is written only by computeHealthScore or the SQL trigger', async () => {
+    const files = [
+      'lib/seed-data.ts',
+      'app/api/deals/route.ts',
+      'app/api/deals/[id]/route.ts',
+      'lib/health-composition.ts',
+    ];
+    for (const f of files) {
+      const code = codeOnly(await readFile(f, 'utf8'));
+      /*
+        A literal assignment — `health_score: 3` — is the shape that produced
+        this whole incident. The seed builder carried exactly that as a
+        placeholder the return statement overwrote: never shipped, one refactor
+        from shipping.
+      */
+      const literals = [...code.matchAll(/health_score:\s*(-?\d+(\.\d+)?)\b/g)];
+      expect(literals.map((m) => m[0]), `${f} assigns a literal health_score`).toEqual([]);
+
+      const meddpiccLiterals = [...code.matchAll(/meddpicc_score:\s*(-?\d+)\b/g)];
+      expect(
+        meddpiccLiterals.map((m) => m[0]),
+        `${f} assigns a literal meddpicc_score`,
+      ).toEqual([]);
+    }
+  });
+
+  it('the edge functions only READ the scores', async () => {
+    // They receive deals over PostgREST and act on them. A write here would be
+    // a fourth path, outside both the TypeScript and the trigger.
+    for (const f of ['supabase/functions/stall-alert/index.ts', 'supabase/functions/_shared/appState.ts']) {
+      const code = codeOnly(await readFile(f, 'utf8'));
+      expect(code, `${f} writes health_score`).not.toMatch(/health_score\s*[:=]\s*[^;\n]*compute/i);
+      expect(code, `${f} assigns a literal health_score`).not.toMatch(/health_score:\s*-?\d/);
+    }
+  });
+
+  it('the MEDDPICC "C" pillar is scored the same way in both implementations', async () => {
+    /**
+     * ⚠️ THE INTERACTION THE OPERATOR FLAGGED. Backlog item 6 moved the 'C'
+     * pillar off the deprecated `deals.competition` text column and onto the
+     * `deal_competitors` set. `compute_meddpicc_score` in SQL had to make the
+     * same move or the two would score the same deal differently — which is the
+     * two-implementations problem with a different column in it.
+     */
+    const ts = codeOnly(await readFile('lib/deals.ts', 'utf8'));
+    const tsFn = /export function meddpiccResult[\s\S]*?\n\}/.exec(ts)![0];
+    expect(tsFn).toContain('competitorCount');
+    expect(tsFn, 'TypeScript scores the deprecated column').not.toMatch(/deal\.competition/);
+
+    const sql = codeOnly(await readFile(MIGRATION, 'utf8'), 'sql');
+    const sqlFn = /create or replace function compute_meddpicc_score[\s\S]*?language sql stable/.exec(sql)![0];
+    expect(sqlFn).toContain('deal_competitors');
+    expect(sqlFn, 'SQL scores the deprecated column').not.toMatch(/d\.competition\b/);
+  });
+});

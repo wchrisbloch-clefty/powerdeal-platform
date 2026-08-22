@@ -31,10 +31,10 @@ the `**Status:**` line underneath carries the date and the detail.
 | 6 | `deals.competition` scores a MEDDPICC point | CLOSED |
 | 7 | Meeting Prep generator | SHIPPED |
 | 8 | §6 / repo reconciliation | CLOSED |
-| 9 | `vertical-playbooks.md` split | **BLOCKED** — needs a doctrine version |
+| 9 | `vertical-playbooks.md` split | SHIPPED — v3.1.12 |
 | 12 | Recip and fuel-cell preset data | **BLOCKED** — environmental |
 
-Three are live: one open, two blocked on something outside the repo.
+Two are live: one open (3), one blocked on something outside the repo (12).
 
 ---
 
@@ -467,9 +467,20 @@ should pull what it needs rather than all six.
 
 ---
 
-## 9. `vertical-playbooks.md` wants splitting by vertical — BLOCKED
+## 9. `vertical-playbooks.md` wants splitting by vertical — SHIPPED
 
-**Status:** DESIGN SETTLED, BLOCKED ON A DOCTRINE VERSION — 2026-08-15
+**Status:** SHIPPED — v3.1.12 landed the doctrine version this was blocked on.
+Three files (`vertical-playbook-refining.md`, `-data-centers.md`,
+`-industrial.md`) are registered `present` in `lib/skills/registry.ts`,
+selection is in `lib/skills/vertical-playbook.ts`, and `POWERDEAL_VERSION` is
+`3.1.12`. The old combined entry is gone from the registry; the filename
+survives only in prose explaining the split.
+
+⚠️ VERIFIED BY READING THE REGISTRY, NOT BY REMEMBERING. The entry below said
+BLOCKED for a week after the block cleared — the same stale-heading defect this
+file's convention now exists to prevent, in the file that documents it.
+
+**Originally:** DESIGN SETTLED, BLOCKED ON A DOCTRINE VERSION — 2026-08-15
 
 CB chose the option this entry recommended: **declare all three, select at load
 time from `deal.vertical`. Not wildcarded.** That closes the only open design

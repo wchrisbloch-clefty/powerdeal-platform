@@ -652,3 +652,90 @@ describe('the five defects in the reference document, asserted against our outpu
     expect(classificationLine('champion-facing')).toHaveLength(0);
   });
 });
+
+describe('the PPTX theme part, which the slides do not reach', () => {
+  /**
+   * ⚠️ THE LATENT-SCHEME SHAPE, ONE PART OVER FROM WHERE IT WAS FOUND LAST TIME.
+   *
+   * Every run `generatePptx` writes carries an explicit `fontFace` and an
+   * explicit `color`, so the deck LOOKS right and every slide-level assertion
+   * passes. `ppt/theme/theme1.xml` is what anything we did NOT draw inherits
+   * from — a placeholder the reader adds, a pasted table, a chart, SmartArt.
+   *
+   * Reading it found the colour scheme already branded (`name="PowerDeal"`,
+   * our own hlink and folHlink) sitting beside a font scheme still declaring
+   * `Calibri Light`. Half-done, and invisible from every other test.
+   */
+  // Its own deck source: `DECK` is scoped to another describe block, and
+  // reaching for it would couple two suites through a variable neither owns.
+  const SOURCE = '# Heading\n\nBody text.\n\n- one\n- two\n';
+
+  async function themeXml(): Promise<string> {
+    const buf = await generatePptx('T', 'S', SOURCE);
+    const zip = await JSZip.loadAsync(buf);
+    const part = Object.keys(zip.files).find((f) => /^ppt\/theme\/theme\d+\.xml$/.test(f));
+    expect(part, 'the deck has no theme part').toBeTruthy();
+    return zip.file(part!)!.async('string');
+  }
+
+  it('declares the brand face as major and minor, not Calibri Light', async () => {
+    const xml = await themeXml();
+    const major = /<a:majorFont><a:latin typeface="([^"]*)"/.exec(xml);
+    const minor = /<a:minorFont><a:latin typeface="([^"]*)"/.exec(xml);
+    expect(major?.[1], 'major font in the theme part').toBe(FONT);
+    expect(minor?.[1], 'minor font in the theme part').toBe(FONT);
+    // The specific stock value that was there.
+    expect(xml).not.toContain('typeface="Calibri Light"');
+  });
+
+  it('the colour scheme is ours, including the hyperlink pair', async () => {
+    /*
+      Stock Office hyperlink blues are the tell that a theme was never touched,
+      and they are the exact thing that survived the DOCX pass. Checked here so
+      a future regeneration cannot quietly reintroduce them.
+    */
+    const xml = await themeXml();
+    const scheme = /<a:clrScheme name="([^"]*)">([\s\S]*?)<\/a:clrScheme>/.exec(xml);
+    expect(scheme, 'no colour scheme in the theme part').toBeTruthy();
+    expect(scheme![1]).toBe('PowerDeal');
+
+    const hlink = /<a:hlink><a:srgbClr val="([0-9A-Fa-f]{6})"/.exec(scheme![2])?.[1];
+    const folHlink = /<a:folHlink><a:srgbClr val="([0-9A-Fa-f]{6})"/.exec(scheme![2])?.[1];
+    for (const [name, value] of [['hlink', hlink], ['folHlink', folHlink]] as const) {
+      expect(value, `${name} is missing`).toBeTruthy();
+      expect(
+        DECLARED_COLORS.map((c) => c.toUpperCase()),
+        `${name} (${value}) is not a declared colour`,
+      ).toContain(value!.toUpperCase());
+    }
+    for (const stock of WORD_DEFAULT_COLORS) {
+      expect(scheme![2].toUpperCase(), `stock Office colour ${stock} in the scheme`)
+        .not.toContain(stock.toUpperCase());
+    }
+  });
+
+  it('every accent in the scheme is a declared colour', async () => {
+    const xml = await themeXml();
+    const scheme = /<a:clrScheme name="[^"]*">([\s\S]*?)<\/a:clrScheme>/.exec(xml)![1];
+    const declared = new Set(DECLARED_COLORS.map((c) => c.toUpperCase()));
+    // White is legitimate in a theme's lt1 and is not a brand colour.
+    declared.add('FFFFFF');
+    for (const m of scheme.matchAll(/<a:srgbClr val="([0-9A-Fa-f]{6})"/g)) {
+      expect(declared, `${m[1]} in the theme scheme is not declared`).toContain(m[1].toUpperCase());
+    }
+  });
+
+  /**
+   * ⚠️ ONE THING NOT ASSERTED, AND SAID RATHER THAN LEFT TO BE DISCOVERED.
+   * `<a:fontScheme name="Office">` keeps that NAME — pptxgenjs hardcodes it and
+   * exposes no setting. The name shows in PowerPoint's theme-fonts dropdown and
+   * changes nothing about what renders; the typefaces above are what the
+   * document actually inherits. Rewriting the zip to rename it would be a
+   * post-processing step for a cosmetic string, on a file format where every
+   * such step is a future breakage.
+   */
+  it('records that the font scheme NAME is pptxgenjs’s, not ours', async () => {
+    const xml = await themeXml();
+    expect(xml).toContain('<a:fontScheme name="Office">');
+  });
+});

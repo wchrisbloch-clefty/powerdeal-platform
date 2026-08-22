@@ -41,6 +41,35 @@ begin
   end;
 end $$;
 
+-- ═══════════════════════════════════════════════════════
+-- ⚠️ THIS WAS A `raise exception` AND IT COST SIX WEEKS OF SCHEMA.
+-- ═══════════════════════════════════════════════════════
+--
+-- It was added on 2026-08-03, the day three cron jobs were found dead because
+-- pg_cron was never installed. Correct diagnosis, wrong file.
+--
+-- What it protects is `supabase/functions/schedule.sql`, which registers cron
+-- jobs that report `active = t` and can never fire without the extensions.
+-- That is schedule.sql's precondition. Tables, functions and triggers have
+-- nothing to do with pg_cron — and putting the check HERE made one file's
+-- precondition into this file's abort condition, with every statement below
+-- line 54 as collateral.
+--
+-- The blast radius: every trigger in this file is defined after line 460, and
+-- EIGHT later commits added to it — critical_event, per-deal competitive
+-- state, win-loss verbatim, the utility layer, tier-1b, learn_sessions. On an
+-- instance without pg_cron, re-running this file could never apply any of
+-- them. The remedy for a broken schema was the thing that could not run.
+--
+-- ⚠️ MOVING THE GUARD LOWER WOULD ONLY RELOCATE THE BLAST RADIUS, and it would
+-- make statement ORDER load-bearing in a way nobody remembers in three months.
+-- And idempotency does not help: this file is already idempotent, and
+-- idempotency makes re-running SAFE, not COMPLETE. A file can be perfectly
+-- idempotent and never reach line 526.
+--
+-- So the notice stays here, the exception moves to schedule.sql where the
+-- failure actually happens, and the sentinel at the foot of this file makes
+-- "ran" and "ran to completion" different observable states.
 do $$
 declare
   missing text;
@@ -51,11 +80,11 @@ begin
    where not exists (select 1 from pg_extension where extname = e);
 
   if missing is not null then
-    raise exception
-      'Required extension(s) not installed: %. Enable them in the Supabase '
-      'dashboard (Database -> Extensions), then re-run this file. Without '
-      'them supabase/functions/schedule.sql will register cron jobs that '
-      'report active = t and can never fire.', missing;
+    raise notice
+      'NOTICE: extension(s) not installed: %. This file does not need them and '
+      'will continue. supabase/functions/schedule.sql DOES need them and will '
+      'refuse to run until they are enabled in the Supabase dashboard '
+      '(Database -> Extensions).', missing;
   end if;
 end $$;
 
@@ -745,3 +774,40 @@ insert into utilities (key, name, state, type, service_model, iso, notes) values
   ('pge', 'Pacific Gas and Electric', 'CA', 'iou', 'vertically-integrated', 'CAISO',
    'Heavy CCA departure across the territory. Standby schedule not yet read.')
 on conflict (key) do nothing;
+
+
+-- ═══════════════════════════════════════════════════════════════
+-- THE COMPLETION SENTINEL. MUST BE THE LAST STATEMENT IN THIS FILE.
+-- ═══════════════════════════════════════════════════════════════
+--
+-- "schema.sql ran" and "schema.sql ran to COMPLETION" were indistinguishable
+-- for the entire life of this project, and that is the defect class the whole
+-- build has been about. A partially applied schema looks exactly like a fully
+-- applied one from the outside: the tables you happen to query are there.
+--
+-- The cost was measured. On 2026-08-30 the live database held ONE of the three
+-- triggers this file declares. `deals_health_score` was among the missing, so
+-- every stored health score on twenty-one deals was a hand-written value that
+-- no function had ever produced — discovered five weeks later, from the
+-- opposite end, by noticing that none of them had a decimal.
+--
+-- ⚠️ IT RECORDS A REVISION, NOT A BOOLEAN. "Something completed once" is not
+-- the question — the next partial application would look identical to a stale
+-- complete one. The revision below is bumped whenever this file changes in a
+-- way a deployment must pick up, and `/api/health/drift` compares it against
+-- `SCHEMA_REVISION` in lib/schema-revision.ts. Behind is a reportable state.
+--
+-- Same mechanism as EDGE_CONTRACT on the edge functions, for the same reason:
+-- which version is deployed is a question about the DEPLOYMENT, not the work,
+-- so it has to be answerable without running the work.
+--
+-- ⚠️ IF YOU ADD ANYTHING TO THIS FILE, IT GOES ABOVE THIS BLOCK. A statement
+-- after the sentinel would be claimed as applied by a sentinel written before
+-- it ran, which is worse than having no sentinel at all.
+create or replace function schema_applied_through()
+returns integer as $$ select 4 $$ language sql immutable;
+
+comment on function schema_applied_through is
+  'The revision of supabase/schema.sql that ran to completion on this database. '
+  'Created by the LAST statement in that file, so its presence means the file '
+  'finished. Compared against SCHEMA_REVISION in lib/schema-revision.ts.';

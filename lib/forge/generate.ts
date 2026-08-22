@@ -8,7 +8,7 @@ import PptxGenJS from 'pptxgenjs';
 import ExcelJS from 'exceljs';
 import { APP_NAME } from '@/lib/brand';
 import {
-  PALETTE, TABLE_BORDERS, TABLE_CELL_MARGINS, buildStylesXml,
+  FONT, PALETTE, TABLE_BORDERS, TABLE_CELL_MARGINS, buildStylesXml,
   TABLE_HEADER_SHADING, TITLE_RULE, brandHeader, PAGE_MARGIN_TWIPS,
   FONT as THEME_FONT, WORDMARK, withPowerDealClrScheme,
 } from './theme';
@@ -349,6 +349,28 @@ export async function generatePptx(
   pptx.layout = 'LAYOUT_16x9';
   pptx.author = APP_NAME;
   pptx.title = title;
+
+  /**
+   * ⚠️ THE THEME PART, WHICH THE SLIDES DO NOT REACH — AND THE COLOURS WERE
+   * ALREADY FIXED WHILE THE FONTS WERE NOT.
+   *
+   * Reading the packed `ppt/theme/theme1.xml` rather than this source found
+   * `<a:clrScheme name="PowerDeal">` with our own hlink and folHlink — the
+   * colour half was done — sitting next to `<a:fontScheme name="Office">`
+   * declaring `Calibri Light`.
+   *
+   * Every run this file writes carries an explicit `fontFace`, so the deck
+   * LOOKS right. The theme is what anything we did not draw inherits from: a
+   * placeholder the reader adds, a pasted table, a chart, SmartArt. Those come
+   * out in Calibri Light beside our Aptos, in a deck that is otherwise
+   * on-brand — which is the drift being visible only on the slide somebody
+   * else edited.
+   *
+   * The same latent-scheme shape as the DOCX pass, one part over. Asserted in
+   * tests/brand.test.ts against the packed OOXML, because the only way to know
+   * what is in the theme part is to open it.
+   */
+  pptx.theme = { headFontFace: FONT, bodyFontFace: FONT };
 
   // Slide geometry, named once. The DOCX page margin is 0.75in; 0.6in here is
   // the 16:9 equivalent at this width and is used by every element below, so

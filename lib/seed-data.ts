@@ -254,7 +254,20 @@ const SPECS: SeedSpec[] = [
 ];
 
 function buildDeal(spec: SeedSpec, index: number): Deal {
-  const base: Deal = {
+  /**
+   * ⚠️ `base` OMITS BOTH DERIVED SCORES, and it used to carry
+   * `health_score: 3` as a placeholder that the return statement overwrote.
+   *
+   * It never shipped — but it was a THIRD hardcoded source for a value with two
+   * implementations already, sitting in a `Deal`-typed object where a reader
+   * could believe it, one refactor away from being returned. The defect this
+   * repo just spent a day on was twenty-one hand-written health scores that no
+   * function produced; a hand-written one in the seed builder is the same thing
+   * waiting for an accident.
+   *
+   * Omitting them from the type means there is nowhere to put a literal.
+   */
+  const base: Omit<Deal, 'health_score' | 'meddpicc_score'> = {
     id: `seed-${spec.deal_id.toLowerCase()}`,
     ...spec,
     stage: 'Prospecting',
@@ -263,8 +276,6 @@ function buildDeal(spec: SeedSpec, index: number): Deal {
     // is exactly the graceful path.
     beachhead_utility: null,
     size_usd_m: null,
-    meddpicc_score: 0,
-    health_score: 3,
     multi_threaded: false,
     decision_mapped: false,
     days_in_stage: 0,

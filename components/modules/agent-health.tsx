@@ -24,8 +24,17 @@ const STATUS_STYLES: Record<AgentStatus, { dot: string; label: string }> = {
   'never-run': { dot: 'bg-rule', label: 'Never run' },
 };
 
+interface SchemaSentinel {
+  applied: number | null;
+  expected: number;
+  state: 'current' | 'behind' | 'ahead' | 'never-completed';
+  detail: string;
+}
+
 interface ScoreDriftResponse {
   ok: boolean;
+  /** Null when the service key is absent — nothing was read at all. */
+  sentinel: SchemaSentinel | null;
   /** False when the check could not run at all. */
   checked: boolean;
   /** ⚠️ NULL, NOT 0, WHEN THE CHECK DID NOT RUN. See the note at the render. */
@@ -309,6 +318,31 @@ export default function AgentHealth() {
 
           Placed above schema drift deliberately: this one is about the numbers
           the operator makes decisions from. */}
+      {/* ── Schema completion ──
+          "schema.sql ran" and "schema.sql ran to completion" were the same
+          observation for the life of this project. The live database held ONE
+          of the three triggers the file declares, and the missing one was the
+          reason every stored health score was fiction — found five weeks later
+          from the opposite end. This is the reading that would have said so. */}
+      {scoreDrift?.sentinel && scoreDrift.sentinel.state !== 'current' ? (
+        <div className="border-t border-rule pt-4">
+          <div className="flex items-baseline justify-between">
+            <p className="eyebrow">Schema completion</p>
+            <p className="text-2xs">
+              <span className="font-mono text-danger">
+                {scoreDrift.sentinel.applied ?? 'never'}
+              </span>{' '}
+              <span className="text-text-faint">
+                of {scoreDrift.sentinel.expected} expected
+              </span>
+            </p>
+          </div>
+          <p className="mt-1.5 max-w-measure text-2xs text-text-dim">
+            {scoreDrift.sentinel.detail}
+          </p>
+        </div>
+      ) : null}
+
       <div className="border-t border-rule pt-4">
         <div className="flex items-baseline justify-between">
           <p className="eyebrow">Score drift</p>

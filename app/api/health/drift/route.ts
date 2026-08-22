@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase/admin';
+import { readSentinel, type SchemaSentinel } from '@/lib/schema-revision';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,9 +52,20 @@ export async function GET() {
       checked: false,
       drifted: null,
       rows: [],
+      sentinel: null,
       error: 'SUPABASE_SERVICE_ROLE_KEY is not set — stored scores cannot be read.',
     });
   }
+
+  /**
+   * ⚠️ THE SENTINEL IS READ FIRST AND SEPARATELY, because it explains the rest.
+   * A database where schema.sql never completed will report score drift too —
+   * and "the scores disagree" is a much less useful thing to be told than "the
+   * schema was never fully applied, which is why". Reading it here means a
+   * half-applied schema surfaces on the health page rather than being found
+   * five weeks later from the opposite end.
+   */
+  const sentinel = await readSchemaSentinel(client);
 
   const { data, error } = await client.rpc('health_drift');
 
@@ -69,6 +81,7 @@ export async function GET() {
       checked: false,
       drifted: null,
       rows: [],
+      sentinel,
       error:
         `health_drift RPC failed: ${error.message}. ` +
         `Apply supabase/migrations/20260822_health_recompute.sql.`,
@@ -78,12 +91,35 @@ export async function GET() {
   const rows = (data ?? []) as DriftRow[];
 
   return NextResponse.json({
-    ok: rows.length === 0,
+    // ⚠️ A NEVER-COMPLETED SCHEMA IS NOT OK EVEN WITH ZERO DRIFT. The scores
+    // can agree on a database missing two triggers — they agree because
+    // nothing has written since. Folding the sentinel into `ok` is what stops
+    // "no drift" reading as "healthy" on a half-applied schema.
+    ok: rows.length === 0 && sentinel.state === 'current',
     checked: true,
+    sentinel,
     drifted: rows.length,
     // Capped for the surface; the count above is the whole truth.
     rows: rows.slice(0, 25),
     truncated: Math.max(0, rows.length - 25),
     error: null,
   });
+}
+
+/**
+ * Read `schema_applied_through()` — the function created by the LAST statement
+ * of schema.sql.
+ *
+ * ⚠️ AN ERROR HERE IS THE ANSWER, NOT A FAILURE. The function being absent is
+ * exactly what "schema.sql never ran to completion" looks like from outside,
+ * and it is the state this database was in for six weeks. So a failed RPC
+ * becomes `never-completed` rather than being reported as a broken check —
+ * unlike `health_drift`, where a failure genuinely means we could not look.
+ */
+async function readSchemaSentinel(
+  client: NonNullable<ReturnType<typeof getAdminClient>>,
+): Promise<SchemaSentinel> {
+  const { data, error } = await client.rpc('schema_applied_through');
+  if (error || typeof data !== 'number') return readSentinel(null);
+  return readSentinel(data);
 }

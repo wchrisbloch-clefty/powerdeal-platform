@@ -192,10 +192,41 @@ describe('the migration and the TypeScript scorer agree', () => {
     expect(sql).toContain('create or replace function compute_health_score');
   });
 
-  it('schema.sql still asserts the extensions rather than assuming them', async () => {
+  it('the extension assertion moved to the file that needs it', async () => {
+    /**
+     * ⚠️ THIS ASSERTION USED TO PIN THE GUARD INTO schema.sql, and the pin was
+     * the problem. It read:
+     *
+     *   expect(sql).toContain('Required extension(s) not installed')
+     *
+     * against supabase/schema.sql — which is where the `raise exception` sat,
+     * at line 54, above every table, function and trigger that file declares.
+     * On an instance without pg_cron the file aborted there, so re-running it
+     * applied nothing, including eight later commits' worth of schema. The
+     * live database ended up with ONE of the three triggers it declares, and
+     * the missing one is why twenty-one stored health scores were fiction.
+     *
+     * schema.sql needs neither extension. supabase/functions/schedule.sql
+     * cannot work without them — a schedule registered without pg_cron reports
+     * `active = t` and can never fire, which is the failure worth refusing.
+     * A precondition belongs in the file whose work depends on it.
+     *
+     * So the assertion moved with the guard rather than being deleted: the
+     * check still has to exist, in the right place, and this is what says so.
+     */
     const { readFile } = await import('node:fs/promises');
-    const sql = await readFile('supabase/schema.sql', 'utf8');
-    expect(sql).toContain('Required extension(s) not installed');
-    expect(sql).toMatch(/from pg_extension where extname = e/);
+
+    const schedule = await readFile('supabase/functions/schedule.sql', 'utf8');
+    expect(schedule).toContain('Required extension(s) not installed');
+    expect(schedule).toMatch(/from pg_extension where extname = e/);
+    expect(schedule).toContain('raise exception');
+
+    // And schema.sql still LOOKS, so a fresh instance learns — it just does not
+    // abort, because nothing below line 54 depends on the answer.
+    const schema = await readFile('supabase/schema.sql', 'utf8');
+    expect(schema).toMatch(/from pg_extension where extname = e/);
+    const guard = /unnest\(array\['pg_cron', 'pg_net'\]\)[\s\S]*?end \$\$;/.exec(schema)![0];
+    expect(guard).toContain('raise notice');
+    expect(guard).not.toContain('raise exception');
   });
 });

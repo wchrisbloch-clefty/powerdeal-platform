@@ -1,3 +1,38 @@
+-- ═══════════════════════════════════════════════════════════════
+-- ⚠️ THE HARD GUARD LIVES HERE, AND IT USED TO LIVE IN schema.sql.
+-- ═══════════════════════════════════════════════════════════════
+--
+-- This is the file that cannot work without pg_cron and pg_net. Without them
+-- `cron.schedule` either does not exist or registers jobs that report
+-- `active = t` and can never fire — which is what happened on 2026-08-03, and
+-- the failure mode that makes this an exception rather than a notice: a job
+-- that reports healthy and does nothing is worse than one that refuses.
+--
+-- The check was added to supabase/schema.sql instead, four days after that
+-- incident. schema.sql needs NEITHER extension. What it got was an abort at
+-- line 54, above every table, function and trigger it declares — so for six
+-- weeks, re-running the schema on an instance without pg_cron applied nothing,
+-- including the eight commits' worth of changes that landed after.
+--
+-- A precondition belongs in the file whose work depends on it. This one does.
+do $$
+declare
+  missing text;
+begin
+  select string_agg(e, ', ')
+    into missing
+    from unnest(array['pg_cron', 'pg_net']) as e
+   where not exists (select 1 from pg_extension where extname = e);
+
+  if missing is not null then
+    raise exception
+      'Required extension(s) not installed: %. Enable them in the Supabase '
+      'dashboard (Database -> Extensions), then re-run THIS file. Registering '
+      'a schedule without them produces cron jobs that report active = t and '
+      'can never fire — the failure this refuses to create.', missing;
+  end if;
+end $$;
+
 -- ═══════════════════════════════════════════════════════
 -- PowerDeal — pg_cron schedules
 --
